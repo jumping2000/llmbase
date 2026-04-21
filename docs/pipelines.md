@@ -235,6 +235,56 @@ What `rebuild_state` returns:
 What you put in `key` is a contract with your future self: changing it makes
 `rebuild_state` see a fresh run with no prior history.
 
+### Choosing the `cid` (ChunkCache slot identity)
+
+`cid` is the *slot identity* — what this chunk **is**, not how big it was cut.
+Bind it to content身份 (H3 title, 本位 id, line-range of a stable heading),
+never to input-size knobs like `CHUNK_MAX` or splitter version. The
+`content_hash` already handles content drift at a fixed slot; `cid` handles
+"which slot is this."
+
+Counter-example (learned the hard way, 2026-04-21): a downstream pipeline set
+`cid = f"{prompt_name}:{chunk_index}/{CHUNK_MAX}"`. When the team retuned
+`CHUNK_MAX` after a length-cut incident, every `cid` shifted, every `get`
+missed, and the entire prior cache was wasted even for chunks whose content
+hadn't changed at all. Binding `cid` to content identity would have kept most
+of the cache warm across the retune.
+
+Rule: if a downstream knob shifts your `cid`, you have the wrong `cid`.
+
+### Sizing chunks against the model's output budget
+
+When stage 3 hits `finish_reason == "length"`, the fix is upstream from the
+cache — the chunk was too big for the model's output budget. Use
+`chat_with_meta` + `reasoning_budget` (both v0.7.8) to detect and prevent:
+
+```python
+from tools.llm import chat_with_meta, reasoning_budget
+
+# One-time empirical tuning against a sample of real chunks:
+#   TOKENS_PER_CHAR ≈ mean(meta.usage["completion_tokens"] / len(chunk))
+# For CJK reasoning-model output with mild normalization prompts, ~15-20.
+TOKENS_PER_CHAR = 17
+MAX_TOKENS      = 32000
+SAFE_CHARS      = reasoning_budget(MAX_TOKENS, TOKENS_PER_CHAR)   # 1505
+
+for i, s in enumerate(sections):
+    if len(s.content) > SAFE_CHARS:
+        # Downstream's fallback split — not an upstream primitive yet (v0.7.8).
+        chunks = hard_split(s.content, max_chars=SAFE_CHARS)
+    else:
+        chunks = [s.content]
+    for chunk in chunks:
+        text, meta = chat_with_meta(chunk, system=WENGUAN_PROMPT,
+                                    max_tokens=MAX_TOKENS)
+        if meta.truncated:
+            # Length-cut caught explicitly — the 11-hour loss of 2026-04-21
+            # happened precisely because this branch did not exist.
+            ctx.mark_partial(f"length-cut at chunk {i}; shrink SAFE_CHARS")
+            break
+        # meta.usage["reasoning_tokens"] is now available for budget tuning.
+```
+
 ### Invalidating the ChunkCache
 
 Three levels:

@@ -61,6 +61,8 @@ checks_mod.ALLOW_CJK_SLUGS = True
 | `tools.lint.checks` | `ALLOW_CJK_SLUGS` | Accept CJK slugs as valid (bool) |
 | `tools.lint.checks` | `SYSTEM_PROMPT` | LLM system for deep lint |
 | `tools.lint.fixes` | `STUB_SYSTEM_PROMPT` | LLM system for stub generation |
+| `tools.llm` | `chat_with_meta(prompt, ...) -> (str, LLMMeta)` | Rich-return chat (v0.7.8): `meta.finish_reason` / `meta.truncated` / `meta.usage` (incl. `reasoning_tokens`) / `meta.attempts`. Primitive does NOT raise on length-cut — caller decides policy. |
+| `tools.llm` | `reasoning_budget(max_tokens, tokens_per_char, safety=0.8) -> int` | Safe input chunk size in chars given an output token budget (v0.7.8). No upstream model table — caller supplies `tokens_per_char` measured empirically from real runs. |
 
 ---
 

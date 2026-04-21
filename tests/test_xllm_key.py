@@ -60,7 +60,8 @@ def test_chat_forwards_api_key_to_call_llm():
 
     def fake_call(messages, model, max_tokens, api_key=None):
         captured["api_key"] = api_key
-        return "ok"
+        return ("ok", "stop", {"prompt_tokens": 1, "completion_tokens": 1,
+                                "reasoning_tokens": None, "total_tokens": 2})
 
     with patch("tools.llm._call_llm", side_effect=fake_call):
         from tools.llm import chat
@@ -73,7 +74,8 @@ def test_chat_default_api_key_is_none():
 
     def fake_call(messages, model, max_tokens, api_key=None):
         captured["api_key"] = api_key
-        return "ok"
+        return ("ok", "stop", {"prompt_tokens": 1, "completion_tokens": 1,
+                                "reasoning_tokens": None, "total_tokens": 2})
 
     with patch("tools.llm._call_llm", side_effect=fake_call):
         from tools.llm import chat

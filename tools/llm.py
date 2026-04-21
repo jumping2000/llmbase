@@ -3,6 +3,7 @@
 import os
 import time
 import logging
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -244,11 +245,33 @@ def _redact_key(text: str, api_key: str | None) -> str:
     return text.replace(api_key, "[redacted]")
 
 
-def _call_llm(messages: list, model: str, max_tokens: int, api_key: str | None = None) -> str:
+def _call_llm(
+    messages: list,
+    model: str,
+    max_tokens: int,
+    api_key: str | None = None,
+) -> tuple[str, str | None, dict]:
     """Single LLM call with response extraction.
 
-    Handles models with thinking mode: if content is empty but
-    reasoning_content exists, uses that as content.
+    Returns ``(content, finish_reason, usage)`` where:
+
+    - ``content`` — text, with reasoning-content fallback for models
+      whose message ``content`` is empty but ``reasoning_content`` is
+      populated (see below).
+    - ``finish_reason`` — from ``choices[0].finish_reason``; may be
+      ``None`` when the provider omits it.
+    - ``usage`` — flat dict ``{prompt_tokens, completion_tokens,
+      reasoning_tokens, total_tokens}``. ``reasoning_tokens`` is pulled
+      from OpenAI's nested ``usage.completion_tokens_details`` when
+      present; absent/zero otherwise. Keys may be missing if the
+      provider response omits them — callers must treat ``usage.get(k)``
+      as ``None``-safe.
+
+    Reasoning-mode fallback: some providers (DeepSeek, o-series via
+    certain aggregators) return empty ``message.content`` with the
+    full body in ``message.reasoning_content``. We copy reasoning into
+    content so callers receive the actual answer. This predates v0.7.8
+    and is preserved for compatibility.
 
     *api_key*: when provided, uses a fresh un-cached client for this
     call (see ``get_client``)."""
@@ -258,7 +281,8 @@ def _call_llm(messages: list, model: str, max_tokens: int, api_key: str | None =
         messages=messages,
         max_tokens=max_tokens,
     )
-    msg = response.choices[0].message
+    choice = response.choices[0]
+    msg = choice.message
     content = msg.content or ""
     reasoning = getattr(msg, "reasoning_content", None) or ""
 
@@ -266,7 +290,56 @@ def _call_llm(messages: list, model: str, max_tokens: int, api_key: str | None =
     if not content.strip() and reasoning:
         content = reasoning
 
-    return content
+    finish_reason = getattr(choice, "finish_reason", None)
+    usage = _extract_usage(getattr(response, "usage", None))
+    return content, finish_reason, usage
+
+
+def _extract_usage(raw_usage) -> dict:
+    """Flatten a provider usage object into a plain dict.
+
+    OpenAI SDK returns a ``CompletionUsage`` with a nested
+    ``completion_tokens_details.reasoning_tokens``. We flatten that
+    one nested field (the one siwen's 11-hour post-mortem needed) and
+    leave other provider-specific nesting alone. Absent fields become
+    ``None``; callers should treat the dict as best-effort.
+
+    Accepts both attribute-style objects (OpenAI SDK pydantic models)
+    and dict-style payloads (some aggregators / older client versions
+    hand back plain dicts) — the Codex v0.7.8 review flagged that a
+    strict `getattr` path silently coerced the whole dict to ``None``
+    on a dict-shaped response.
+    """
+    if raw_usage is None:
+        return {
+            "prompt_tokens": None,
+            "completion_tokens": None,
+            "reasoning_tokens": None,
+            "total_tokens": None,
+        }
+    out = {
+        "prompt_tokens": _usage_get(raw_usage, "prompt_tokens"),
+        "completion_tokens": _usage_get(raw_usage, "completion_tokens"),
+        "total_tokens": _usage_get(raw_usage, "total_tokens"),
+        "reasoning_tokens": None,
+    }
+    details = _usage_get(raw_usage, "completion_tokens_details")
+    if details is not None:
+        rt = _usage_get(details, "reasoning_tokens")
+        if rt is not None:
+            out["reasoning_tokens"] = rt
+    return out
+
+
+def _usage_get(obj, key: str):
+    """Attribute-or-key lookup on a usage-shaped object.
+
+    OpenAI pydantic models expose fields as attributes; some aggregator
+    responses and older clients surface them as dict entries. Tolerate
+    both without forcing callers to know which they got."""
+    if isinstance(obj, dict):
+        return obj.get(key)
+    return getattr(obj, key, None)
 
 
 def extract_json(text: str) -> str:
@@ -321,14 +394,76 @@ def extract_json(text: str) -> str:
     return text  # No valid JSON found
 
 
-def chat(
+@dataclass
+class LLMMeta:
+    """Metadata from a :func:`chat_with_meta` call (议 5-甲, v0.7.8).
+
+    Collected across the full retry + fallback attempt tree; fields
+    describe the *final* accepted call (not an intermediate failure).
+    ``attempts`` is the only cross-attempt accumulator.
+
+    The field set is OpenAI-compatible by design (llmbase talks to
+    everything through the OpenAI SDK, including aggregators). If
+    llmbase ever grows a non-OpenAI-compat provider, the dataclass
+    can gain aliases additively; no field is load-bearing for the
+    driver in 议 D — downstream picks what it needs.
+    """
+
+    model: str
+    """The model that actually produced ``content`` — may differ from
+    the caller's request when a fallback model succeeded."""
+
+    finish_reason: str | None
+    """Provider's ``choices[0].finish_reason`` for the accepted call.
+    Canonical OpenAI values: ``stop`` / ``length`` / ``content_filter``
+    / ``tool_calls`` / ``function_call``. ``None`` when the provider
+    omits it (some aggregators do)."""
+
+    truncated: bool
+    """Convenience: ``finish_reason == "length"``. True means the model
+    hit ``max_tokens`` before completing — the returned text is a
+    prefix of the intended output. **This is the field the 11-hour
+    wenguan post-mortem needed** — the ratio check that replaced it
+    did not distinguish length-cut from stop."""
+
+    usage: dict = field(default_factory=dict)
+    """Flat token-usage dict: ``{prompt_tokens, completion_tokens,
+    reasoning_tokens, total_tokens}``. Any key may be ``None`` when
+    the provider omits it. ``reasoning_tokens`` is flattened from
+    OpenAI's ``completion_tokens_details`` so reasoning-model budget
+    tuning doesn't require nested dict walks."""
+
+    attempts: int = 0
+    """Total number of ``_call_llm`` invocations across all models
+    before (and including) the successful one. ``1`` on a clean first
+    try; ``> 1`` when retries or fallback kicked in."""
+
+
+def chat_with_meta(
     prompt: str,
     system: str = "",
     model: str | None = None,
     max_tokens: int = 16384,
     api_key: str | None = None,
-) -> str:
-    """Send a prompt with automatic model fallback on failure.
+) -> tuple[str, LLMMeta]:
+    """Like :func:`chat` but also returns response metadata (v0.7.8).
+
+    Identical retry + fallback semantics as :func:`chat`: primary
+    model gets ``LLMBASE_PRIMARY_RETRIES`` attempts (default 3), each
+    fallback gets ``LLMBASE_FALLBACK_RETRIES`` (default 1); empty
+    results count as soft failures and retry.
+
+    Returns ``(text, meta)``. On the exhausted-all-retries-with-empty
+    path, returns ``("", LLMMeta(...))`` with ``meta.finish_reason``
+    reflecting the last observed response (matching :func:`chat`'s
+    silent-empty contract).
+
+    **Truncation is NOT raised as an exception.** When the provider
+    says ``finish_reason="length"``, the prefix text is returned and
+    ``meta.truncated`` is ``True``; the caller decides whether to
+    ``mark_partial``, shrink the chunk, or accept the prefix. This
+    keeps the primitive honest — detection is surfaced, policy stays
+    downstream (议 5-甲 design, 2026-04-21).
 
     *api_key*: per-call override (v0.7.4). None → module singleton.
     """
@@ -340,18 +475,41 @@ def chat(
         messages.append({"role": "system", "content": system})
     messages.append({"role": "user", "content": prompt})
 
-    # Try primary model with retries
     models_to_try = [model] + get_fallback_models()
+
+    # Track the last observed response so the empty-exhaustion path
+    # still carries meaningful meta.finish_reason / usage / model.
+    attempts_total = 0
+    last_meta_model = model
+    last_finish_reason: str | None = None
+    last_usage: dict = {}
 
     for i, current_model in enumerate(models_to_try):
         retries = _get_retries(primary=(i == 0))
         for attempt in range(retries):
+            attempts_total += 1
             try:
-                result = _call_llm(messages, current_model, max_tokens, api_key=api_key)
-                if result:
+                content, finish_reason, usage = _call_llm(
+                    messages, current_model, max_tokens, api_key=api_key
+                )
+                # Record regardless of whether we accept this response —
+                # the empty-exhaustion path surfaces the last seen state.
+                last_meta_model = current_model
+                last_finish_reason = finish_reason
+                last_usage = usage
+                if content:
                     if i > 0:
-                        logger.warning(f"Primary model failed, used fallback: {current_model}")
-                    return result
+                        logger.warning(
+                            f"Primary model failed, used fallback: {current_model}"
+                        )
+                    meta = LLMMeta(
+                        model=current_model,
+                        finish_reason=finish_reason,
+                        truncated=(finish_reason == "length"),
+                        usage=usage,
+                        attempts=attempts_total,
+                    )
+                    return content, meta
                 # Empty result — retry or try next model
                 if attempt < retries - 1:
                     time.sleep(1)
@@ -360,19 +518,164 @@ def chat(
                 err_msg = _redact_key(str(e), api_key)
                 if attempt < retries - 1:
                     wait = 2 ** attempt
-                    logger.debug(f"{current_model} attempt {attempt+1} failed: {err_msg}, retrying in {wait}s")
+                    logger.debug(
+                        f"{current_model} attempt {attempt+1} failed: "
+                        f"{err_msg}, retrying in {wait}s"
+                    )
                     time.sleep(wait)
                     continue
                 if i < len(models_to_try) - 1:
-                    logger.warning(f"{current_model} failed ({err_msg}), falling back to {models_to_try[i+1]}")
+                    logger.warning(
+                        f"{current_model} failed ({err_msg}), "
+                        f"falling back to {models_to_try[i+1]}"
+                    )
                     break  # Try next model
-                # Last model — re-raise via a redacted wrapper so the key
-                # doesn't land in the caller's traceback / HTTP 500 body.
+                # Last model — re-raise via a redacted wrapper so the
+                # key doesn't land in the caller's traceback / HTTP 500.
                 if api_key:
                     raise RuntimeError(err_msg) from None
                 raise  # Last model, re-raise
 
-    return ""
+    # Exhausted all models with empty content. Preserve chat()'s silent
+    # contract: return "" plus meta reflecting the last observed state.
+    return "", LLMMeta(
+        model=last_meta_model,
+        finish_reason=last_finish_reason,
+        truncated=(last_finish_reason == "length"),
+        usage=last_usage,
+        attempts=attempts_total,
+    )
+
+
+def chat(
+    prompt: str,
+    system: str = "",
+    model: str | None = None,
+    max_tokens: int = 16384,
+    api_key: str | None = None,
+) -> str:
+    """Send a prompt with automatic model fallback on failure.
+
+    Thin wrapper over :func:`chat_with_meta` that drops the metadata.
+    v0.7.x callers who don't need ``finish_reason`` / ``usage``
+    continue working unchanged; new callers that need length-cut
+    detection use :func:`chat_with_meta` directly.
+
+    *api_key*: per-call override (v0.7.4). None → module singleton.
+    """
+    text, _ = chat_with_meta(
+        prompt,
+        system=system,
+        model=model,
+        max_tokens=max_tokens,
+        api_key=api_key,
+    )
+    return text
+
+
+def reasoning_budget(
+    max_tokens: int,
+    tokens_per_char: float,
+    safety: float = 0.8,
+) -> int:
+    """Safe input chunk size (chars) for a given output token budget (议 5-乙, v0.7.8).
+
+    Pure arithmetic — no model table, no implicit defaults. Inverts the
+    question "how many input characters can I feed the LLM before its
+    output budget overflows?":
+
+        safe_chars = int(max_tokens * safety / tokens_per_char)
+
+    Parameters
+    ----------
+    max_tokens : int
+        Output token budget for the LLM call (the ``max_tokens`` you'll
+        pass to :func:`chat` / :func:`chat_with_meta`).
+    tokens_per_char : float
+        Expected **output tokens produced per input character**. A
+        combined metric: model token density × prompt output-expansion
+        factor. Measure empirically from real runs::
+
+            tokens_per_char = mean(
+                meta.usage["completion_tokens"] / len(chunk_text)
+                for each (chunk_text, meta) in recent_sample
+            )
+
+        Rough baselines (verify against your own prompts):
+        - CJK reasoning-model output with mild normalization: ~15-20
+        - CJK non-reasoning LLM, translation/restatement: ~2-4
+        - ASCII summarization: ~1-3
+
+        siwen's 2026-04-21 post-mortem measured 17 for wenguan/taixu.
+    safety : float, default 0.8
+        Fraction of ``max_tokens`` to target. Leaves headroom for
+        output variance — some chunks expand more than the mean.
+        Values in (0, 1]; 0.7-0.9 typical.
+
+    Returns
+    -------
+    int
+        Safe input chunk size in characters. Always ``>= 1`` when the
+        inputs are valid (callers slicing exactly at this size may
+        still overflow on unlucky variance; that's what ``safety``
+        buys you — tune it against real logs).
+
+    Raises
+    ------
+    ValueError
+        If any input is non-positive, or ``safety`` is outside
+        ``(0, 1]``.
+
+    Examples
+    --------
+    siwen's post-mortem numbers::
+
+        >>> reasoning_budget(max_tokens=32000, tokens_per_char=17)
+        1505
+
+    Tighter safety for high-variance outputs::
+
+        >>> reasoning_budget(32000, 17, safety=0.6)
+        1129
+    """
+    if max_tokens <= 0:
+        raise ValueError(f"max_tokens must be > 0, got {max_tokens!r}")
+    if tokens_per_char <= 0:
+        raise ValueError(
+            f"tokens_per_char must be > 0, got {tokens_per_char!r}"
+        )
+    if not (0 < safety <= 1):
+        raise ValueError(f"safety must be in (0, 1], got {safety!r}")
+    # Guard the whole float pipeline: any of these can fail on
+    # pathological inputs (Codex v0.7.8 review, two rounds):
+    #   - ``int * float`` raises OverflowError for an int that won't
+    #     fit in float64 (e.g. ``10**309``) — before any result value
+    #     is produced to inspect.
+    #   - When the multiplication survives, the final quotient can
+    #     still be ``+/-inf`` or ``NaN`` for in-range-but-extreme
+    #     floats; ``int(inf)`` / ``int(nan)`` then raise
+    #     OverflowError / ValueError.
+    #   - NaN inputs slip past the ``<= 0`` comparisons.
+    # Consolidate all of these into a single ValueError so the
+    # docstring's "ValueError on bad input" promise holds for every
+    # axis.
+    import math
+    try:
+        scaled = max_tokens * safety / tokens_per_char
+    except (OverflowError, ValueError) as exc:
+        raise ValueError(
+            f"reasoning_budget: arithmetic failed for "
+            f"max_tokens={max_tokens!r}, safety={safety!r}, "
+            f"tokens_per_char={tokens_per_char!r} ({exc})"
+        ) from None
+    if not math.isfinite(scaled):
+        raise ValueError(
+            f"reasoning_budget: non-finite result from "
+            f"max_tokens={max_tokens!r}, safety={safety!r}, "
+            f"tokens_per_char={tokens_per_char!r}"
+        )
+    chars = int(scaled)
+    return max(chars, 1)
 
 
 def strip_surrogates(s: str) -> str:
