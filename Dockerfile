@@ -14,8 +14,7 @@ RUN pip install --no-cache-dir -r requirements.txt gunicorn
 
 # Copy backend
 COPY tools/ ./tools/
-COPY config.yaml pyproject.toml llmbase.py ./
-COPY wsgi.py /app/wsgi.py
+COPY config.yaml pyproject.toml llmbase.py wsgi.py ./
 RUN pip install --no-cache-dir -e .
 
 # Copy built frontend
