@@ -2,6 +2,8 @@
 
 LLMBase is designed as a domain-agnostic library. Downstream projects customize behavior by overriding module-level constants and registering hooks — no forking needed.
 
+> **Building a pipeline on top of the primitives** (normalize / split / ChunkCache / `X-LLM-Key` / `run_stage`)? See [pipelines.md](pipelines.md).
+
 ## Table of Contents
 
 - [Module Constants](#module-constants)

@@ -224,7 +224,7 @@ register_op(Operation(
 ))
 ```
 
-Stable contract — see [docs/customization.md](docs/customization.md) for the full surface (compile, query, taxonomy, xici, entities, lint, web, worker, operations).
+Stable contract — see [docs/customization.md](docs/customization.md) for the full surface (compile, query, taxonomy, xici, entities, lint, web, worker, operations). Building a multi-stage pipeline on top of the normalize / split / ChunkCache / `run_stage` primitives? See [docs/pipelines.md](docs/pipelines.md).
 
 ## Live Deployments
 
@@ -404,7 +404,7 @@ register_op(Operation(                                       # 一次注册，�
 ))
 ```
 
-完整契约见 [docs/customization.md](docs/customization.md)（涵盖 compile / query / taxonomy / xici / entities / lint / web / worker / operations）。
+完整契约见 [docs/customization.md](docs/customization.md)（涵盖 compile / query / taxonomy / xici / entities / lint / web / worker / operations）。若要在 normalize / split / ChunkCache / `run_stage` 等原语之上拼装多阶段 pipeline，另见 [docs/pipelines.md](docs/pipelines.md)。
 
 ### 线上实例
 
