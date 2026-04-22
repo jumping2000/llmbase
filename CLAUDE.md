@@ -54,6 +54,8 @@ customize behavior without forking functions. This is a **stable contract**.
 | tools/pipeline/      | RESERVED_EVENTS | Event names refused by `ctx.log()` (start/ok/failed/partial/interrupted/artifact/meta_update) — prefix custom events with `chunk_` / `cache_` |
 | tools/llm.py         | chat_with_meta(prompt, ...) → (str, LLMMeta) | Rich-return chat with finish_reason / usage (incl. reasoning_tokens) / attempts. `meta.truncated` == length-cut; primitive does NOT raise — caller decides policy |
 | tools/llm.py         | reasoning_budget(max_tokens, tokens_per_char, safety=0.8) | Safe input chunk size (chars) for output token budget. No upstream model table — caller supplies `tokens_per_char` empirically |
+| tools/anchor.py      | locate_span(content, head, tail="", *, normalize="punct_spaces") → Anchor \| None | Span anchor: head+tail both matched → `Anchor(strategy="exact")`; head only → `"head_only"` (spans to content end); no head match → `None`. Offsets are ORIGINAL content indices (not normalized). Empty head raises `ValueError` |
+| tools/anchor.py      | normalize_text(s, level)  | Public for JS mirror. Levels: `none` / `punct` / `punct_spaces`. Charset documented in docstring — keep any JS port in lockstep |
 | tools/web.py         | derive_session_token()    | Public function: secret → cookie token   |
 | tools/web.py         | require_auth              | Module-level decorator for EXTRA_ROUTES  |
 | tools/web.py         | app.config["llmbase"]     | Runtime dict: base_dir, cfg, api_secret, session_token |
