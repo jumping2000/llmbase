@@ -37,9 +37,9 @@ def _configure_verbose_logging(verbosity: int):
                               show_path=False, markup=False)
         root.addHandler(handler)
     root.setLevel(min(llmbase_level, http_level))
-    for name in ("llmbase", "tools", "httpx", "httpcore", "openai"):
+    for name in ("llmbase", "llmwiki", "httpx", "httpcore", "openai"):
         logging.getLogger(name).setLevel(
-            llmbase_level if name in ("llmbase", "tools") else http_level
+            llmbase_level if name in ("llmbase", "llmwiki") else http_level
         )
 
 

@@ -3,7 +3,7 @@
 import json
 from pathlib import Path
 
-from tools.atomic import atomic_write_json
+from llmwiki.atomic import atomic_write_json
 
 
 def test_atomic_write_creates_file(tmp_path):

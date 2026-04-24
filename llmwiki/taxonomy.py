@@ -28,7 +28,7 @@ logger = logging.getLogger("llmbase.taxonomy")
 # ─── Customizable constants ──────────────────────────────────────
 # Downstream projects can override these to customise taxonomy behaviour.
 #
-#     import tools.taxonomy as tax
+#     import llmwiki.taxonomy as tax
 #     tax.TAXONOMY_LABEL_KEYS = ["zh"]          # single-language labels
 #     tax.TAXONOMY_GENERATOR = my_rule_fn        # skip LLM entirely
 #

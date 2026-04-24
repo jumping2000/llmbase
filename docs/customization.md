@@ -20,10 +20,10 @@ Override at import time, before any function calls:
 
 ```python
 # patches.py — run this at startup
-import tools.compile as compile_mod
-import tools.query as query_mod
-import tools.taxonomy as tax_mod
-import tools.lint.checks as checks_mod
+import llmwiki.compile as compile_mod
+import llmwiki.query as query_mod
+import llmwiki.taxonomy as tax_mod
+import llmwiki.lint.checks as checks_mod
 
 # Single-language KB (e.g. classical Chinese)
 compile_mod.SECTION_HEADERS = [("wenyan", "## 文言")]
@@ -44,25 +44,25 @@ checks_mod.ALLOW_CJK_SLUGS = True
 
 | Module | Constant | Purpose |
 |--------|----------|---------|
-| `tools.compile` | `SYSTEM_PROMPT` | LLM system message for compilation |
-| `tools.compile` | `COMPILE_USER_PROMPT` | User prompt template (`{title}`, `{content}`, `{existing}`, `{article_format}`) |
-| `tools.compile` | `COMPILE_ARTICLE_FORMAT` | Example article format in user prompt (most common override) |
-| `tools.compile` | `SECTION_HEADERS` | Language sections: `[("key", "## Header"), ...]` |
-| `tools.taxonomy` | `TAXONOMY_SYSTEM_PROMPT` | LLM system message for taxonomy |
-| `tools.taxonomy` | `TAXONOMY_LABEL_KEYS` | Language keys in label dicts (default `["en", "zh", "ja"]`) |
-| `tools.taxonomy` | `TAXONOMY_GENERATOR` | Callable `(articles, cfg) -> tree` or `None` for LLM |
-| `tools.query` | `SYSTEM_PROMPT` | LLM system message for Q&A |
-| `tools.query` | `TONE_INSTRUCTIONS` | Dict of `tone_id -> instruction_string` |
-| `tools.xici` | `XICI_SYSTEM_PROMPT` | LLM system for guided introduction |
-| `tools.xici` | `LANG_STYLES` | Dict of `lang -> style_instruction` |
-| `tools.entities` | `ENTITY_SYSTEM_PROMPT` | LLM system for entity extraction |
-| `tools.entities` | `ENTITY_PROMPT` | User prompt template for entities |
-| `tools.entities` | `ENTITY_ARTICLE_FORMATTER` | Callable `(articles) -> list[str]` or `None` |
-| `tools.lint.checks` | `ALLOW_CJK_SLUGS` | Accept CJK slugs as valid (bool) |
-| `tools.lint.checks` | `SYSTEM_PROMPT` | LLM system for deep lint |
-| `tools.lint.fixes` | `STUB_SYSTEM_PROMPT` | LLM system for stub generation |
-| `tools.llm` | `chat_with_meta(prompt, ...) -> (str, LLMMeta)` | Rich-return chat (v0.7.8): `meta.finish_reason` / `meta.truncated` / `meta.usage` (incl. `reasoning_tokens`) / `meta.attempts`. Primitive does NOT raise on length-cut — caller decides policy. |
-| `tools.llm` | `reasoning_budget(max_tokens, tokens_per_char, safety=0.8) -> int` | Safe input chunk size in chars given an output token budget (v0.7.8). No upstream model table — caller supplies `tokens_per_char` measured empirically from real runs. |
+| `llmwiki.compile` | `SYSTEM_PROMPT` | LLM system message for compilation |
+| `llmwiki.compile` | `COMPILE_USER_PROMPT` | User prompt template (`{title}`, `{content}`, `{existing}`, `{article_format}`) |
+| `llmwiki.compile` | `COMPILE_ARTICLE_FORMAT` | Example article format in user prompt (most common override) |
+| `llmwiki.compile` | `SECTION_HEADERS` | Language sections: `[("key", "## Header"), ...]` |
+| `llmwiki.taxonomy` | `TAXONOMY_SYSTEM_PROMPT` | LLM system message for taxonomy |
+| `llmwiki.taxonomy` | `TAXONOMY_LABEL_KEYS` | Language keys in label dicts (default `["en", "zh", "ja"]`) |
+| `llmwiki.taxonomy` | `TAXONOMY_GENERATOR` | Callable `(articles, cfg) -> tree` or `None` for LLM |
+| `llmwiki.query` | `SYSTEM_PROMPT` | LLM system message for Q&A |
+| `llmwiki.query` | `TONE_INSTRUCTIONS` | Dict of `tone_id -> instruction_string` |
+| `llmwiki.xici` | `XICI_SYSTEM_PROMPT` | LLM system for guided introduction |
+| `llmwiki.xici` | `LANG_STYLES` | Dict of `lang -> style_instruction` |
+| `llmwiki.entities` | `ENTITY_SYSTEM_PROMPT` | LLM system for entity extraction |
+| `llmwiki.entities` | `ENTITY_PROMPT` | User prompt template for entities |
+| `llmwiki.entities` | `ENTITY_ARTICLE_FORMATTER` | Callable `(articles) -> list[str]` or `None` |
+| `llmwiki.lint.checks` | `ALLOW_CJK_SLUGS` | Accept CJK slugs as valid (bool) |
+| `llmwiki.lint.checks` | `SYSTEM_PROMPT` | LLM system for deep lint |
+| `llmwiki.lint.fixes` | `STUB_SYSTEM_PROMPT` | LLM system for stub generation |
+| `llmwiki.llm` | `chat_with_meta(prompt, ...) -> (str, LLMMeta)` | Rich-return chat (v0.7.8): `meta.finish_reason` / `meta.truncated` / `meta.usage` (incl. `reasoning_tokens`) / `meta.attempts`. Primitive does NOT raise on length-cut — caller decides policy. |
+| `llmwiki.llm` | `reasoning_budget(max_tokens, tokens_per_char, safety=0.8) -> int` | Safe input chunk size in chars given an output token budget (v0.7.8). No upstream model table — caller supplies `tokens_per_char` measured empirically from real runs. |
 
 ---
 
@@ -71,7 +71,7 @@ checks_mod.ALLOW_CJK_SLUGS = True
 Register callbacks for key events. Hooks are best-effort: exceptions are logged but never propagate.
 
 ```python
-from tools.hooks import register
+from llmwiki.hooks import register
 
 # Sync to remote DB after compilation
 register("compiled", lambda source, work_id, **kw: sync.push(source, work_id))
@@ -107,7 +107,7 @@ register("ingested", lambda source, title, **kw:
 ### Custom Learn Sources
 
 ```python
-from tools.worker import register_learn_source
+from llmwiki.worker import register_learn_source
 
 def learn_from_arxiv(batch_size, base_dir, **kwargs):
     """Ingest papers from arXiv."""
@@ -132,7 +132,7 @@ worker:
 ### Custom Background Jobs
 
 ```python
-from tools.worker import register_job
+from llmwiki.worker import register_job
 
 def sync_to_supabase(base_dir):
     """Push wiki state to Supabase every 2 hours."""
@@ -152,7 +152,7 @@ Custom jobs run in the same worker loop, share the global `job_lock`, and have t
 **Option 1: EXTRA_ROUTES (before create_web_app)**
 
 ```python
-import tools.web as web
+import llmwiki.web as web
 
 def my_classics_api():
     from flask import jsonify
@@ -166,7 +166,7 @@ app = web.create_web_app(base_dir)
 
 ```python
 from flask import Blueprint, jsonify
-from tools.web import create_web_app
+from llmwiki.web import create_web_app
 
 classics_bp = Blueprint("classics", __name__)
 
@@ -181,7 +181,7 @@ app.register_blueprint(classics_bp)
 ### Request Middleware
 
 ```python
-import tools.web as web
+import llmwiki.web as web
 
 def log_requests():
     import logging
@@ -200,8 +200,8 @@ endpoints. Wrap custom handlers with it so downstream routes honour the
 same auth contract:
 
 ```python
-import tools.web as web
-from tools.web import require_auth
+import llmwiki.web as web
+from llmwiki.web import require_auth
 from flask import jsonify
 
 @require_auth
@@ -236,7 +236,7 @@ def my_handler():
 ### Session Token
 
 ```python
-from tools.web import derive_session_token
+from llmwiki.web import derive_session_token
 import os
 
 secret = os.getenv("LLMBASE_API_SECRET", "")
@@ -284,7 +284,7 @@ sources:
 
 # Lint
 # Note: ALLOW_CJK_SLUGS is set via module constant, not config.yaml:
-#   import tools.lint.checks as c; c.ALLOW_CJK_SLUGS = True
+#   import llmwiki.lint.checks as c; c.ALLOW_CJK_SLUGS = True
 ```
 
 ---
@@ -295,12 +295,12 @@ The [siwen.ink](https://siwen.ink) project customizes llmbase for a classical Ch
 
 ```python
 # patches.py — loaded at startup
-import tools.compile as c
-import tools.taxonomy as t
-import tools.query as q
-import tools.lint.checks as lc
-from tools.worker import register_learn_source
-from tools.hooks import register
+import llmwiki.compile as c
+import llmwiki.taxonomy as t
+import llmwiki.query as q
+import llmwiki.lint.checks as lc
+from llmwiki.worker import register_learn_source
+from llmwiki.hooks import register
 
 # Single-language: 文言 only
 c.SECTION_HEADERS = [("wenyan", "## 文言")]

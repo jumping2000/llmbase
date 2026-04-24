@@ -18,11 +18,11 @@ composition pattern is the intended one.
 
 | Primitive | Module | One-line |
 |-----------|--------|----------|
-| `normalize_paragraphs` / `normalize_heads` | [`tools/normalize.py`](../tools/normalize.py) | CommonMark-safe pre/post passes: merge broken OCR paragraphs, re-level ATX headings by rule pack. |
-| `split_by_heading` | [`tools/split.py`](../tools/split.py) | Flat section cut at a chosen ATX depth — one `Section` per LLM call. |
-| `ChunkCache` | [`tools/chunk_cache.py`](../tools/chunk_cache.py) | `(cid, content_hash) → output` cache; content changes at a slot automatically miss. |
-| `api_key=` / `X-LLM-Key` | [`tools/llm.py`](../tools/llm.py) | Per-call credential override — pin a tenant/persona key without leaking into the module singleton. |
-| `run_stage` + `rebuild_state` | [`tools/pipeline/`](../tools/pipeline/) | Stage driver with guaranteed terminal event (`ok` / `failed` / `partial`); log-as-truth state replay. |
+| `normalize_paragraphs` / `normalize_heads` | [`llmwiki/normalize.py`](../llmwiki/normalize.py) | CommonMark-safe pre/post passes: merge broken OCR paragraphs, re-level ATX headings by rule pack. |
+| `split_by_heading` | [`llmwiki/split.py`](../llmwiki/split.py) | Flat section cut at a chosen ATX depth — one `Section` per LLM call. |
+| `ChunkCache` | [`llmwiki/chunk_cache.py`](../llmwiki/chunk_cache.py) | `(cid, content_hash) → output` cache; content changes at a slot automatically miss. |
+| `api_key=` / `X-LLM-Key` | [`llmwiki/llm.py`](../llmwiki/llm.py) | Per-call credential override — pin a tenant/persona key without leaking into the module singleton. |
+| `run_stage` + `rebuild_state` | [`llmwiki/pipeline/`](../llmwiki/pipeline/) | Stage driver with guaranteed terminal event (`ok` / `failed` / `partial`); log-as-truth state replay. |
 
 Full API in each module's docstring.
 
@@ -40,9 +40,9 @@ from __future__ import annotations
 import hashlib
 from pathlib import Path
 
-from tools import chunk_cache, normalize, split
-from tools.llm import chat
-from tools.pipeline import run_stage, rebuild_state
+from llmwiki import chunk_cache, normalize, split
+from llmwiki.llm import chat
+from llmwiki.pipeline import run_stage, rebuild_state
 
 BASE_DIR      = Path("/var/siwen")
 PIPELINE_KEY  = "taixu_quanshu"              # stable per source × pipeline version
@@ -156,7 +156,7 @@ Two things to notice:
 
 ## Anatomy of a single stage
 
-`run_stage`'s signature (see [`tools/pipeline/driver.py`](../tools/pipeline/driver.py)):
+`run_stage`'s signature (see [`llmwiki/pipeline/driver.py`](../llmwiki/pipeline/driver.py)):
 
 ```python
 run_stage(base_dir, stage, key, *, ttl=3600, meta_init=None) -> StageContext
@@ -259,7 +259,7 @@ cache — the chunk was too big for the model's output budget. Use
 `chat_with_meta` + `reasoning_budget` (both v0.7.8) to detect and prevent:
 
 ```python
-from tools.llm import chat_with_meta, reasoning_budget
+from llmwiki.llm import chat_with_meta, reasoning_budget
 
 # One-time empirical tuning against a sample of real chunks:
 #   TOKENS_PER_CHAR ≈ mean(meta.usage["completion_tokens"] / len(chunk))
@@ -300,7 +300,7 @@ near-zero cost and let you A/B prompts without re-paying the LLM bill.
 
 ### Per-request LLM key
 
-`tools.llm.chat(..., api_key="sk-…")` returns output from a fresh un-cached
+`llmwiki.llm.chat(..., api_key="sk-…")` returns output from a fresh un-cached
 client; the module singleton is never mutated. Useful for per-chunk tenant /
 persona identity inside a stage:
 
@@ -313,7 +313,7 @@ out = chat(
 ```
 
 The key never reaches the log — `ctx.log` records chunk ids, not secrets — and
-`tools.llm._redact_key` scrubs it from any error string that bubbles out. Over
+`llmwiki.llm._redact_key` scrubs it from any error string that bubbles out. Over
 HTTP the same credential arrives as `X-LLM-Key`; see the v0.7.4 security
 posture in the [CHANGELOG](../CHANGELOG.md).
 
@@ -323,7 +323,7 @@ posture in the [CHANGELOG](../CHANGELOG.md).
 still open):
 
 ```bash
-python -c "from pathlib import Path; from tools.pipeline import rebuild_state; \
+python -c "from pathlib import Path; from llmwiki.pipeline import rebuild_state; \
   s = rebuild_state(Path('/var/siwen'), 'wenguan', 'taixu_quanshu'); \
   print(s.status, s.attempts, s.last_err or '', s.meta)"
 ```
@@ -360,4 +360,4 @@ the composition pattern above first.
 | Customize per-module constants (`SYSTEM_PROMPT`, taxonomy, tones, …) | [customization.md](customization.md) |
 | Register a lifecycle hook (`ingested`, `compiled`, …) | [customization.md § Lifecycle Hooks](customization.md#lifecycle-hooks) |
 | Build a new pipeline on top of these primitives | You are here |
-| Read the driver's three laws and terminal guarantee | [`tools/pipeline/__init__.py`](../tools/pipeline/__init__.py) |
+| Read the driver's three laws and terminal guarantee | [`llmwiki/pipeline/__init__.py`](../llmwiki/pipeline/__init__.py) |

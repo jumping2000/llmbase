@@ -2,8 +2,8 @@
 
 from pathlib import Path
 
-from tools.compile import rebuild_index
-from tools.export import export_article, export_by_tag, export_graph
+from llmwiki.compile import rebuild_index
+from llmwiki.export import export_article, export_by_tag, export_graph
 
 
 def test_export_article(tmp_kb):

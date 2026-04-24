@@ -7,9 +7,9 @@
 - All wiki-links use [[target]] syntax; resolved via alias map (aliases.json)
 
 ## Code Patterns
-- LLM calls go through tools/llm.py:chat() — never call OpenAI directly
-- Alias resolution via tools/resolve.py — always use resolve_link() for wiki-link targets
-- Taxonomy is LLM-generated (not hardcoded) — tools/taxonomy.py
+- LLM calls go through llmwiki/llm.py:chat() — never call OpenAI directly
+- Alias resolution via llmwiki/resolve.py — always use resolve_link() for wiki-link targets
+- Taxonomy is LLM-generated (not hardcoded) — llmwiki/taxonomy.py
 - Article slugs are pinyin/kebab-case; titles are bilingual "English / 中文"
 - Never expose specific LLM provider names in public code or commits
 
@@ -19,58 +19,58 @@ customize behavior without forking functions. This is a **stable contract**.
 
 | Module               | Constant                  | Purpose                                  |
 |----------------------|---------------------------|------------------------------------------|
-| tools/compile.py     | SYSTEM_PROMPT             | LLM system message for compilation       |
-| tools/compile.py     | COMPILE_USER_PROMPT       | User prompt template ({title}, {content}, {existing}, {article_format}) |
-| tools/compile.py     | COMPILE_ARTICLE_FORMAT    | Example article format in user prompt    |
-| tools/compile.py     | SECTION_HEADERS           | Language sections for split/merge        |
-| tools/taxonomy.py    | TAXONOMY_SYSTEM_PROMPT    | LLM system message for taxonomy          |
-| tools/taxonomy.py    | TAXONOMY_LABEL_KEYS       | Language keys in label dicts             |
-| tools/taxonomy.py    | TAXONOMY_GENERATOR        | Callable to replace LLM taxonomy (or None) |
-| tools/lint/checks.py | ALLOW_CJK_SLUGS           | Accept CJK slugs as valid (bool)         |
-| tools/lint/checks.py | SYSTEM_PROMPT             | LLM system for deep lint                 |
-| tools/lint/fixes.py  | STUB_SYSTEM_PROMPT        | LLM system for stub generation           |
-| tools/search.py      | SEARCH_TOKENIZER          | Callable(text)->list[str] to replace tokenizer (or None) |
-| tools/search.py      | STOPWORDS / CJK_STOPWORDS | Stopword sets used by default tokenizer  |
-| tools/query.py       | SYSTEM_PROMPT             | LLM system message for Q&A               |
-| tools/query.py       | TONE_INSTRUCTIONS         | Dict of tone_id → instruction string     |
-| tools/query.py       | PROMOTE_SYSTEM_PROMPT     | LLM system for Q&A→concept promotion judge |
-| tools/query.py       | PROMOTE_CONTENT_EXAMPLE   | Content-schema hint for promote judge (None = auto-derive from SECTION_HEADERS) |
-| tools/query.py       | PROMOTE_TITLE_EXAMPLE     | Title-schema hint for promote judge (None = auto-derive from SECTION_HEADERS) |
+| llmwiki/compile.py     | SYSTEM_PROMPT             | LLM system message for compilation       |
+| llmwiki/compile.py     | COMPILE_USER_PROMPT       | User prompt template ({title}, {content}, {existing}, {article_format}) |
+| llmwiki/compile.py     | COMPILE_ARTICLE_FORMAT    | Example article format in user prompt    |
+| llmwiki/compile.py     | SECTION_HEADERS           | Language sections for split/merge        |
+| llmwiki/taxonomy.py    | TAXONOMY_SYSTEM_PROMPT    | LLM system message for taxonomy          |
+| llmwiki/taxonomy.py    | TAXONOMY_LABEL_KEYS       | Language keys in label dicts             |
+| llmwiki/taxonomy.py    | TAXONOMY_GENERATOR        | Callable to replace LLM taxonomy (or None) |
+| llmwiki/lint/checks.py | ALLOW_CJK_SLUGS           | Accept CJK slugs as valid (bool)         |
+| llmwiki/lint/checks.py | SYSTEM_PROMPT             | LLM system for deep lint                 |
+| llmwiki/lint/fixes.py  | STUB_SYSTEM_PROMPT        | LLM system for stub generation           |
+| llmwiki/search.py      | SEARCH_TOKENIZER          | Callable(text)->list[str] to replace tokenizer (or None) |
+| llmwiki/search.py      | STOPWORDS / CJK_STOPWORDS | Stopword sets used by default tokenizer  |
+| llmwiki/query.py       | SYSTEM_PROMPT             | LLM system message for Q&A               |
+| llmwiki/query.py       | TONE_INSTRUCTIONS         | Dict of tone_id → instruction string     |
+| llmwiki/query.py       | PROMOTE_SYSTEM_PROMPT     | LLM system for Q&A→concept promotion judge |
+| llmwiki/query.py       | PROMOTE_CONTENT_EXAMPLE   | Content-schema hint for promote judge (None = auto-derive from SECTION_HEADERS) |
+| llmwiki/query.py       | PROMOTE_TITLE_EXAMPLE     | Title-schema hint for promote judge (None = auto-derive from SECTION_HEADERS) |
 | config.yaml          | query.prefilter_threshold | Above this many articles, TF-IDF prefilter the index before LLM selector (default 500) |
 | config.yaml          | query.prefilter_top_k     | Number of candidates to keep after prefilter (default 200) |
-| tools/xici.py        | XICI_SYSTEM_PROMPT        | LLM system for guided introduction       |
-| tools/xici.py        | LANG_STYLES               | Dict of lang → style instruction         |
-| tools/entities.py    | ENTITY_SYSTEM_PROMPT      | LLM system for entity extraction         |
-| tools/entities.py    | ENTITY_PROMPT             | User prompt template for entities        |
-| tools/entities.py    | ENTITY_ARTICLE_FORMATTER  | Callable to format article list for LLM  |
-| tools/export.py      | (uses SECTION_HEADERS)    | Language sections from compile module    |
-| tools/normalize.py   | SENTENCE_TERMINATORS      | Line terminators for paragraph-merge (default CJK + ASCII) |
-| tools/normalize.py   | CLOSING_WRAPPERS          | Brackets/quotes that may follow a terminator before merge-check |
-| tools/chunk_cache.py | ChunkCache(base, subdir=) | Content-hash-validated (cid, content_hash)→output cache for pipelines |
-| tools/split.py       | split_by_heading(body, level) | Flat section parse — `list[Section]` at target ATX depth; no heuristics |
-| tools/pipeline/      | run_stage(base, stage, key, *, ttl, meta_init) | Contextmanager — guarantees `ok`/`failed`/`partial` terminal event on every exit; SIGKILL recovery via stale-lock `interrupted` |
-| tools/pipeline/      | rebuild_state(base, stage, key) → StageState | Derive status/attempts/started/finished/last_err/artifacts/meta from log (append-only JSONL is source of truth) |
-| tools/pipeline/      | StagePartialExit / ctx.mark_partial(reason) | Handler marks run `partial` (not `ok`/`failed`) — e.g. LLM quota at chunk 50/62; next run resumes from cache |
-| tools/pipeline/      | RESERVED_EVENTS | Event names refused by `ctx.log()` (start/ok/failed/partial/interrupted/artifact/meta_update) — prefix custom events with `chunk_` / `cache_` |
-| tools/llm.py         | chat_with_meta(prompt, ...) → (str, LLMMeta) | Rich-return chat with finish_reason / usage (incl. reasoning_tokens) / attempts. `meta.truncated` == length-cut; primitive does NOT raise — caller decides policy |
-| tools/llm.py         | reasoning_budget(max_tokens, tokens_per_char, safety=0.8) | Safe input chunk size (chars) for output token budget. No upstream model table — caller supplies `tokens_per_char` empirically |
-| tools/anchor.py      | locate_span(content, head, tail="", *, normalize="punct_spaces") → Anchor \| None | Span anchor: head+tail both matched → `Anchor(strategy="exact")`; head only → `"head_only"` (spans to content end); no head match → `None`. Offsets are ORIGINAL content indices (not normalized). Empty head raises `ValueError` |
-| tools/anchor.py      | normalize_text(s, level)  | Public for JS mirror. Levels: `none` / `punct` / `punct_spaces`. Charset documented in docstring — keep any JS port in lockstep |
-| tools/web.py         | derive_session_token()    | Public function: secret → cookie token   |
-| tools/web.py         | require_auth              | Module-level decorator for EXTRA_ROUTES  |
-| tools/web.py         | app.config["llmbase"]     | Runtime dict: base_dir, cfg, api_secret, session_token |
-| tools/web.py         | EXTRA_ROUTES              | List of (rule, handler, options) tuples  |
-| tools/web.py         | BEFORE/AFTER_REQUEST_HOOKS| Request middleware lists                  |
-| tools/worker.py      | LEARN_SOURCES             | Dict of source_name → learn handler      |
-| tools/worker.py      | CUSTOM_JOBS               | List of custom background jobs           |
-| tools/worker.py      | register_learn_source()   | Register custom learn source handler     |
-| tools/worker.py      | register_job()            | Register custom background job           |
-| tools/operations.py  | register(Operation(...))  | Register custom op (auto-exposed via CLI/HTTP/MCP) |
-| tools/operations.py  | dispatch(name, base, args)| Programmatic op invocation (with write-lock) |
+| llmwiki/xici.py        | XICI_SYSTEM_PROMPT        | LLM system for guided introduction       |
+| llmwiki/xici.py        | LANG_STYLES               | Dict of lang → style instruction         |
+| llmwiki/entities.py    | ENTITY_SYSTEM_PROMPT      | LLM system for entity extraction         |
+| llmwiki/entities.py    | ENTITY_PROMPT             | User prompt template for entities        |
+| llmwiki/entities.py    | ENTITY_ARTICLE_FORMATTER  | Callable to format article list for LLM  |
+| llmwiki/export.py      | (uses SECTION_HEADERS)    | Language sections from compile module    |
+| llmwiki/normalize.py   | SENTENCE_TERMINATORS      | Line terminators for paragraph-merge (default CJK + ASCII) |
+| llmwiki/normalize.py   | CLOSING_WRAPPERS          | Brackets/quotes that may follow a terminator before merge-check |
+| llmwiki/chunk_cache.py | ChunkCache(base, subdir=) | Content-hash-validated (cid, content_hash)→output cache for pipelines |
+| llmwiki/split.py       | split_by_heading(body, level) | Flat section parse — `list[Section]` at target ATX depth; no heuristics |
+| llmwiki/pipeline/      | run_stage(base, stage, key, *, ttl, meta_init) | Contextmanager — guarantees `ok`/`failed`/`partial` terminal event on every exit; SIGKILL recovery via stale-lock `interrupted` |
+| llmwiki/pipeline/      | rebuild_state(base, stage, key) → StageState | Derive status/attempts/started/finished/last_err/artifacts/meta from log (append-only JSONL is source of truth) |
+| llmwiki/pipeline/      | StagePartialExit / ctx.mark_partial(reason) | Handler marks run `partial` (not `ok`/`failed`) — e.g. LLM quota at chunk 50/62; next run resumes from cache |
+| llmwiki/pipeline/      | RESERVED_EVENTS | Event names refused by `ctx.log()` (start/ok/failed/partial/interrupted/artifact/meta_update) — prefix custom events with `chunk_` / `cache_` |
+| llmwiki/llm.py         | chat_with_meta(prompt, ...) → (str, LLMMeta) | Rich-return chat with finish_reason / usage (incl. reasoning_tokens) / attempts. `meta.truncated` == length-cut; primitive does NOT raise — caller decides policy |
+| llmwiki/llm.py         | reasoning_budget(max_tokens, tokens_per_char, safety=0.8) | Safe input chunk size (chars) for output token budget. No upstream model table — caller supplies `tokens_per_char` empirically |
+| llmwiki/anchor.py      | locate_span(content, head, tail="", *, normalize="punct_spaces") → Anchor \| None | Span anchor: head+tail both matched → `Anchor(strategy="exact")`; head only → `"head_only"` (spans to content end); no head match → `None`. Offsets are ORIGINAL content indices (not normalized). Empty head raises `ValueError` |
+| llmwiki/anchor.py      | normalize_text(s, level)  | Public for JS mirror. Levels: `none` / `punct` / `punct_spaces`. Charset documented in docstring — keep any JS port in lockstep |
+| llmwiki/web.py         | derive_session_token()    | Public function: secret → cookie token   |
+| llmwiki/web.py         | require_auth              | Module-level decorator for EXTRA_ROUTES  |
+| llmwiki/web.py         | app.config["llmbase"]     | Runtime dict: base_dir, cfg, api_secret, session_token |
+| llmwiki/web.py         | EXTRA_ROUTES              | List of (rule, handler, options) tuples  |
+| llmwiki/web.py         | BEFORE/AFTER_REQUEST_HOOKS| Request middleware lists                  |
+| llmwiki/worker.py      | LEARN_SOURCES             | Dict of source_name → learn handler      |
+| llmwiki/worker.py      | CUSTOM_JOBS               | List of custom background jobs           |
+| llmwiki/worker.py      | register_learn_source()   | Register custom learn source handler     |
+| llmwiki/worker.py      | register_job()            | Register custom background job           |
+| llmwiki/operations.py  | register(Operation(...))  | Register custom op (auto-exposed via CLI/HTTP/MCP) |
+| llmwiki/operations.py  | dispatch(name, base, args)| Programmatic op invocation (with write-lock) |
 | config.yaml          | web.static_dir            | Custom frontend build path               |
 
-## Lifecycle Hooks (tools/hooks.py)
-Downstream registers callbacks via `tools.hooks.register(event, callback)`.
+## Lifecycle Hooks (llmwiki/hooks.py)
+Downstream registers callbacks via `llmwiki.hooks.register(event, callback)`.
 
 | Event                | Emitter          | Kwargs                                     |
 |----------------------|------------------|--------------------------------------------|
@@ -85,7 +85,7 @@ Downstream registers callbacks via `tools.hooks.register(event, callback)`.
 | `xici_generated`     | xici.py          | lang, article_count                        |
 | `entity_extracted`   | entities.py      | people/events/places_count, article_count  |
 
-## Auto-Fix Pipeline (tools/lint.py:auto_fix)
+## Auto-Fix Pipeline (llmwiki/lint.py:auto_fix)
 1. clean_garbage() — remove template stubs
 2. fix metadata — LLM generates missing summary/tags
 3. fix_broken_links() — alias-aware, only stubs for truly missing concepts
@@ -93,15 +93,15 @@ Downstream registers callbacks via `tools.hooks.register(event, callback)`.
 5. fix_uncategorized() — regenerate taxonomy
 
 ## Key Files
-- tools/resolve.py — alias system (central to all link resolution)
-- tools/xici.py — guided introduction generation
-- tools/taxonomy.py — emergent LLM-generated categories
+- llmwiki/resolve.py — alias system (central to all link resolution)
+- llmwiki/xici.py — guided introduction generation
+- llmwiki/taxonomy.py — emergent LLM-generated categories
 - wiki/_meta/ — aliases.json, taxonomy.json, health.json, backlinks.json
 
 ## Commit Process (MANDATORY)
 Before EVERY git commit, you MUST:
 1. Run `cd frontend && npx tsc --noEmit` — TypeScript check
-2. Run `python -c "from tools.lint import lint; print('OK')"` — Python import check
+2. Run `python -c "from llmwiki.lint import lint; print('OK')"` — Python import check
 3. Run Codex review on staged changes and WAIT for the result:
    ```
    codex exec --sandbox read-only -C . \
@@ -115,7 +115,7 @@ Do NOT skip Codex review. Do NOT commit while Codex is still running.
 
 ## CI Process
 - TypeScript check: `cd frontend && npx tsc --noEmit`
-- Python import check: `python -c "from tools.lint import lint; print('OK')"`
+- Python import check: `python -c "from llmwiki.lint import lint; print('OK')"`
 - Lint check: `python llmbase.py lint check`
 - Build: `cd frontend && npx vite build`
 

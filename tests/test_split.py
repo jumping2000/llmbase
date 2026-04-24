@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from tools.split import Section, split_by_heading
+from llmwiki.split import Section, split_by_heading
 
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures" / "taixu"

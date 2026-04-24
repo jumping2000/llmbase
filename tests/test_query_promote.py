@@ -11,7 +11,7 @@ from pathlib import Path
 
 import frontmatter
 
-from tools.query import promote_to_concept
+from llmwiki.query import promote_to_concept
 
 
 def _judge_response(decision: dict) -> str:
@@ -25,7 +25,7 @@ def test_promote_declined(tmp_kb, monkeypatch):
     def fake_chat(prompt, system="", model=None, max_tokens=8192, **kwargs):
         return _judge_response({"promote": False, "reason": "too vague"})
 
-    monkeypatch.setattr("tools.query.chat", fake_chat)
+    monkeypatch.setattr("llmwiki.query.chat", fake_chat)
 
     concepts_dir = tmp_kb / "wiki" / "concepts"
     before = sorted(p.name for p in concepts_dir.glob("*.md"))
@@ -67,7 +67,7 @@ def test_promote_new_concept(tmp_kb, monkeypatch):
     def fake_chat(prompt, system="", model=None, max_tokens=8192, **kwargs):
         return _judge_response(judge_decision)
 
-    monkeypatch.setattr("tools.query.chat", fake_chat)
+    monkeypatch.setattr("llmwiki.query.chat", fake_chat)
 
     result = promote_to_concept(
         question="What is wu wei?",
@@ -123,7 +123,7 @@ def test_promote_merges_into_existing(tmp_kb, monkeypatch):
     def fake_chat(prompt, system="", model=None, max_tokens=8192, **kwargs):
         return _judge_response(judge_decision)
 
-    monkeypatch.setattr("tools.query.chat", fake_chat)
+    monkeypatch.setattr("llmwiki.query.chat", fake_chat)
 
     concepts_dir = tmp_kb / "wiki" / "concepts"
     files_before = sorted(p.name for p in concepts_dir.glob("*.md"))
@@ -157,7 +157,7 @@ def test_promote_invalid_json(tmp_kb, monkeypatch):
     def fake_chat(prompt, system="", model=None, max_tokens=8192, **kwargs):
         return "I'm sorry, I cannot decide this question."
 
-    monkeypatch.setattr("tools.query.chat", fake_chat)
+    monkeypatch.setattr("llmwiki.query.chat", fake_chat)
 
     concepts_dir = tmp_kb / "wiki" / "concepts"
     before = sorted(p.name for p in concepts_dir.glob("*.md"))
@@ -185,7 +185,7 @@ def test_promote_non_object_json(tmp_kb, monkeypatch):
         def fake_chat(prompt, system="", model=None, max_tokens=8192, _p=payload, **kwargs):
             return _p
 
-        monkeypatch.setattr("tools.query.chat", fake_chat)
+        monkeypatch.setattr("llmwiki.query.chat", fake_chat)
 
         result = promote_to_concept(
             question="anything",
@@ -222,7 +222,7 @@ def test_promote_merge_into_overrides_slug(tmp_kb, monkeypatch):
     def fake_chat(prompt, system="", model=None, max_tokens=8192, **kwargs):
         return _judge_response(judge_decision)
 
-    monkeypatch.setattr("tools.query.chat", fake_chat)
+    monkeypatch.setattr("llmwiki.query.chat", fake_chat)
 
     concepts_dir = tmp_kb / "wiki" / "concepts"
     files_before = sorted(p.name for p in concepts_dir.glob("*.md"))
@@ -260,7 +260,7 @@ def test_promote_traversal_slug_rejected(tmp_kb, monkeypatch):
             "content": "## English\n\nbody",
         })
 
-    monkeypatch.setattr("tools.query.chat", fake_chat)
+    monkeypatch.setattr("llmwiki.query.chat", fake_chat)
 
     concepts_dir = tmp_kb / "wiki" / "concepts"
     before = sorted(p.name for p in concepts_dir.glob("*.md"))
@@ -290,8 +290,8 @@ def test_mcp_kb_ask_promote_takes_job_lock(tmp_kb, monkeypatch):
     kb_compile use, to prevent concurrent mutations of wiki/concepts."""
     monkeypatch.chdir(tmp_kb)
 
-    from tools import mcp_server
-    from tools.worker import job_lock
+    from llmwiki import mcp_server
+    from llmwiki.worker import job_lock
 
     # Pre-acquire the job lock — kb_ask with promote should refuse
     assert job_lock.acquire(blocking=False)
@@ -324,7 +324,7 @@ def test_promote_missing_required_fields(tmp_kb, monkeypatch):
             # missing content
         })
 
-    monkeypatch.setattr("tools.query.chat", fake_chat)
+    monkeypatch.setattr("llmwiki.query.chat", fake_chat)
 
     result = promote_to_concept(
         question="anything",

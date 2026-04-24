@@ -140,7 +140,7 @@ def derive_session_token(secret: str) -> str:
 #
 # 1. EXTRA_ROUTES / hooks — fill these BEFORE calling create_web_app():
 #
-#     import tools.web as web
+#     import llmwiki.web as web
 #     web.EXTRA_ROUTES.append(("/api/my-endpoint", my_handler, {"methods": ["GET"]}))
 #     web.BEFORE_REQUEST_HOOKS.append(my_auth_middleware)
 #     app = web.create_web_app(base_dir)
@@ -199,7 +199,7 @@ def require_auth(f):
 
     Usage::
 
-        from tools.web import require_auth
+        from llmwiki.web import require_auth
 
         @require_auth
         def my_handler():

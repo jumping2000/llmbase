@@ -11,7 +11,7 @@ from pathlib import Path
 import yaml
 import pytest
 
-from tools.query import _bm25_prefilter, query_with_search
+from llmwiki.query import _bm25_prefilter, query_with_search
 
 
 def _make_entries(n: int, relevant_keyword: str = "kong-xing-emptiness") -> list[dict]:
@@ -116,8 +116,8 @@ def test_query_with_search_caps_prompt_for_large_index(tmp_path, monkeypatch):
     def fake_chat_with_context(question, context_files, **kw):
         return "answer"
 
-    monkeypatch.setattr("tools.query.chat", fake_chat)
-    monkeypatch.setattr("tools.query.chat_with_context", fake_chat_with_context)
+    monkeypatch.setattr("llmwiki.query.chat", fake_chat)
+    monkeypatch.setattr("llmwiki.query.chat_with_context", fake_chat_with_context)
     monkeypatch.chdir(tmp_path)
 
     result = query_with_search("What is 空性?", base_dir=tmp_path)

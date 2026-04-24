@@ -5,8 +5,8 @@ from pathlib import Path
 
 import frontmatter
 
-from tools.compile import rebuild_index
-from tools.lint import (
+from llmwiki.compile import rebuild_index
+from llmwiki.lint import (
     check_broken_links,
     check_orphans,
     check_missing_metadata,
@@ -16,7 +16,7 @@ from tools.lint import (
     _find_duplicate_candidates,
     clean_garbage,
 )
-from tools.config import load_config
+from llmwiki.config import load_config
 
 
 def test_check_broken_links_with_aliases(tmp_kb):

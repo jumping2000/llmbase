@@ -1,6 +1,6 @@
 """Tests for LLM utilities (extract_json, etc.)."""
 
-from tools.llm import extract_json
+from llmwiki.llm import extract_json
 
 
 def test_extract_json_clean_array():
@@ -65,7 +65,7 @@ def test_load_env_cwd_with_config_yaml(tmp_path, monkeypatch):
     (tmp_path / ".env").write_text("LLMBASE_API_KEY=from-cwd\nLLMBASE_MODEL=cwd-model\n")
     (tmp_path / "config.yaml").write_text("paths:\n  concepts: wiki/concepts\n  wiki: wiki\n  raw: raw\n")
     monkeypatch.chdir(tmp_path)
-    from tools.llm import _load_env
+    from llmwiki.llm import _load_env
     found = _load_env()
     assert found == (tmp_path / ".env").resolve()
     import os
@@ -84,7 +84,7 @@ def test_load_env_cwd_with_unrelated_config_yaml_is_ignored(tmp_path, monkeypatc
     monkeypatch.chdir(tmp_path)
     home = tmp_path / "home"; home.mkdir()
     monkeypatch.setenv("HOME", str(home))
-    from tools.llm import _load_env
+    from llmwiki.llm import _load_env
     found = _load_env()
     import os
     assert os.environ.get("LLMBASE_BASE_URL") != "https://evil.example"
@@ -101,7 +101,7 @@ def test_load_env_cwd_without_config_yaml_is_ignored(tmp_path, monkeypatch):
     home = tmp_path / "home"
     home.mkdir()
     monkeypatch.setenv("HOME", str(home))
-    from tools.llm import _load_env
+    from llmwiki.llm import _load_env
     found = _load_env()
     import os
     # No CWD match → no redirect; package-dir .env may or may not exist in dev.
@@ -120,7 +120,7 @@ def test_load_env_explicit_override(tmp_path, monkeypatch):
     explicit.write_text("LLMBASE_API_KEY=from-explicit\n")
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("LLMBASE_ENV_FILE", str(explicit))
-    from tools.llm import _load_env
+    from llmwiki.llm import _load_env
     found = _load_env()
     assert found == explicit.resolve()
     import os
@@ -135,7 +135,7 @@ def test_load_env_explicit_override_missing_fails_closed(tmp_path, monkeypatch):
     (tmp_path / "config.yaml").write_text("paths:\n  concepts: wiki/concepts\n  wiki: wiki\n  raw: raw\n")
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("LLMBASE_ENV_FILE", str(tmp_path / "does-not-exist.env"))
-    from tools.llm import _load_env
+    from llmwiki.llm import _load_env
     found = _load_env()
     assert found is None
     import os
@@ -153,7 +153,7 @@ def test_load_env_shell_export_wins(tmp_path, monkeypatch):
     (tmp_path / "config.yaml").write_text("paths:\n  concepts: wiki/concepts\n  wiki: wiki\n  raw: raw\n")
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("LLMBASE_API_KEY", "from-shell")
-    from tools.llm import _load_env
+    from llmwiki.llm import _load_env
     found = _load_env()
     import os
     assert found == (tmp_path / ".env").resolve()
@@ -171,7 +171,7 @@ def test_load_env_empty_file_is_still_selected(tmp_path, monkeypatch):
     (home / ".config" / "llmbase").mkdir(parents=True)
     (home / ".config" / "llmbase" / ".env").write_text("LLMBASE_API_KEY=from-xdg\n")
     monkeypatch.setenv("HOME", str(home))
-    from tools.llm import _load_env
+    from llmwiki.llm import _load_env
     found = _load_env()
     import os
     assert found == (tmp_path / ".env").resolve()
@@ -185,7 +185,7 @@ def test_load_env_explicit_override_empty_file_ok(tmp_path, monkeypatch):
     explicit = tmp_path / "empty.env"
     explicit.write_text("")
     monkeypatch.setenv("LLMBASE_ENV_FILE", str(explicit))
-    from tools.llm import _load_env
+    from llmwiki.llm import _load_env
     found = _load_env()
     assert found == explicit.resolve()
 
@@ -200,7 +200,7 @@ def test_load_env_xdg_fallback(tmp_path, monkeypatch):
     empty.mkdir()
     monkeypatch.chdir(empty)
     monkeypatch.setenv("HOME", str(home))
-    from tools.llm import _load_env
+    from llmwiki.llm import _load_env
     found = _load_env()
     assert found == (home / ".config" / "llmbase" / ".env").resolve()
     import os

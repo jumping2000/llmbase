@@ -18,7 +18,7 @@ without forking this module:
 
 Example::
 
-    import tools.worker as w
+    import llmwiki.worker as w
 
     def my_corpus_learn(batch_size, base_dir):
         ...  # ingest from custom source

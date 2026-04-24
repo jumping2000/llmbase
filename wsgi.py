@@ -1,8 +1,8 @@
 """WSGI entry point for production deployment with background worker."""
 import logging
 from pathlib import Path
-from tools.web import create_web_app
-from tools.worker import start_worker_thread
+from llmwiki.web import create_web_app
+from llmwiki.worker import start_worker_thread
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(name)s] %(message)s")
 

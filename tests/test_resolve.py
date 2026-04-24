@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from tools.resolve import build_aliases, resolve_link, save_aliases, load_aliases
+from llmwiki.resolve import build_aliases, resolve_link, save_aliases, load_aliases
 
 
 def test_build_aliases_from_articles(tmp_kb):

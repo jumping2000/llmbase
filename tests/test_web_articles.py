@@ -6,7 +6,7 @@ from pathlib import Path
 import frontmatter
 import pytest
 
-from tools.web import create_web_app
+from llmwiki.web import create_web_app
 
 
 @pytest.fixture

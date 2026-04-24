@@ -27,7 +27,7 @@ import pytest
 
 def test_get_client_default_is_singleton(monkeypatch):
     # Reset module-level singleton so this test is hermetic.
-    import tools.llm as llm_mod
+    import llmwiki.llm as llm_mod
     monkeypatch.setattr(llm_mod, "_client", None)
     monkeypatch.setenv("LLMBASE_API_KEY", "sk-singleton")
     a = llm_mod.get_client()
@@ -36,7 +36,7 @@ def test_get_client_default_is_singleton(monkeypatch):
 
 
 def test_get_client_with_api_key_is_not_cached(monkeypatch):
-    import tools.llm as llm_mod
+    import llmwiki.llm as llm_mod
     monkeypatch.setattr(llm_mod, "_client", None)
     monkeypatch.setenv("LLMBASE_API_KEY", "sk-singleton")
     # A per-request key must never become the singleton; two calls with
@@ -63,8 +63,8 @@ def test_chat_forwards_api_key_to_call_llm():
         return ("ok", "stop", {"prompt_tokens": 1, "completion_tokens": 1,
                                 "reasoning_tokens": None, "total_tokens": 2})
 
-    with patch("tools.llm._call_llm", side_effect=fake_call):
-        from tools.llm import chat
+    with patch("llmwiki.llm._call_llm", side_effect=fake_call):
+        from llmwiki.llm import chat
         chat("hi", model="m", api_key="sk-user")
     assert captured["api_key"] == "sk-user"
 
@@ -77,8 +77,8 @@ def test_chat_default_api_key_is_none():
         return ("ok", "stop", {"prompt_tokens": 1, "completion_tokens": 1,
                                 "reasoning_tokens": None, "total_tokens": 2})
 
-    with patch("tools.llm._call_llm", side_effect=fake_call):
-        from tools.llm import chat
+    with patch("llmwiki.llm._call_llm", side_effect=fake_call):
+        from llmwiki.llm import chat
         chat("hi", model="m")
     assert captured["api_key"] is None
 
@@ -90,8 +90,8 @@ def test_chat_with_context_forwards_api_key():
         captured["api_key"] = api_key
         return "ok"
 
-    with patch("tools.llm.chat", side_effect=fake_chat):
-        from tools.llm import chat_with_context
+    with patch("llmwiki.llm.chat", side_effect=fake_chat):
+        from llmwiki.llm import chat_with_context
         chat_with_context(
             "q?", [{"path": "a.md", "content": "body"}], api_key="sk-user"
         )
@@ -109,9 +109,9 @@ def test_query_passes_api_key_through(tmp_kb):
         return "ans"
 
     fake_ctx = [{"path": "stub.md", "content": "stub"}]
-    with patch("tools.query._gather_context", return_value=fake_ctx), \
-         patch("tools.query.chat_with_context", side_effect=fake_cwc):
-        from tools.query import query
+    with patch("llmwiki.query._gather_context", return_value=fake_ctx), \
+         patch("llmwiki.query.chat_with_context", side_effect=fake_cwc):
+        from llmwiki.query import query
         query("q?", base_dir=tmp_kb, api_key="sk-user-xyz")
     assert captured["api_key"] == "sk-user-xyz"
 
@@ -135,10 +135,10 @@ def test_query_with_search_passes_api_key_to_selector_and_answer(tmp_kb):
         return "ans"
 
     fake_ctx = [{"path": "stub.md", "content": "stub"}] * 3
-    with patch("tools.query.chat", side_effect=fake_chat), \
-         patch("tools.query.chat_with_context", side_effect=fake_cwc), \
-         patch("tools.query._gather_context", return_value=fake_ctx):
-        from tools.query import query_with_search
+    with patch("llmwiki.query.chat", side_effect=fake_chat), \
+         patch("llmwiki.query.chat_with_context", side_effect=fake_cwc), \
+         patch("llmwiki.query._gather_context", return_value=fake_ctx):
+        from llmwiki.query import query_with_search
         query_with_search("q?", base_dir=tmp_kb, api_key="sk-per-req")
 
     assert "sk-per-req" in selector_keys
@@ -153,7 +153,7 @@ def test_kb_ask_schema_declares_api_key_writeonly():
     never echoes in op listings or MCP tool descriptions."""
     # Ensure the default op pack is registered. Importing the module
     # triggers the module-level ``Operation(...)`` block at the bottom.
-    import tools.operations as _ops
+    import llmwiki.operations as _ops
     kb_ask = _ops.get("kb_ask")
     assert kb_ask is not None, "kb_ask must be registered"
     props = kb_ask.params["properties"]
@@ -168,8 +168,8 @@ def test_op_ask_forwards_api_key(tmp_kb):
         captured.update(kwargs)
         return {"answer": "x", "consulted": []}
 
-    with patch("tools.query.query_with_search", side_effect=fake_qws):
-        from tools.operations import _op_ask
+    with patch("llmwiki.query.query_with_search", side_effect=fake_qws):
+        from llmwiki.operations import _op_ask
         _op_ask(tmp_kb, question="q", deep=True, api_key="sk-user")
     assert captured.get("api_key") == "sk-user"
 
@@ -178,7 +178,7 @@ def test_op_ask_forwards_api_key(tmp_kb):
 
 
 def _client(tmp_kb):
-    from tools.web import create_web_app
+    from llmwiki.web import create_web_app
     app = create_web_app(tmp_kb)
     app.config["TESTING"] = True
     return app.test_client()
@@ -294,7 +294,7 @@ def test_api_ask_x_llm_key_honored_in_local_dev(tmp_kb, monkeypatch):
     """Without LLMBASE_API_SECRET, X-LLM-Key header is accepted without auth."""
     monkeypatch.delenv("LLMBASE_API_SECRET", raising=False)
     captured = {}
-    with patch("tools.web.query", side_effect=_stub_shallow(captured)):
+    with patch("llmwiki.web.query", side_effect=_stub_shallow(captured)):
         c = _client(tmp_kb)
         r = c.post(
             "/api/ask",
@@ -320,7 +320,7 @@ def test_api_ask_x_llm_key_requires_auth_when_secret_set(tmp_kb, monkeypatch):
 def test_api_ask_x_llm_key_accepted_with_strong_auth(tmp_kb, monkeypatch):
     monkeypatch.setenv("LLMBASE_API_SECRET", "shh")
     captured = {}
-    with patch("tools.web.query", side_effect=_stub_shallow(captured)):
+    with patch("llmwiki.web.query", side_effect=_stub_shallow(captured)):
         c = _client(tmp_kb)
         r = c.post(
             "/api/ask",
@@ -338,7 +338,7 @@ def test_api_ask_cookie_auth_insufficient_for_x_llm_key(tmp_kb, monkeypatch):
     """Cookie (promote-level) auth must NOT unlock X-LLM-Key — that
     would let drive-by browser visitors burn the operator's key."""
     monkeypatch.setenv("LLMBASE_API_SECRET", "shh")
-    from tools.web import derive_session_token
+    from llmwiki.web import derive_session_token
     cookie = derive_session_token("shh")
     c = _client(tmp_kb)
     c.set_cookie("llmbase_auth", cookie)
@@ -353,7 +353,7 @@ def test_api_ask_cookie_auth_insufficient_for_x_llm_key(tmp_kb, monkeypatch):
 def test_api_ask_deep_path_forwards_api_key(tmp_kb, monkeypatch):
     monkeypatch.delenv("LLMBASE_API_SECRET", raising=False)
     captured = {}
-    from tools import operations as _ops
+    from llmwiki import operations as _ops
     with patch.object(_ops, "dispatch", side_effect=_stub_deep(captured)):
         c = _client(tmp_kb)
         r = c.post(
@@ -368,7 +368,7 @@ def test_api_ask_deep_path_forwards_api_key(tmp_kb, monkeypatch):
 def test_api_ask_empty_x_llm_key_header_treated_as_none(tmp_kb, monkeypatch):
     monkeypatch.delenv("LLMBASE_API_SECRET", raising=False)
     captured = {}
-    with patch("tools.web.query", side_effect=_stub_shallow(captured)):
+    with patch("llmwiki.web.query", side_effect=_stub_shallow(captured)):
         c = _client(tmp_kb)
         r = c.post(
             "/api/ask",
@@ -402,7 +402,7 @@ def test_api_ask_response_does_not_echo_key(tmp_kb, monkeypatch):
         # body would catch it. Answer intentionally benign.
         return {"answer": "safe answer", "output_path": None}
 
-    with patch("tools.web.query", side_effect=fake_query):
+    with patch("llmwiki.web.query", side_effect=fake_query):
         c = _client(tmp_kb)
         r = c.post(
             "/api/ask",
@@ -421,7 +421,7 @@ def test_api_ask_logs_do_not_contain_key(tmp_kb, monkeypatch, caplog):
         return {"answer": "ok", "output_path": None}
 
     with caplog.at_level(logging.DEBUG, logger="llmbase"), \
-         patch("tools.web.query", side_effect=fake_query):
+         patch("llmwiki.web.query", side_effect=fake_query):
         c = _client(tmp_kb)
         c.post(
             "/api/ask",
@@ -436,7 +436,7 @@ def test_api_ask_logs_do_not_contain_key(tmp_kb, monkeypatch, caplog):
 def test_chat_redacts_key_in_error(monkeypatch):
     """If the OpenAI client raises with the key echoed back, the retry
     warning and re-raised exception must not carry the key."""
-    import tools.llm as llm_mod
+    import llmwiki.llm as llm_mod
 
     KEY = "sk-echo-key-in-error"
     # Zero fallback retries: go straight from one primary attempt to raise.

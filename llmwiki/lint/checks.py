@@ -13,7 +13,7 @@ from ..llm import chat
 # ─── Customizable constants ──────────────────────────────────────
 # Downstream can override to adjust lint behaviour.
 #
-#     import tools.lint.checks as checks
+#     import llmwiki.lint.checks as checks
 #     checks.ALLOW_CJK_SLUGS = True   # don't flag CJK slugs as issues
 #
 

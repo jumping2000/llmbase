@@ -2,7 +2,7 @@
 
 import pytest
 
-from tools.normalize import (
+from llmwiki.normalize import (
     CLOSING_WRAPPERS,
     SENTENCE_TERMINATORS,
     HeadRule,
@@ -232,7 +232,7 @@ def test_paragraphs_preserves_crlf():
 def test_paragraphs_override_terminators(monkeypatch):
     # Downstream can add e.g. ``，`` to SENTENCE_TERMINATORS to stop
     # merging on it. Verify the override is honored.
-    monkeypatch.setattr("tools.normalize.SENTENCE_TERMINATORS", "。！？；.!?;，")
+    monkeypatch.setattr("llmwiki.normalize.SENTENCE_TERMINATORS", "。！？；.!?;，")
     src = "甲，\n乙。\n"
     assert normalize_paragraphs(src) == src  # ``，`` now terminates
 

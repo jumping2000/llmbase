@@ -5,7 +5,7 @@ from pathlib import Path
 
 import frontmatter
 
-from tools.compile import rebuild_index, _merge_into, _split_sections, _assemble_sections
+from llmwiki.compile import rebuild_index, _merge_into, _split_sections, _assemble_sections
 
 
 def test_rebuild_index(tmp_kb):

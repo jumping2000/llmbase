@@ -1,7 +1,7 @@
 """Lint package — health checks, auto-fix, and deduplication.
 
 Re-exports all public functions for backward compatibility:
-    from tools.lint import lint, auto_fix, check_broken_links, ...
+    from llmwiki.lint import lint, auto_fix, check_broken_links, ...
 """
 
 from .checks import (

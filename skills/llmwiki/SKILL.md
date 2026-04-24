@@ -47,7 +47,7 @@ requires:
 
 # llmwiki
 
-A personal knowledge base that an LLM _compiles_, not just stores. Raw documents go in, an LLM writes trilingual (EN / 中文 / 日本語) wiki articles with `[[wiki-links]]`, backlinks, and an emergent taxonomy. The MCP server dispatches every tool through `tools/operations.py`; the CLI exposes the same registry via `llmbase ops call`; individual HTTP/CLI wrappers are being migrated onto the registry over time.
+A personal knowledge base that an LLM _compiles_, not just stores. Raw documents go in, an LLM writes trilingual (EN / 中文 / 日本語) wiki articles with `[[wiki-links]]`, backlinks, and an emergent taxonomy. The MCP server dispatches every tool through `llmwiki/operations.py`; the CLI exposes the same registry via `llmbase ops call`; individual HTTP/CLI wrappers are being migrated onto the registry over time.
 
 - **PyPI**: `pip install llmwiki`
 - **CLI command**: `llmbase` (the package name and the command differ)
@@ -111,7 +111,7 @@ EOF
   "mcpServers": {
     "llmwiki": {
       "command": "python",
-      "args": ["-m", "tools.mcp_server", "--base-dir", "/path/to/my-kb"]
+      "args": ["-m", "llmwiki", "--base-dir", "/path/to/my-kb"]
     }
   }
 }
@@ -135,7 +135,7 @@ Tools exposed by the MCP server:
 | `kb_lint` | Health check / auto-fix |
 | `kb_export` / `kb_export_article` / `kb_export_tag` / `kb_export_graph` | Structured export for downstream projects |
 
-All tools are declared in `tools/operations.py` — downstream projects register custom ops via `operations.register(...)` and they become available on CLI + MCP automatically.
+All tools are declared in `llmwiki/operations.py` — downstream projects register custom ops via `operations.register(...)` and they become available on CLI + MCP automatically.
 
 Agents mounted on this server can answer from compiled concepts, fall back to raw sources with `kb_search_raw` when compile glossed a detail, ingest new material mid-session, and trigger healing.
 

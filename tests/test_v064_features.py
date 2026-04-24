@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 import pytest
 
-from tools.llm import strip_surrogates
+from llmwiki.llm import strip_surrogates
 
 
 # ─── C: surrogate sanitize ────────────────────────────────────────
@@ -48,8 +48,8 @@ def test_chat_with_context_sanitizes_payload():
         prompt.encode("utf-8")
         return "ok"
 
-    with patch("tools.llm.chat", side_effect=fake_chat):
-        from tools.llm import chat_with_context
+    with patch("llmwiki.llm.chat", side_effect=fake_chat):
+        from llmwiki.llm import chat_with_context
         result = chat_with_context(
             question="what is \udce7?",
             context_files=[{"path": "art\udce7", "content": "body\udce7here"}],
@@ -70,9 +70,9 @@ def test_query_passes_model_through(tmp_kb):
         return "stub answer"
 
     fake_ctx = [{"path": "stub.md", "content": "stub"}]
-    with patch("tools.query._gather_context", return_value=fake_ctx), \
-         patch("tools.query.chat_with_context", side_effect=fake_cwc):
-        from tools.query import query
+    with patch("llmwiki.query._gather_context", return_value=fake_ctx), \
+         patch("llmwiki.query.chat_with_context", side_effect=fake_cwc):
+        from llmwiki.query import query
         out = query("test?", base_dir=tmp_kb, model="my-special-model")
     assert out == "stub answer"
     assert captured["model"] == "my-special-model"
@@ -100,10 +100,10 @@ def test_query_with_search_passes_model_through(tmp_kb):
         return "stub answer"
 
     fake_ctx = [{"path": "stub.md", "content": "stub"}] * 3  # >=3 to skip fallback
-    with patch("tools.query.chat", side_effect=fake_chat), \
-         patch("tools.query.chat_with_context", side_effect=fake_cwc), \
-         patch("tools.query._gather_context", return_value=fake_ctx):
-        from tools.query import query_with_search
+    with patch("llmwiki.query.chat", side_effect=fake_chat), \
+         patch("llmwiki.query.chat_with_context", side_effect=fake_cwc), \
+         patch("llmwiki.query._gather_context", return_value=fake_ctx):
+        from llmwiki.query import query_with_search
         query_with_search("what?", base_dir=tmp_kb, model="custom-model")
 
     assert "custom-model" in selector_calls
@@ -119,9 +119,9 @@ def test_query_default_model_is_none_when_omitted(tmp_kb):
         return "x"
 
     fake_ctx = [{"path": "stub.md", "content": "stub"}]
-    with patch("tools.query._gather_context", return_value=fake_ctx), \
-         patch("tools.query.chat_with_context", side_effect=fake_cwc):
-        from tools.query import query
+    with patch("llmwiki.query._gather_context", return_value=fake_ctx), \
+         patch("llmwiki.query.chat_with_context", side_effect=fake_cwc):
+        from llmwiki.query import query
         query("q?", base_dir=tmp_kb)
     assert captured["model"] is None
 
@@ -130,7 +130,7 @@ def test_query_default_model_is_none_when_omitted(tmp_kb):
 
 
 def _client(tmp_kb):
-    from tools.web import create_web_app
+    from llmwiki.web import create_web_app
     app = create_web_app(tmp_kb)
     app.config["TESTING"] = True
     return app.test_client()
@@ -143,7 +143,7 @@ def test_api_ask_shallow_passes_model(tmp_kb):
         captured["model"] = model
         return {"answer": "x", "output_path": None}
 
-    with patch("tools.web.query", side_effect=fake_query):
+    with patch("llmwiki.web.query", side_effect=fake_query):
         c = _client(tmp_kb)
         r = c.post("/api/ask", json={"question": "hi", "deep": False, "model": "alpha-v2"})
     assert r.status_code == 200
@@ -157,7 +157,7 @@ def test_api_ask_deep_passes_model(tmp_kb):
         captured.update(args)
         return {"answer": "x", "consulted": []}
 
-    from tools import operations as _ops
+    from llmwiki import operations as _ops
     with patch.object(_ops, "dispatch", side_effect=fake_dispatch):
         c = _client(tmp_kb)
         r = c.post("/api/ask", json={"question": "hi", "deep": True, "model": "beta-v3"})
@@ -173,7 +173,7 @@ def test_api_ask_omitted_model_not_in_dispatch_args(tmp_kb):
         captured.update(args)
         return {"answer": "x", "consulted": []}
 
-    from tools import operations as _ops
+    from llmwiki import operations as _ops
     with patch.object(_ops, "dispatch", side_effect=fake_dispatch):
         c = _client(tmp_kb)
         r = c.post("/api/ask", json={"question": "hi", "deep": True})
@@ -201,7 +201,7 @@ def test_api_ask_empty_string_model_treated_as_none(tmp_kb):
         captured["model"] = model
         return {"answer": "x", "output_path": None}
 
-    with patch("tools.web.query", side_effect=fake_query):
+    with patch("llmwiki.web.query", side_effect=fake_query):
         c = _client(tmp_kb)
         r = c.post("/api/ask", json={"question": "hi", "deep": False, "model": "  "})
     assert r.status_code == 200
@@ -212,7 +212,7 @@ def test_api_ask_empty_string_model_treated_as_none(tmp_kb):
 
 
 def test_kb_ask_operation_declares_model_param():
-    from tools.operations import _REGISTRY
+    from llmwiki.operations import _REGISTRY
     op = _REGISTRY["kb_ask"]
     assert "model" in op.params["properties"]
 
@@ -222,7 +222,7 @@ def test_kb_ask_operation_declares_model_param():
 
 def test_ingest_url_sanitizes_content(tmp_kb, monkeypatch):
     """ingest_url must not write lone surrogates into raw/."""
-    from tools import ingest as _ing
+    from llmwiki import ingest as _ing
 
     class FakeResp:
         status_code = 200
@@ -252,7 +252,7 @@ def test_ingest_file_sanitizes_content(tmp_kb, monkeypatch):
     and re-serialising via frontmatter.dumps + write_text would crash
     or propagate the surrogate downstream.
     """
-    from tools import ingest as _ing
+    from llmwiki import ingest as _ing
     import frontmatter
 
     src = tmp_kb / "src.md"
@@ -296,7 +296,7 @@ def test_api_ask_model_override_allowed_when_authed(tmp_kb, monkeypatch):
         captured["model"] = model
         return {"answer": "x", "output_path": None}
 
-    with patch("tools.web.query", side_effect=fake_query):
+    with patch("llmwiki.web.query", side_effect=fake_query):
         c = _client(tmp_kb)
         r = c.post(
             "/api/ask",
@@ -316,7 +316,7 @@ def test_api_ask_model_override_rejects_spa_cookie(tmp_kb, monkeypatch):
     cannot pin an expensive model just by loading `/`.
     """
     monkeypatch.setenv("LLMBASE_API_SECRET", "secret-abc")
-    from tools.web import derive_session_token
+    from llmwiki.web import derive_session_token
     session = derive_session_token("secret-abc")
     c = _client(tmp_kb)
     c.set_cookie(domain="localhost", key="llmbase_auth", value=session)
@@ -328,13 +328,13 @@ def test_api_ask_model_override_rejects_spa_cookie(tmp_kb, monkeypatch):
 def test_api_ask_promote_still_accepts_cookie(tmp_kb, monkeypatch):
     """Regression guard: promote=True must still accept SPA cookie auth."""
     monkeypatch.setenv("LLMBASE_API_SECRET", "secret-abc")
-    from tools.web import derive_session_token
+    from llmwiki.web import derive_session_token
     session = derive_session_token("secret-abc")
 
     def fake_dispatch(name, base, args):
         return {"answer": "x", "consulted": []}
 
-    from tools import operations as _ops
+    from llmwiki import operations as _ops
     with patch.object(_ops, "dispatch", side_effect=fake_dispatch):
         c = _client(tmp_kb)
         c.set_cookie(domain="localhost", key="llmbase_auth", value=session)
@@ -358,7 +358,7 @@ def test_api_ask_model_allowlist_accepts_listed(tmp_kb, monkeypatch):
         captured["model"] = model
         return {"answer": "x", "output_path": None}
 
-    with patch("tools.web.query", side_effect=fake_query):
+    with patch("llmwiki.web.query", side_effect=fake_query):
         c = _client(tmp_kb)
         r = c.post("/api/ask", json={"question": "hi", "deep": False, "model": "gpt-4o-mini"})
     assert r.status_code == 200
@@ -369,7 +369,7 @@ def test_api_ask_model_allowlist_accepts_listed(tmp_kb, monkeypatch):
 
 
 def test_sanitize_slug_strips_url_punctuation():
-    from tools.compile import sanitize_slug
+    from llmwiki.compile import sanitize_slug
     assert sanitize_slug("reasons-just-vs-expl/?ref=josephnoelwalker.com") == \
         "reasons-just-vs-expl-ref=josephnoelwalker.com"
     assert sanitize_slug("foo bar baz") == "foo-bar-baz"
@@ -399,10 +399,10 @@ def test_heal_urly_slugs_renames_dirty_files(tmp_kb):
         created="2026-04-01T00:00:00+00:00", updated="2026-04-01T00:00:00+00:00",
     )), encoding="utf-8")
 
-    from tools.lint.fixes import heal_urly_slugs
+    from llmwiki.lint.fixes import heal_urly_slugs
     # Stub rebuild_index to skip taxonomy/backlinks regen — we only care
     # about file renames and wikilink rewrites in this test.
-    with patch("tools.compile.rebuild_index", lambda base_dir=None: []):
+    with patch("llmwiki.compile.rebuild_index", lambda base_dir=None: []):
         fixes = heal_urly_slugs(tmp_kb)
 
     assert any("Renamed" in f for f in fixes)
@@ -419,7 +419,7 @@ def test_heal_urly_slugs_renames_dirty_files(tmp_kb):
 
 def test_http_timeout_env_overrides_default(monkeypatch):
     """LLMBASE_HTTP_TIMEOUT must flow into the OpenAI client's httpx timeout."""
-    import tools.llm as _llm
+    import llmwiki.llm as _llm
     monkeypatch.setattr(_llm, "_client", None)
     monkeypatch.setenv("LLMBASE_HTTP_TIMEOUT", "900")
     monkeypatch.setenv("LLMBASE_HTTP_CONNECT_TIMEOUT", "15")
@@ -455,7 +455,7 @@ def test_worker_status_reflects_lock_state(tmp_kb):
     after a route change. Correctness guarantee: busy=True iff the lock is
     held by some other caller.
     """
-    from tools.worker import job_lock
+    from llmwiki.worker import job_lock
     c = _client(tmp_kb)
 
     assert not job_lock.locked()
@@ -476,7 +476,7 @@ def test_worker_status_reflects_lock_state(tmp_kb):
 
 
 def test_http_timeout_env_invalid_falls_back(monkeypatch):
-    import tools.llm as _llm
+    import llmwiki.llm as _llm
     monkeypatch.setattr(_llm, "_client", None)
     monkeypatch.setenv("LLMBASE_HTTP_TIMEOUT", "not-a-number")
     monkeypatch.setenv("LLMBASE_API_KEY", "sk-test")

@@ -24,7 +24,7 @@ logger = logging.getLogger("llmbase.xici")
 # ─── Customizable constants ──────────────────────────────────────
 # Override to change the guided introduction behavior.
 #
-#     import tools.xici as xici
+#     import llmwiki.xici as xici
 #     xici.XICI_SYSTEM_PROMPT = "You are a Confucian scholar..."
 #     xici.LANG_STYLES["zh"] = "请用白话文撰写。"
 #

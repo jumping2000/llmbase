@@ -30,7 +30,7 @@ Most "memory systems" store every word and hope semantic search finds it later. 
 
 Everything compounds. Every query, every lint pass, every ingest batch adds to the same graph: duplicate concepts merge (叠加进化), broken links auto-generate stubs, tone modes explain the same idea in several registers, citations resolve back to their sources. Humans and agents read the same wiki.
 
-One registry — `tools/operations.py` — declares every KB operation exactly once. The MCP server dispatches every tool through it; the CLI and HTTP API share the same `Operation` definitions and are being migrated onto it. Register an op via `operations.register(...)` and it's reachable from an MCP-enabled agent immediately.
+One registry — `llmwiki/operations.py` — declares every KB operation exactly once. The MCP server dispatches every tool through it; the CLI and HTTP API share the same `Operation` definitions and are being migrated onto it. Register an op via `operations.register(...)` and it's reachable from an MCP-enabled agent immediately.
 
 ## Pipeline
 
@@ -103,7 +103,7 @@ Works identically for `pip install llmwiki`, `pipx install llmwiki`, and
 
 ## Three Surfaces, One Contract
 
-Every operation is declared once in `tools/operations.py` and exposed everywhere.
+Every operation is declared once in `llmwiki/operations.py` and exposed everywhere.
 
 ### CLI
 
@@ -161,7 +161,7 @@ Read endpoints (articles, search, taxonomy, xici, entities) stay open. Mutating 
   "mcpServers": {
     "llmbase": {
       "command": "python",
-      "args": ["-m", "tools.mcp_server", "--base-dir", "/path/to/kb"]
+      "args": ["-m", "llmwiki", "--base-dir", "/path/to/kb"]
     }
   }
 }
@@ -190,18 +190,18 @@ health:
   max_stubs_per_run: 10
 ```
 
-The worker starts automatically under the production WSGI entrypoint (`wsgi.py` → `start_worker_thread`) — single deployment, no separate queue or cron. Local dev with `llmbase web` does not start the worker; run `gunicorn wsgi:app` (or call `tools.worker.start_worker_thread` yourself) to exercise the autonomous loop locally.
+The worker starts automatically under the production WSGI entrypoint (`wsgi.py` → `start_worker_thread`) — single deployment, no separate queue or cron. Local dev with `llmbase web` does not start the worker; run `gunicorn wsgi:app` (or call `llmwiki.worker.start_worker_thread` yourself) to exercise the autonomous loop locally.
 
 ## Customization
 
 Library, not framework. Override module-level constants at import time, or register callbacks on lifecycle events.
 
 ```python
-import tools.compile as c
-import tools.query   as q
-from tools.hooks     import register
-from tools.worker    import register_learn_source
-from tools.operations import register as register_op, Operation
+import llmwiki.compile as c
+import llmwiki.query   as q
+from llmwiki.hooks     import register
+from llmwiki.worker    import register_learn_source
+from llmwiki.operations import register as register_op, Operation
 
 # Single-language KB
 c.SECTION_HEADERS = [("wenyan", "## 文言")]
@@ -262,7 +262,7 @@ LLMBase（PyPI：`llmwiki`）是一个 **由 LLM 合成、而非单纯存储的�
 
 一切会累加。每次查询、每轮 lint、每批摄入都落进同一张图：重复概念合并（叠加进化）、断链自动补 stub、多种语气模式换不同方式讲同一件事、引用可溯源回原文。人和 agent 读的是同一套 wiki。
 
-单一注册表 `tools/operations.py` 把每个操作声明一次：MCP server 全部工具走该注册表派发；CLI 和 HTTP API 共用同一套 `Operation` 定义，正在逐步迁移接入。通过 `operations.register(...)` 注册一个 op，MCP-enabled agent 即可调用。
+单一注册表 `llmwiki/operations.py` 把每个操作声明一次：MCP server 全部工具走该注册表派发；CLI 和 HTTP API 共用同一套 `Operation` 定义，正在逐步迁移接入。通过 `operations.register(...)` 注册一个 op，MCP-enabled agent 即可调用。
 
 灵感来自 [Karpathy 的 LLM Knowledge Base 设计](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)。
 
@@ -354,7 +354,7 @@ llmbase serve                 # Agent API :5556
   "mcpServers": {
     "llmbase": {
       "command": "python",
-      "args": ["-m", "tools.mcp_server", "--base-dir", "/path/to/kb"]
+      "args": ["-m", "llmwiki", "--base-dir", "/path/to/kb"]
     }
   }
 }
@@ -380,18 +380,18 @@ health:
   max_stubs_per_run: 10
 ```
 
-Worker 在生产 WSGI 入口（`wsgi.py` → `start_worker_thread`）自动启动——单部署，无需额外队列或 cron。本地 `llmbase web` 开发时 worker 不会自启；要在本地跑自治循环，请用 `gunicorn wsgi:app`，或自行调用 `tools.worker.start_worker_thread`。
+Worker 在生产 WSGI 入口（`wsgi.py` → `start_worker_thread`）自动启动——单部署，无需额外队列或 cron。本地 `llmbase web` 开发时 worker 不会自启；要在本地跑自治循环，请用 `gunicorn wsgi:app`，或自行调用 `llmwiki.worker.start_worker_thread`。
 
 ### 定制与扩展
 
 "库而非框架"。import 时覆盖模块常数，或注册 hook：
 
 ```python
-import tools.compile as c
-import tools.query   as q
-from tools.hooks     import register
-from tools.worker    import register_learn_source
-from tools.operations import register as register_op, Operation
+import llmwiki.compile as c
+import llmwiki.query   as q
+from llmwiki.hooks     import register
+from llmwiki.worker    import register_learn_source
+from llmwiki.operations import register as register_op, Operation
 
 c.SECTION_HEADERS = [("wenyan", "## 文言")]                 # 单语 KB
 q.TONE_INSTRUCTIONS["formal_zh"] = "請以正式中文回答。"       # 自定义语气

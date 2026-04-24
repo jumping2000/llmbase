@@ -89,7 +89,7 @@ llmbase ingest dir ./my-documents/
 Register your own data source without forking the worker:
 
 ```python
-from tools.worker import register_learn_source
+from llmwiki.worker import register_learn_source
 
 def learn_from_arxiv(batch_size, base_dir, **kwargs):
     papers = fetch_arxiv(batch_size)
@@ -105,7 +105,7 @@ Then set `learn_source: arxiv` in config.yaml.
 Add recurring tasks to the worker loop:
 
 ```python
-from tools.worker import register_job
+from llmwiki.worker import register_job
 
 register_job("backup", interval_hours=12, handler=backup_wiki)
 ```

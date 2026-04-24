@@ -2,7 +2,7 @@
 
 import pytest
 
-from tools.anchor import Anchor, locate_span, normalize_text
+from llmwiki.anchor import Anchor, locate_span, normalize_text
 
 
 # ─── normalize_text ───────────────────────────────────────────────────

@@ -33,7 +33,7 @@ def discover_plugins() -> dict:
     for py_file in refs_dir.glob("*.py"):
         if py_file.name.startswith("_"):
             continue
-        module_name = f"tools.refs.{py_file.stem}"
+        module_name = f"llmwiki.refs.{py_file.stem}"
         try:
             mod = importlib.import_module(module_name)
             if hasattr(mod, "PLUGIN_ID"):

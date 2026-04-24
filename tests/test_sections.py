@@ -3,15 +3,15 @@
 import frontmatter
 import pytest
 
-from tools.operations import dispatch
-from tools.sections import (
+from llmwiki.operations import dispatch
+from llmwiki.sections import (
     extract_section_text,
     find_section,
     make_anchor,
     normalize_title,
     parse_sections,
 )
-from tools.web import create_web_app
+from llmwiki.web import create_web_app
 
 
 # ─── normalize_title ──────────────────────────────────────────────────

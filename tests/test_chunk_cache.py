@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from tools.chunk_cache import ChunkCache
+from llmwiki.chunk_cache import ChunkCache
 
 
 @pytest.fixture
@@ -193,20 +193,20 @@ def test_atomic_write_no_partial_on_exception(cache_root, monkeypatch):
     c = ChunkCache(cache_root)
     c.put("cid", "h", "stable-value")
 
-    from tools import atomic
+    from llmwiki import atomic
     original = atomic.atomic_write_text
 
     def boom(path, content):
         raise IOError("disk full (simulated)")
 
-    monkeypatch.setattr("tools.chunk_cache.atomic_write_text", boom)
+    monkeypatch.setattr("llmwiki.chunk_cache.atomic_write_text", boom)
     with pytest.raises(IOError):
         c.put("cid", "h", "would-corrupt")
     # Previous value still intact:
     assert c.get("cid", "h") == "stable-value"
 
     # Restore for any subsequent tests in the same session:
-    monkeypatch.setattr("tools.chunk_cache.atomic_write_text", original)
+    monkeypatch.setattr("llmwiki.chunk_cache.atomic_write_text", original)
 
 
 def test_no_tmp_leak_after_successful_put(cache_root):

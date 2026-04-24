@@ -1,11 +1,11 @@
 """MCP Server — expose LLMBase as a Model Context Protocol server.
 
-Tools are generated from ``tools.operations`` so this surface never drifts
+Tools are generated from ``llmwiki.operations`` so this surface never drifts
 from the CLI / HTTP definitions. Register a custom operation via
-``tools.operations.register`` and it appears here automatically.
+``llmwiki.operations.register`` and it appears here automatically.
 
 Usage:
-    python -m tools.mcp_server [--base-dir .]
+    python -m llmwiki [--base-dir .]
 
 Or register in a Claude Code / Cursor / Claude Desktop config::
 
@@ -13,7 +13,7 @@ Or register in a Claude Code / Cursor / Claude Desktop config::
       "mcpServers": {
         "llmbase": {
           "command": "python",
-          "args": ["-m", "tools.mcp_server", "--base-dir", "/path/to/kb"]
+          "args": ["-m", "llmwiki.mcp_server", "--base-dir", "/path/to/kb"]
         }
       }
     }
@@ -48,7 +48,7 @@ def handle_tool(name: str, arguments: dict, base_dir: Path) -> str:
 
     Kept for callers that pre-date the operations-contract refactor
     (tests, older integration scripts). New code should import
-    ``tools.operations.dispatch`` directly.
+    ``llmwiki.operations.dispatch`` directly.
     """
     if ops.get(name) is None:
         return f"Unknown tool: {name}"

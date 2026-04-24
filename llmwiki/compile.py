@@ -16,7 +16,7 @@ time to change compile behavior **without forking any function**:
 
 Example (single-language classical-Chinese KB)::
 
-    import tools.compile as c
+    import llmwiki.compile as c
     c.SECTION_HEADERS = [("文言", "## 文言")]
     c.COMPILE_ARTICLE_FORMAT = "## 文言\\n\\n以文言撰寫完整內容。"
     c.SYSTEM_PROMPT = "You are a classical-Chinese knowledge compiler..."
@@ -67,7 +67,7 @@ _RAW_TYPE_TO_PLUGIN = {
 # Downstream projects can override these module-level constants to
 # customize compile behavior without forking.  Example:
 #
-#     import tools.compile as compile_mod
+#     import llmwiki.compile as compile_mod
 #     compile_mod.SECTION_HEADERS = [("文言", "## 文言")]
 #     compile_mod.COMPILE_ARTICLE_FORMAT = "## 文言\n\n以文言撰寫完整內容。"
 #     compile_mod.SYSTEM_PROMPT = "You are a classical-Chinese compiler..."

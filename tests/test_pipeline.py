@@ -27,7 +27,7 @@ from pathlib import Path
 
 import pytest
 
-from tools.pipeline import (
+from llmwiki.pipeline import (
     RESERVED_EVENTS,
     StageBusyError,
     StagePartialExit,
@@ -35,8 +35,8 @@ from tools.pipeline import (
     rebuild_state,
     run_stage,
 )
-from tools.pipeline import log as pipeline_log
-from tools.pipeline.lock import StageLock
+from llmwiki.pipeline import log as pipeline_log
+from llmwiki.pipeline.lock import StageLock
 
 
 # ── helpers ───────────────────────────────────────────────────────────
@@ -649,7 +649,7 @@ def test_tail_limit(tmp_path):
 
 def _worker_append(args):
     base, stage, key, worker_id, count = args
-    from tools.pipeline import log as _log  # fresh import in child
+    from llmwiki.pipeline import log as _log  # fresh import in child
     for i in range(count):
         _log.append(Path(base), stage, key, {
             "event": "work",
@@ -940,7 +940,7 @@ def test_concurrent_stale_break_no_overlap(tmp_path):
     assert wins >= 1, f"no worker ever acquired: {results}"
 
     # Post-condition: lock is free, interrupted event was logged.
-    from tools.pipeline.lock import StageLock as _L
+    from llmwiki.pipeline.lock import StageLock as _L
     final = _L(tmp_path, "s", "race")
     assert final.acquire(), "lock should be free after all workers exit"
     final.release()
@@ -953,8 +953,8 @@ def test_concurrent_stale_break_no_overlap(tmp_path):
 def _race_worker(args):
     base, worker_id, marker_str = args
     from pathlib import Path as _P
-    from tools.pipeline import run_stage as _run
-    from tools.pipeline.driver import StageBusyError as _Busy
+    from llmwiki.pipeline import run_stage as _run
+    from llmwiki.pipeline.driver import StageBusyError as _Busy
     import os as _os
     import time as _time
     marker = _P(marker_str)

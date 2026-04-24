@@ -1,6 +1,6 @@
 """Tests for entity extraction and dedup."""
 
-from tools.entities import _dedup_entities, _parse_entity_response
+from llmwiki.entities import _dedup_entities, _parse_entity_response
 
 
 def test_dedup_by_name():

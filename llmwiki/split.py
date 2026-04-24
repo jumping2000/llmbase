@@ -16,7 +16,7 @@ Reuses ``sections._iter_headings`` for fence-aware heading iteration
 
 Example::
 
-    from tools.split import split_by_heading
+    from llmwiki.split import split_by_heading
 
     body = "## 緒論\\n第一段。\\n## 第一章\\n內文。\\n### 子\\n子內\\n"
     sections = split_by_heading(body, level=2)

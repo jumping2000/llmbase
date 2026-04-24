@@ -5,7 +5,7 @@ from pathlib import Path
 
 import frontmatter
 
-from tools.search import search_raw
+from llmwiki.search import search_raw
 
 
 def _write_raw(raw_dir: Path, subdir: str, title: str, content: str, source: str = ""):

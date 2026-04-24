@@ -41,8 +41,8 @@ def test_chat_with_meta_happy_path():
     def fake_call(messages, model, max_tokens, api_key=None):
         return ("hello", "stop", _usage(prompt=5, completion=3))
 
-    with patch("tools.llm._call_llm", side_effect=fake_call):
-        from tools.llm import chat_with_meta
+    with patch("llmwiki.llm._call_llm", side_effect=fake_call):
+        from llmwiki.llm import chat_with_meta
         text, meta = chat_with_meta("hi", model="m1")
 
     assert text == "hello"
@@ -62,8 +62,8 @@ def test_chat_with_meta_length_cut_returns_truncated_true():
     def fake_call(messages, model, max_tokens, api_key=None):
         return ("partial output...", "length", _usage(completion=16384))
 
-    with patch("tools.llm._call_llm", side_effect=fake_call):
-        from tools.llm import chat_with_meta
+    with patch("llmwiki.llm._call_llm", side_effect=fake_call):
+        from llmwiki.llm import chat_with_meta
         text, meta = chat_with_meta("hi", model="m1", max_tokens=16384)
 
     assert text == "partial output..."
@@ -76,8 +76,8 @@ def test_chat_with_meta_unknown_finish_reason_not_truncated():
     def fake_call(messages, model, max_tokens, api_key=None):
         return ("x", None, _usage())
 
-    with patch("tools.llm._call_llm", side_effect=fake_call):
-        from tools.llm import chat_with_meta
+    with patch("llmwiki.llm._call_llm", side_effect=fake_call):
+        from llmwiki.llm import chat_with_meta
         _, meta = chat_with_meta("hi", model="m")
 
     assert meta.finish_reason is None
@@ -88,7 +88,7 @@ def test_chat_with_meta_reasoning_tokens_flattened_from_openai_nested():
     """OpenAI SDK returns reasoning_tokens nested in
     completion_tokens_details — `_extract_usage` must flatten it into
     the top-level usage dict so callers don't walk nested objects."""
-    from tools.llm import _extract_usage
+    from llmwiki.llm import _extract_usage
 
     class FakeDetails:
         reasoning_tokens = 512
@@ -108,7 +108,7 @@ def test_chat_with_meta_reasoning_tokens_flattened_from_openai_nested():
 
 def test_extract_usage_missing_details_leaves_reasoning_none():
     """Providers that don't return reasoning_tokens → None (not KeyError)."""
-    from tools.llm import _extract_usage
+    from llmwiki.llm import _extract_usage
 
     class FakeUsage:
         prompt_tokens = 10
@@ -122,7 +122,7 @@ def test_extract_usage_missing_details_leaves_reasoning_none():
 
 def test_extract_usage_none_returns_none_filled_dict():
     """Some providers omit usage entirely — must not crash."""
-    from tools.llm import _extract_usage
+    from llmwiki.llm import _extract_usage
 
     usage = _extract_usage(None)
     assert usage["prompt_tokens"] is None
@@ -135,7 +135,7 @@ def test_extract_usage_accepts_dict_shaped_payload():
     Regression for Codex v0.7.8 finding: strict `getattr` silently
     coerced every usage field to ``None`` on dict-shaped input, which
     would make downstream `tokens_per_char` calibration noisy."""
-    from tools.llm import _extract_usage
+    from llmwiki.llm import _extract_usage
 
     usage_dict = {
         "prompt_tokens": 42,
@@ -152,7 +152,7 @@ def test_extract_usage_accepts_dict_shaped_payload():
 
 def test_extract_usage_dict_without_reasoning_details():
     """Dict-shaped usage missing the nested reasoning details → None."""
-    from tools.llm import _extract_usage
+    from llmwiki.llm import _extract_usage
 
     usage = _extract_usage({"prompt_tokens": 1, "completion_tokens": 2,
                              "total_tokens": 3})
@@ -179,11 +179,11 @@ def test_chat_with_meta_fallback_records_fallback_model_and_attempts(monkeypatch
         return ("hello from fallback", "stop", _usage())
 
     # monkeypatch time.sleep so the 2**attempt backoff doesn't wall-clock.
-    import tools.llm as llm_mod
+    import llmwiki.llm as llm_mod
     monkeypatch.setattr(llm_mod, "time", type("T", (), {"sleep": lambda *_: None}))
 
-    with patch("tools.llm._call_llm", side_effect=fake_call):
-        from tools.llm import chat_with_meta
+    with patch("llmwiki.llm._call_llm", side_effect=fake_call):
+        from llmwiki.llm import chat_with_meta
         text, meta = chat_with_meta("hi", model="primary")
 
     assert text == "hello from fallback"
@@ -200,8 +200,8 @@ def test_chat_with_meta_attempts_one_on_clean_first_try(monkeypatch):
     def fake_call(messages, model, max_tokens, api_key=None):
         return ("ok", "stop", _usage())
 
-    with patch("tools.llm._call_llm", side_effect=fake_call):
-        from tools.llm import chat_with_meta
+    with patch("llmwiki.llm._call_llm", side_effect=fake_call):
+        from llmwiki.llm import chat_with_meta
         _, meta = chat_with_meta("hi", model="m")
 
     assert meta.attempts == 1
@@ -220,11 +220,11 @@ def test_chat_with_meta_empty_exhausted_returns_empty_plus_last_meta(monkeypatch
     def fake_call(messages, model, max_tokens, api_key=None):
         return ("", "stop", _usage(completion=0))
 
-    import tools.llm as llm_mod
+    import llmwiki.llm as llm_mod
     monkeypatch.setattr(llm_mod, "time", type("T", (), {"sleep": lambda *_: None}))
 
-    with patch("tools.llm._call_llm", side_effect=fake_call):
-        from tools.llm import chat_with_meta
+    with patch("llmwiki.llm._call_llm", side_effect=fake_call):
+        from llmwiki.llm import chat_with_meta
         text, meta = chat_with_meta("hi", model="m")
 
     assert text == ""
@@ -246,11 +246,11 @@ def test_chat_with_meta_empty_then_length_cut_last_round_wins(monkeypatch):
     def fake_call(messages, model, max_tokens, api_key=None):
         return next(responses)
 
-    import tools.llm as llm_mod
+    import llmwiki.llm as llm_mod
     monkeypatch.setattr(llm_mod, "time", type("T", (), {"sleep": lambda *_: None}))
 
-    with patch("tools.llm._call_llm", side_effect=fake_call):
-        from tools.llm import chat_with_meta
+    with patch("llmwiki.llm._call_llm", side_effect=fake_call):
+        from llmwiki.llm import chat_with_meta
         text, meta = chat_with_meta("hi", model="m")
 
     assert text == ""
@@ -268,8 +268,8 @@ def test_chat_with_meta_forwards_api_key():
         captured["api_key"] = api_key
         return ("ok", "stop", _usage())
 
-    with patch("tools.llm._call_llm", side_effect=fake_call):
-        from tools.llm import chat_with_meta
+    with patch("llmwiki.llm._call_llm", side_effect=fake_call):
+        from llmwiki.llm import chat_with_meta
         chat_with_meta("hi", model="m", api_key="sk-user-abc")
 
     assert captured["api_key"] == "sk-user-abc"
@@ -281,8 +281,8 @@ def test_chat_with_meta_does_not_leak_api_key_into_meta():
     def fake_call(messages, model, max_tokens, api_key=None):
         return ("ok", "stop", _usage())
 
-    with patch("tools.llm._call_llm", side_effect=fake_call):
-        from tools.llm import chat_with_meta
+    with patch("llmwiki.llm._call_llm", side_effect=fake_call):
+        from llmwiki.llm import chat_with_meta
         _, meta = chat_with_meta("hi", model="m", api_key="sk-secret-XYZ")
 
     # Fields' string reprs must not echo the key.
@@ -298,8 +298,8 @@ def test_chat_returns_bare_string_not_tuple():
     def fake_call(messages, model, max_tokens, api_key=None):
         return ("bare-string", "stop", _usage())
 
-    with patch("tools.llm._call_llm", side_effect=fake_call):
-        from tools.llm import chat
+    with patch("llmwiki.llm._call_llm", side_effect=fake_call):
+        from llmwiki.llm import chat
         result = chat("hi", model="m")
 
     assert isinstance(result, str)
@@ -315,11 +315,11 @@ def test_chat_empty_exhausted_returns_empty_string(monkeypatch):
     def fake_call(messages, model, max_tokens, api_key=None):
         return ("", "stop", _usage())
 
-    import tools.llm as llm_mod
+    import llmwiki.llm as llm_mod
     monkeypatch.setattr(llm_mod, "time", type("T", (), {"sleep": lambda *_: None}))
 
-    with patch("tools.llm._call_llm", side_effect=fake_call):
-        from tools.llm import chat
+    with patch("llmwiki.llm._call_llm", side_effect=fake_call):
+        from llmwiki.llm import chat
         assert chat("hi", model="m") == ""
 
 
@@ -331,19 +331,19 @@ def test_reasoning_budget_siwen_postmortem_numbers():
 
     Exact formula: 32000 * 0.8 / 17 = 1505.88 → int() truncates to 1505.
     siwen rounded to 1500 in their config; 1505 is the precise answer."""
-    from tools.llm import reasoning_budget
+    from llmwiki.llm import reasoning_budget
     assert reasoning_budget(max_tokens=32000, tokens_per_char=17) == 1505
 
 
 def test_reasoning_budget_tight_safety():
     """Lower safety fraction → smaller chunk (more headroom)."""
-    from tools.llm import reasoning_budget
+    from llmwiki.llm import reasoning_budget
     assert reasoning_budget(32000, 17, safety=0.6) == 1129  # 32000*0.6/17
 
 
 def test_reasoning_budget_ascii_summarization_ratio():
     """Low ratio (summarization: ~2 tokens/input-char) → much larger chunks."""
-    from tools.llm import reasoning_budget
+    from llmwiki.llm import reasoning_budget
     result = reasoning_budget(max_tokens=8000, tokens_per_char=2.0)
     assert result == 3200  # 8000 * 0.8 / 2
 
@@ -351,13 +351,13 @@ def test_reasoning_budget_ascii_summarization_ratio():
 def test_reasoning_budget_never_returns_zero_for_valid_input():
     """Tiny budget × large ratio still returns ``>= 1`` — caller can't
     slice at 0 and should know the model is too cramped for the prompt."""
-    from tools.llm import reasoning_budget
+    from llmwiki.llm import reasoning_budget
     # 10 * 0.8 / 100 = 0.08 → int() = 0 → clamp to 1.
     assert reasoning_budget(max_tokens=10, tokens_per_char=100.0) == 1
 
 
 def test_reasoning_budget_rejects_nonpositive_max_tokens():
-    from tools.llm import reasoning_budget
+    from llmwiki.llm import reasoning_budget
     with pytest.raises(ValueError, match="max_tokens"):
         reasoning_budget(max_tokens=0, tokens_per_char=17)
     with pytest.raises(ValueError, match="max_tokens"):
@@ -365,7 +365,7 @@ def test_reasoning_budget_rejects_nonpositive_max_tokens():
 
 
 def test_reasoning_budget_rejects_nonpositive_ratio():
-    from tools.llm import reasoning_budget
+    from llmwiki.llm import reasoning_budget
     with pytest.raises(ValueError, match="tokens_per_char"):
         reasoning_budget(32000, tokens_per_char=0)
     with pytest.raises(ValueError, match="tokens_per_char"):
@@ -373,7 +373,7 @@ def test_reasoning_budget_rejects_nonpositive_ratio():
 
 
 def test_reasoning_budget_rejects_safety_out_of_range():
-    from tools.llm import reasoning_budget
+    from llmwiki.llm import reasoning_budget
     with pytest.raises(ValueError, match="safety"):
         reasoning_budget(32000, 17, safety=0)
     with pytest.raises(ValueError, match="safety"):
@@ -384,13 +384,13 @@ def test_reasoning_budget_rejects_safety_out_of_range():
 
 def test_reasoning_budget_safety_one_is_valid():
     """safety=1.0 is the no-headroom upper bound — valid but aggressive."""
-    from tools.llm import reasoning_budget
+    from llmwiki.llm import reasoning_budget
     assert reasoning_budget(32000, 17, safety=1.0) == int(32000 / 17)
 
 
 def test_reasoning_budget_is_pure():
     """No env reads, no global state — same inputs always yield same output."""
-    from tools.llm import reasoning_budget
+    from llmwiki.llm import reasoning_budget
     a = reasoning_budget(10000, 5.5, safety=0.75)
     b = reasoning_budget(10000, 5.5, safety=0.75)
     assert a == b
@@ -400,7 +400,7 @@ def test_reasoning_budget_rejects_inf_overflow_as_valueerror():
     """Pathological large inputs that overflow to inf during float math
     surface as ValueError, not OverflowError — preserves the docstring's
     uniform bad-input contract (Codex v0.7.8 finding)."""
-    from tools.llm import reasoning_budget
+    from llmwiki.llm import reasoning_budget
     # max_tokens huge × safety 1.0 / tiny-positive ratio → multiplication
     # that overflows float64 to inf; int(inf) would otherwise raise
     # OverflowError.
@@ -414,7 +414,7 @@ def test_reasoning_budget_rejects_inf_overflow_as_valueerror():
 
 def test_reasoning_budget_rejects_nan_ratio():
     """NaN tokens_per_char (bogus float) hits the finiteness guard too."""
-    from tools.llm import reasoning_budget
+    from llmwiki.llm import reasoning_budget
     with pytest.raises(ValueError):
         # NaN compares False against any threshold, so this slips past
         # the `<= 0` check — must be caught by the isfinite guard.
@@ -426,7 +426,7 @@ def test_reasoning_budget_rejects_int_too_large_for_float():
     first ``int * float`` and would raise OverflowError before the
     isfinite guard runs. Codex v0.7.8 round-2 flagged this edge;
     reason_budget now catches OverflowError and re-raises ValueError."""
-    from tools.llm import reasoning_budget
+    from llmwiki.llm import reasoning_budget
     with pytest.raises(ValueError, match="arithmetic failed"):
         # 10**309 > sys.float_info.max (~1.8e308); `int * float`
         # conversion raises OverflowError on the multiplication itself.

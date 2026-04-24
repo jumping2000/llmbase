@@ -6,7 +6,7 @@ remote sync table, triggering a CI pipeline, sending a notification.
 
 Usage from a downstream project (e.g. 华藏阁 startup)::
 
-    from tools.hooks import register
+    from llmwiki.hooks import register
     register("ingested", lambda source, work_id, **kw: sync.push(source, work_id))
     register("compiled", lambda source, work_id, **kw: sync.mark(source, work_id))
 

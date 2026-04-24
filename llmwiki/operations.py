@@ -8,7 +8,7 @@ Adding or modifying an op — change it here and all three surfaces update.
 
 Downstream projects extend the contract via ``operations.register``::
 
-    from tools.operations import register, Operation
+    from llmwiki.operations import register, Operation
     register(Operation(
         name="kb_custom",
         description="...",

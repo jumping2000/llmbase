@@ -20,7 +20,7 @@ logger = logging.getLogger("llmbase.entities")
 # ─── Customizable constants ──────────────────────────────────────
 # Override to change entity extraction behavior for different domains.
 #
-#     import tools.entities as ent
+#     import llmwiki.entities as ent
 #     ent.ENTITY_SYSTEM_PROMPT = "Extract scientific entities..."
 #     ent.ENTITY_PROMPT = "... custom format ..."
 #

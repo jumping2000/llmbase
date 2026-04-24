@@ -19,7 +19,7 @@ Add to `~/.claude/settings.json` or project `.claude/settings.json`:
   "mcpServers": {
     "llmbase": {
       "command": "python",
-      "args": ["-m", "tools.mcp_server", "--base-dir", "/absolute/path/to/your/kb"]
+      "args": ["-m", "llmwiki", "--base-dir", "/absolute/path/to/your/kb"]
     }
   }
 }
@@ -29,7 +29,7 @@ Add to `~/.claude/settings.json` or project `.claude/settings.json`:
 
 Each client has its own MCP configuration. The key fields are the same:
 - **command**: `python`
-- **args**: `["-m", "tools.mcp_server", "--base-dir", "/path/to/kb"]`
+- **args**: `["-m", "llmwiki", "--base-dir", "/path/to/kb"]`
 - **transport**: stdio (default)
 
 ### CLI
@@ -102,9 +102,9 @@ Claude: [calls kb_backlinks with slug="mencius"]
 ```
 AI Client (Claude Code / Cursor / etc.)
   ↕ stdio (JSON-RPC)
-MCP Server (tools/mcp_server.py)
+MCP Server (llmwiki/mcp_server.py)
   ↕ direct Python calls
-LLMBase core (tools/*.py)
+LLMBase core (llmwiki/*.py)
   ↕ file I/O
 wiki/_meta/*.json + wiki/concepts/*.md
 ```
@@ -113,6 +113,6 @@ No HTTP server needed. The MCP server is a lightweight Python process that the A
 
 ## Publishing
 
-MCP servers don't need to be "published" — they run locally. Just point your AI client's config to the `python -m tools.mcp_server` command with the right `--base-dir`.
+MCP servers don't need to be "published" — they run locally. Just point your AI client's config to the `python -m llmwiki` command with the right `--base-dir`.
 
 For sharing: users clone the repo, `pip install -e .`, and add the MCP config to their client.

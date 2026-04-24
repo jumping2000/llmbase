@@ -10,7 +10,7 @@ Downstream projects can override these module-level constants:
 
 Example::
 
-    import tools.query as q
+    import llmwiki.query as q
     q.TONE_INSTRUCTIONS["formal_chinese"] = "請以正式中文回答。"
 """
 
