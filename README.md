@@ -58,6 +58,24 @@ raw/ ──compile──>  wiki/concepts/  ──query/lint──>  wiki/ (enhan
 - **Self-healing.** 7-step auto-fix: clean → metadata → broken-links → dedup → taxonomy. Merges `benevolence` + `ren` + `仁爱` into one article rather than three.
 - **Library, not framework.** Downstream projects override module-level constants and register hooks. No forking. The customization contract is stable across versions.
 
+## Upgrading to v0.8.0
+
+**Breaking change:** the Python package namespace was renamed from `tools` to `llmwiki` to avoid top-level namespace collisions on PyPI.
+
+```python
+# Before (v0.7.x)
+from tools.compile import rebuild_index
+import tools.query as q
+
+# After (v0.8.0+)
+from llmwiki.compile import rebuild_index
+import llmwiki.query as q
+```
+
+MCP invocation: `python -m tools.mcp_server` → `python -m llmwiki`
+
+CLI command (`llmbase`) and PyPI package name (`llmwiki`) are unchanged.
+
 ## Install
 
 ```bash
@@ -288,6 +306,22 @@ raw/ ──compile──>  wiki/concepts/  ──query/lint──>  wiki/（增�
 - **一套契约，三个面**——同一个 `Operation(...)` 同时驱动 CLI / HTTP / MCP
 - **自愈**——7 步 auto-fix：清理 → 元数据 → 断链 → 合并 → 分类
 - **库而非框架**——下游通过覆盖模块常数和注册 hook 定制，不 fork，契约跨版本稳定
+
+### 升级到 v0.8.0
+
+**破坏性变更：** Python 包命名空间从 `tools` 改为 `llmwiki`，以避免 PyPI 上的顶层命名空间冲突。
+
+```python
+# 旧（v0.7.x）
+from tools.compile import rebuild_index
+
+# 新（v0.8.0+）
+from llmwiki.compile import rebuild_index
+```
+
+MCP 调用：`python -m tools.mcp_server` → `python -m llmwiki`
+
+CLI 命令 (`llmbase`) 和 PyPI 包名 (`llmwiki`) 不变。
 
 ### 安装
 
