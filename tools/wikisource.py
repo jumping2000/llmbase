@@ -265,6 +265,12 @@ def _wikitext_to_markdown(wikitext: str) -> str:
     """Convert MediaWiki wikitext to clean markdown."""
     text = wikitext
 
+    # Unwrap small-note template {{*|content}} — Chinese Wikisource annotation
+    # marker used pervasively in classical commentaries (e.g. 王弼注, 河上公章句,
+    # 黃帝陰符經集註 seven-family notes). Must run BEFORE the generic template
+    # stripper below, or commentary text is lost leaving naked `:`/`::` markers.
+    text = re.sub(r"\{\{\*\|([^}]*)\}\}", r"\1", text)
+
     # Remove templates like {{header|...}}
     text = re.sub(r"\{\{[Hh]eader[^}]*\}\}", "", text)
     text = re.sub(r"\{\{[^}]{0,200}\}\}", "", text)

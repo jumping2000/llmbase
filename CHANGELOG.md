@@ -2,6 +2,11 @@
 
 All notable changes to LLMBase (llmwiki) will be documented in this file.
 
+## [0.7.10] — 2026-04-24
+
+### Fixed
+- **`tools.wikisource._wikitext_to_markdown` — `{{*|content}}` small-note template was being silently stripped.** The generic `\{\{[^}]{0,200}\}\}` template stripper ran before any unwrap rule, so Chinese Wikisource's pervasive small-note annotation marker — used to wrap the content of classical commentaries (王弼注, 河上公章句, 黃帝陰符經集註 seven-family notes, 周易參同契 諸家注) — was deleted along with the commentators' actual text, leaving only the MediaWiki definition-list markers (`:`, `::`) as naked empty lines. Siwen's 2026-04-24 discovery: `raw/wikisource-黃帝陰符經集註/index.md` had 131 naked-colon lines out of 183 total (72% of the file was empty scaffolding); `raw/wikisource-道德經-王弼本/index.md` had 948; `raw/wikisource-老子河上公章句-德經/index.md` had 495 — **王弼 entire commentary, 河上公 entire 章句, 七家 entire 註 all lost at ingest**. Downstream `wiki/concepts/*.md` summaries were compiled from the lossy text, so the data damage had propagated one layer further. Fix: unwrap `{{*|content}} → content` **before** the generic stripper (rule order matters — the unwrap must win). Other templates (`{{header|...}}`, etc.) continue to be stripped as before. Downstream recovery requires re-running `tools.wikisource.ingest()` on affected works to rewrite `raw/` from wikitext, then re-compiling the concept summaries.
+
 ## [0.7.8] — 2026-04-21
 
 ### Added
