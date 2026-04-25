@@ -9,6 +9,7 @@ import { api, type Stats, type XiCi } from '../lib/api';
 export function Dashboard() {
   const navigate = useNavigate();
   const { lang } = useLang();
+  const it = lang === 'it' || lang === 'en-it';
   const [stats, setStats] = useState<Stats | null>(null);
   const [xici, setXiCi] = useState<XiCi | null>(null);
   const [generating, setGenerating] = useState(false);
@@ -50,7 +51,7 @@ export function Dashboard() {
             <div className="flex items-center gap-2">
               <Icon name="auto_stories" className="text-primary text-[20px]" />
               <span className="text-xs uppercase tracking-widest text-on-surface-variant">
-                {lang === 'zh' || lang === 'zh-en' ? '导读' : lang === 'ja' ? '導読' : 'Guided Reading'}
+                {it ? 'Lettura guidata' : 'Guided Reading'}
               </span>
             </div>
             <div className="flex items-center gap-3">
@@ -63,7 +64,7 @@ export function Dashboard() {
                 className="flex items-center gap-1 px-2.5 py-1 text-xs text-on-surface-variant hover:text-primary rounded-lg hover:bg-surface-container-highest/50 transition-colors disabled:opacity-50"
               >
                 <Icon name={generating ? 'hourglass_empty' : 'refresh'} className="text-[14px]" />
-                {generating ? (lang === 'zh' || lang === 'zh-en' ? '生成中...' : 'Generating...') : ''}
+                {generating ? (it ? 'Generazione...' : 'Generating...') : ''}
               </button>
             </div>
           </div>
@@ -78,11 +79,11 @@ export function Dashboard() {
           ) : (
             <div className="text-sm text-on-surface-variant italic py-4">
               {stats?.article_count
-                ? (lang === 'zh' || lang === 'zh-en'
-                    ? '点击刷新按钮生成知识库导读'
+                ? (it
+                    ? 'Premi aggiorna per generare una lettura guidata della base di conoscenza'
                     : 'Click refresh to generate a guided introduction')
-                : (lang === 'zh' || lang === 'zh-en'
-                    ? '知识库为空。请先导入文档并编译。'
+                : (it
+                    ? 'La base di conoscenza e vuota. Importa documenti e compila prima.'
                     : 'Knowledge base is empty. Ingest and compile documents first.')}
             </div>
           )}
@@ -103,10 +104,10 @@ export function Dashboard() {
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {[
-          { icon: 'description', label: 'Raw Documents', value: stats?.raw_count, color: 'text-secondary' },
-          { icon: 'article', label: 'Wiki Articles', value: stats?.article_count, color: 'text-primary' },
-          { icon: 'link', label: 'Knowledge Links', value: stats?.link_count, color: 'text-tertiary' },
-          { icon: 'health_and_safety', label: 'Health Score',
+          { icon: 'description', label: it ? 'Documenti grezzi' : 'Raw Documents', value: stats?.raw_count, color: 'text-secondary' },
+          { icon: 'article', label: it ? 'Articoli wiki' : 'Wiki Articles', value: stats?.article_count, color: 'text-primary' },
+          { icon: 'link', label: it ? 'Collegamenti' : 'Knowledge Links', value: stats?.link_count, color: 'text-tertiary' },
+          { icon: 'health_and_safety', label: it ? 'Stato di salute' : 'Health Score',
             value: stats ? `${stats.health_score}%` : undefined, color: 'text-on-surface' },
         ].map(s => (
           <div key={s.label} className="bg-surface-container rounded-xl p-5 border border-outline-variant/20">
@@ -126,13 +127,13 @@ export function Dashboard() {
         {/* Actions */}
         <div className="flex flex-wrap gap-3">
           <button onClick={() => navigate('/qa')} className="flex items-center gap-2 px-5 py-3 bg-primary/10 border border-primary/20 rounded-xl text-sm hover:bg-primary/20 transition-colors">
-            <Icon name="forum" className="text-primary text-[18px]" /> Ask a Question
+            <Icon name="forum" className="text-primary text-[18px]" /> {it ? 'Fai una domanda' : 'Ask a Question'}
           </button>
           <button onClick={() => navigate('/ingest')} className="flex items-center gap-2 px-5 py-3 bg-surface-container border border-outline-variant/30 rounded-xl text-sm hover:border-secondary/50 transition-colors">
-            <Icon name="add_link" className="text-secondary text-[18px]" /> Ingest
+            <Icon name="add_link" className="text-secondary text-[18px]" /> {it ? 'Importa' : 'Ingest'}
           </button>
           <button onClick={() => navigate('/health')} className="flex items-center gap-2 px-5 py-3 bg-surface-container border border-outline-variant/30 rounded-xl text-sm hover:border-tertiary/50 transition-colors">
-            <Icon name="health_and_safety" className="text-tertiary text-[18px]" /> Health Check
+            <Icon name="health_and_safety" className="text-tertiary text-[18px]" /> {it ? 'Controllo salute' : 'Health Check'}
           </button>
         </div>
 

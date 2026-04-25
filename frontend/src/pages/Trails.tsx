@@ -8,7 +8,7 @@ import { api, type Trail } from '../lib/api';
 export function Trails() {
   const navigate = useNavigate();
   const { lang } = useLang();
-  const zh = lang === 'zh' || lang === 'zh-en';
+  const it = lang === 'it' || lang === 'en-it';
   const [trails, setTrails] = useState<Trail[]>([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -35,9 +35,9 @@ export function Trails() {
 
   return (
     <div className="p-8 max-w-[900px] mx-auto">
-      <h1 className="font-headline text-3xl font-bold mb-2">{zh ? '探索路径' : 'Research Trails'}</h1>
+      <h1 className="font-headline text-3xl font-bold mb-2">{it ? 'Percorsi di ricerca' : 'Research Trails'}</h1>
       <p className="text-on-surface-variant text-sm mb-8">
-        {zh ? '记录你的研究路线——从一个概念出发，层层深入。' : 'Record your research journey — follow threads of inquiry.'}
+        {it ? 'Registra il tuo percorso di ricerca, seguendo un filo alla volta.' : 'Record your research journey — follow threads of inquiry.'}
       </p>
 
       {loading && <Shimmer lines={4} />}
@@ -45,7 +45,7 @@ export function Trails() {
       {!loading && trails.length === 0 && (
         <div className="text-center py-16 text-on-surface-variant">
           <Icon name="route" className="text-5xl mb-3 block" />
-          <p>{zh ? '还没有探索路径。浏览文章时点击右下角按钮开始记录。' : 'No trails yet. Click the button on the bottom-right while browsing to start recording.'}</p>
+          <p>{it ? 'Nessun percorso ancora. Clicca il pulsante in basso a destra durante la navigazione per iniziare.' : 'No trails yet. Click the button on the bottom-right while browsing to start recording.'}</p>
         </div>
       )}
 
@@ -59,7 +59,7 @@ export function Trails() {
               <div className="flex-1 min-w-0">
                 <div className="font-medium text-sm truncate">{trail.name}</div>
                 <div className="text-xs text-outline">
-                  {trail.steps.length} {zh ? '步' : 'steps'} &middot; {new Date(trail.updated).toLocaleDateString()}
+                  {trail.steps.length} {it ? 'passi' : 'steps'} &middot; {new Date(trail.updated).toLocaleDateString()}
                 </div>
               </div>
               <button onClick={e => { e.stopPropagation(); deleteTrail(trail.id); }}

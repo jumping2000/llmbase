@@ -346,11 +346,11 @@ def create_web_app(base_dir: Path | None = None):
 
     @app.route("/api/taxonomy")
     def api_taxonomy():
-        """Get hierarchical category taxonomy. ?lang=zh|en|ja"""
+        """Get hierarchical category taxonomy. ?lang=en|it|en-it"""
         from .taxonomy import build_taxonomy
         cfg = load_config(base)
         meta_dir = Path(cfg["paths"]["meta"])
-        lang = request.args.get("lang", "zh")
+        lang = request.args.get("lang", "en-it")
         # Taxonomy depends on both KB version (index.json) and the on-disk
         # taxonomy.json. Mix taxonomy.json mtime + lang into the etag.
         tx_path = meta_dir / "taxonomy.json"
@@ -804,9 +804,9 @@ def create_web_app(base_dir: Path | None = None):
 
     @app.route("/api/xici")
     def api_xici():
-        """Get the cached Xi Ci (guided introduction). ?lang=zh|en|ja|zh-en"""
+        """Get the cached Xi Ci (guided introduction). ?lang=en|it|en-it"""
         from .xici import get_xici
-        lang = request.args.get("lang", "zh")
+        lang = request.args.get("lang", "en-it")
         return jsonify(get_xici(base, lang))
 
     @app.route("/api/xici/generate", methods=["POST"])
@@ -815,7 +815,7 @@ def create_web_app(base_dir: Path | None = None):
         """Regenerate Xi Ci for a given language."""
         from .xici import generate_xici
         data = request.json or {}
-        lang = data.get("lang", "zh")
+        lang = data.get("lang", "en-it")
         result = generate_xici(base, lang)
         return jsonify(result)
 

@@ -27,14 +27,14 @@ const FALLBACK_TONES: ToneOption[] = [
 
 export function QA() {
   const { lang } = useLang();
-  const zh = lang === 'zh' || lang === 'zh-en';
+  const it = lang === 'it' || lang === 'en-it';
   const [question, setQuestion] = useState('');
   const [answer, setAnswer] = useState('');
   const [promotion, setPromotion] = useState<PromotionInfo | null>(null);
   const [loading, setLoading] = useState(false);
   const [fileBack, setFileBack] = useState(true);
   const [promote, setPromote] = useState(true);
-  const [tone, setTone] = useState(() => (lang === 'zh' || lang === 'zh-en') ? 'wenyan' : 'default');
+  const [tone, setTone] = useState(() => 'default');
   const [tones, setTones] = useState<ToneOption[]>(FALLBACK_TONES);
   const [history, setHistory] = useState<QAPair[]>([]);
 
@@ -77,7 +77,7 @@ export function QA() {
         recordStep({ type: 'query', question });
       }
     } catch (e) {
-      setAnswer('Error: Failed to get response. Check API connection.');
+      setAnswer(it ? 'Errore: impossibile ottenere una risposta. Controlla la connessione API.' : 'Error: Failed to get response. Check API connection.');
     }
     setLoading(false);
   }
@@ -86,13 +86,13 @@ export function QA() {
     <div className="p-8 max-w-[800px] mx-auto">
       <div className="mb-6">
         <p className="text-xs uppercase tracking-widest text-on-surface-variant mb-1">Editorial Intelligence</p>
-        <h1 className="font-headline text-3xl font-bold">Curate Insights.</h1>
+        <h1 className="font-headline text-3xl font-bold">{it ? 'Cura le intuizioni.' : 'Curate Insights.'}</h1>
       </div>
 
       {/* Input */}
       <div className="bg-surface-container rounded-xl border border-outline-variant/30 p-5 mb-6">
         <textarea
-          placeholder="Ask LLMBase anything about your curated wiki..."
+          placeholder={it ? 'Chiedi a LLMBase qualcosa sulla tua wiki curata...' : 'Ask LLMBase anything about your curated wiki...'}
           className="w-full bg-transparent text-on-surface placeholder:text-outline outline-none resize-none text-base font-body"
           rows={3}
           value={question}
@@ -108,11 +108,11 @@ export function QA() {
                 onChange={e => setFileBack(e.target.checked)}
                 className="rounded border-outline-variant"
               />
-              {zh ? '归档到 outputs' : 'File to wiki'}
+              {it ? 'Archivia negli output' : 'File to wiki'}
             </label>
             <label
               className="flex items-center gap-2 text-sm text-on-surface-variant cursor-pointer"
-              title={zh ? 'LLM 判断是否值得作为新词条沉淀' : 'LLM decides whether to promote into a new concept'}
+              title={it ? 'L\'LLM decide se vale la pena promuovere la risposta a nuovo concetto' : 'LLM decides whether to promote into a new concept'}
             >
               <input
                 type="checkbox"
@@ -120,7 +120,7 @@ export function QA() {
                 onChange={e => setPromote(e.target.checked)}
                 className="rounded border-outline-variant"
               />
-              {zh ? '沉淀为词条' : 'Promote to concept'}
+              {it ? 'Promuovi a concetto' : 'Promote to concept'}
             </label>
             {/* Tone selector */}
             <div className="flex items-center gap-1">
@@ -128,7 +128,7 @@ export function QA() {
                 <button
                   key={t.id}
                   onClick={() => setTone(t.id)}
-                  title={(lang === 'zh' || lang === 'zh-en') ? t.label_zh : t.label}
+                  title={t.label}
                   className={`flex items-center gap-1 px-2 py-1 rounded-md text-xs transition-colors ${
                     tone === t.id
                       ? 'bg-primary/15 text-primary font-medium'
@@ -136,7 +136,7 @@ export function QA() {
                   }`}
                 >
                   <Icon name={t.icon} className="text-[14px]" />
-                  <span className="hidden sm:inline">{(lang === 'zh' || lang === 'zh-en') ? t.label_zh : t.label}</span>
+                  <span className="hidden sm:inline">{t.label}</span>
                 </button>
               ))}
             </div>
@@ -147,7 +147,7 @@ export function QA() {
             className="flex items-center gap-1.5 px-5 py-2 bg-primary text-on-primary rounded-lg text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
           >
             <Icon name="psychology" className="text-[16px]" />
-            {loading ? (zh ? '研究中...' : 'Researching...') : (zh ? '提问' : 'Ask')}
+            {loading ? (it ? 'Ricerca in corso...' : 'Researching...') : (it ? 'Chiedi' : 'Ask')}
           </button>
         </div>
       </div>
@@ -173,7 +173,7 @@ export function QA() {
                   <Icon name="bookmark_added" className="text-primary text-[16px] mt-0.5" />
                   <div>
                     <div className="text-on-surface">
-                      {zh ? '已沉淀为词条' : 'Promoted to concept'}
+                      {it ? 'Promosso a concetto' : 'Promoted to concept'}
                       {': '}
                       <a
                         href={`/wiki/${promotion.slug}`}
@@ -183,7 +183,7 @@ export function QA() {
                       </a>
                       {promotion.merged && (
                         <span className="ml-2 text-xs text-on-surface-variant">
-                          {zh ? '（合并到已有词条）' : '(merged into existing)'}
+                          {it ? '(unito a un concetto esistente)' : '(merged into existing)'}
                         </span>
                       )}
                     </div>
@@ -196,7 +196,7 @@ export function QA() {
                 <div className="flex items-start gap-2 text-sm text-on-surface-variant">
                   <Icon name="info" className="text-[16px] mt-0.5" />
                   <div>
-                    {zh ? '未沉淀为词条' : 'Not promoted'}
+                    {it ? 'Non promosso' : 'Not promoted'}
                     {promotion.reason && <span>: {promotion.reason}</span>}
                   </div>
                 </div>

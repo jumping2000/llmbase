@@ -60,7 +60,7 @@ GET /api/search?q=keyword&top_k=10
 
 ### Taxonomy
 ```
-GET /api/taxonomy?lang=zh
+GET /api/taxonomy?lang=en-it
 → { "categories": [{ "id", "label", "count", "total", "articles", "children" }] }
 ```
 
@@ -70,13 +70,13 @@ GET /api/aliases
 → { "aliases": { "参禅": "can-chan", "can-chan": "can-chan" } }
 ```
 
-### Guided Reading (导读)
+### Guided Reading
 ```
-GET /api/xici?lang=zh
-→ { "text": "...", "themes": [...], "lang": "zh", "generated_at": "..." }
+GET /api/xici?lang=en-it
+→ { "text": "...", "themes": [...], "lang": "en-it", "generated_at": "..." }
 
 POST /api/xici/generate  (auth required)
-{ "lang": "zh" }
+{ "lang": "en-it" }
 → { "text": "...", "themes": [...] }
 ```
 

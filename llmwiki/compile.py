@@ -77,6 +77,12 @@ _RAW_TYPE_TO_PLUGIN = {
 # Each entry: (section_key, markdown_header_line).
 SECTION_HEADERS: list[tuple[str, str]] = [
     ("english", "## English"),
+    ("italian", "## Italiano"),
+]
+
+# Legacy headers remain readable so existing KBs do not lose content when
+# the default language contract changes.
+LEGACY_SECTION_HEADERS: list[tuple[str, str]] = [
     ("中文", "## 中文"),
     ("日本語", "## 日本語"),
 ]
@@ -94,18 +100,17 @@ Rules:
 - Use backlinks to connect related concepts
 - Output valid markdown with YAML frontmatter
 
-IMPORTANT — Trilingual output:
-- Write each article in THREE languages: English, 中文, 日本語
-- Structure each article with three sections using h2 headers:
+IMPORTANT — Bilingual output:
+- Write each article in TWO languages: English and Italian
+- Structure each article with two sections using h2 headers:
   ## English
   (full article content in English)
-  ## 中文
-  (完整中文内容，不是翻译，而是用中文学术风格重新撰写)
-  ## 日本語
-  (日本語による完全な記事内容)
+    ## Italiano
+    (contenuto completo in italiano, scritto come un testo naturale e curato,
+    non come una traduzione letterale)
 - The summary field in frontmatter should be in English
-- The title field should include both: "English Title / 中文标题"
-- Keep [[wiki-links]] consistent across all three languages (use the same slug)"""
+- The title field should include both: "English Title / Titolo italiano"
+- Keep [[wiki-links]] consistent across both languages (use the same slug)"""
 
 
 # Example article format shown inside the user prompt.
@@ -114,13 +119,11 @@ COMPILE_ARTICLE_FORMAT = """## English
 
 Full article content in English. Use [[Other Concept]] for cross-references.
 
-## 中文
+## Italiano
 
-完整的中文文章内容。使用中文学术风格撰写，不是简单翻译。使用 [[Other Concept]] 进行交叉引用。
-
-## 日本語
-
-完全な日本語の記事内容。学術的な日本語で記述する。[[Other Concept]] でクロスリファレンスを使用する。"""
+Contenuto completo dell'articolo in italiano. Scrivi in un italiano naturale,
+chiaro e leggermente saggistico, non come traduzione parola per parola.
+Usa [[Other Concept]] per i riferimenti incrociati."""
 
 
 # Full user prompt template.  Placeholders: {title}, {content}, {existing}, {article_format}.
@@ -148,7 +151,7 @@ Please:
 
 ===ARTICLE===
 slug: concept-name-here
-title: English Title / 中文标题
+title: English Title / Titolo italiano
 summary: One-line summary in English
 tags: tag1, tag2, tag3
 ---
@@ -163,6 +166,26 @@ append: |
 ===END===
 
 Focus on extracting knowledge, not just summarizing. Each language section should be substantive, not a mere translation."""
+
+
+def _all_section_headers() -> list[tuple[str, str]]:
+    """Return default plus legacy section headers without duplicate keys."""
+    seen: set[str] = set()
+    combined: list[tuple[str, str]] = []
+    for key, header in [*SECTION_HEADERS, *LEGACY_SECTION_HEADERS]:
+        if key in seen:
+            continue
+        seen.add(key)
+        combined.append((key, header))
+    return combined
+
+
+def _header_for_section(section_key: str) -> str:
+    """Resolve the markdown header line for a known section key."""
+    for key, header in _all_section_headers():
+        if key == section_key:
+            return header
+    return f"## {section_key}"
 
 
 def compile_new(base_dir: Path | None = None, batch_size: int | None = None) -> list[str]:
@@ -656,16 +679,17 @@ def _split_sections(content: str) -> dict[str, str]:
     """Split article into {section_key: content} dict.
 
     Recognises headers defined in the module-level SECTION_HEADERS list,
-    so downstream projects that override SECTION_HEADERS (e.g. to a
-    single "## 文言" section) will get correct splitting automatically.
+    plus legacy defaults kept for backward compatibility. Downstream
+    projects that override SECTION_HEADERS (e.g. to a single "## 文言"
+    section) still get correct splitting automatically.
     """
     import re
     sections: dict[str, str] = {"_preamble": ""}
     current = "_preamble"
 
-    # Build header → key mapping from SECTION_HEADERS
+    # Build header → key mapping from default + legacy section headers.
     header_map: list[tuple[str, re.Pattern]] = []
-    for key, header in SECTION_HEADERS:
+    for key, header in _all_section_headers():
         # Build a regex: "## English" → r"^## English\s*$"
         escaped = re.escape(header)
         flags = re.IGNORECASE if key.isascii() else 0
@@ -698,10 +722,19 @@ def _assemble_sections(sections: dict[str, str]) -> str:
     if preamble:
         parts.append(preamble)
 
+    emitted: set[str] = set()
     for lang, header in SECTION_HEADERS:
         sec = sections.get(lang, "").strip()
         if sec:
             parts.append(f"{header}\n\n{sec}")
+            emitted.add(lang)
+
+    for lang, sec in sections.items():
+        if lang in emitted or lang == "_preamble":
+            continue
+        body = sec.strip()
+        if body:
+            parts.append(f"{_header_for_section(lang)}\n\n{body}")
 
     return "\n\n".join(parts)
 

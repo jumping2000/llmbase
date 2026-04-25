@@ -265,7 +265,7 @@ def _op_backlinks(base_dir: Path, slug: str) -> dict:
     return {"slug": slug, "cited_by": data.get(slug, [])}
 
 
-def _op_taxonomy(base_dir: Path, lang: str = "zh") -> dict:
+def _op_taxonomy(base_dir: Path, lang: str = "en-it") -> dict:
     from .taxonomy import build_taxonomy
     return {"categories": build_taxonomy(base_dir, lang)}
 
@@ -359,7 +359,7 @@ def _op_rebuild_index(base_dir: Path) -> dict:
     return {"article_count": len(entries)}
 
 
-def _op_xici(base_dir: Path, lang: str = "zh") -> dict:
+def _op_xici(base_dir: Path, lang: str = "en-it") -> dict:
     from .xici import get_xici
     return get_xici(base_dir, lang)
 

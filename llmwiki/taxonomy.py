@@ -33,9 +33,9 @@ logger = logging.getLogger("llmbase.taxonomy")
 #     tax.TAXONOMY_GENERATOR = my_rule_fn        # skip LLM entirely
 #
 
-# Language keys used in taxonomy labels.  Override to change the set of
-# languages in label dicts (e.g. ["zh"] for a monolingual KB).
-TAXONOMY_LABEL_KEYS: list[str] = ["en", "zh", "ja"]
+# Language keys used in taxonomy labels. Override to change the set of
+# languages in label dicts (e.g. ["it"] for a monolingual KB).
+TAXONOMY_LABEL_KEYS: list[str] = ["en", "it"]
 
 # Pluggable taxonomy generator.  When set to a callable, generate_taxonomy()
 # calls it instead of the built-in LLM path.  Signature:
@@ -59,7 +59,7 @@ Rules:
 - A category with 4+ articles should almost always have subcategories
 - Leaf categories should have 1-3 articles each (fine-grained grouping)
 - Every article must be assigned to exactly one leaf or category
-- Category names must be trilingual: English, 中文, 日本語
+- Category names must be bilingual: English and Italian
 - Use short, clear category names (2-4 words)
 - Group by SEMANTIC similarity, not surface-level keyword matching
 - Think like a librarian: broad → narrow → specific
@@ -74,15 +74,15 @@ Articles:
 Produce a JSON array of categories. The tree can be nested multiple levels deep:
 {{
   "id": "kebab-case-id",
-  "label": {{"en": "English Name", "zh": "中文名", "ja": "日本語名"}},
+    "label": {{"en": "English Name", "it": "Nome italiano"}},
   "children": [
     {{
       "id": "child-id",
-      "label": {{"en": "...", "zh": "...", "ja": "..."}},
+    "label": {{"en": "...", "it": "..."}},
       "children": [
         {{
           "id": "grandchild-id",
-          "label": {{"en": "...", "zh": "...", "ja": "..."}},
+          "label": {{"en": "...", "it": "..."}},
           "children": [],
           "article_slugs": ["slug1"]
         }}
@@ -403,7 +403,7 @@ def _apply_category_tags(concepts_dir: Path, slug: str, category_path: list[str]
     article_path.write_text(frontmatter.dumps(post), encoding="utf-8")
 
 
-def build_taxonomy(base_dir: Path | None = None, lang: str = "zh") -> list[dict]:
+def build_taxonomy(base_dir: Path | None = None, lang: str = "en-it") -> list[dict]:
     """Read cached taxonomy and return localized tree for the web API.
 
     This is fast (no LLM call). If no cache exists, generates a simple
@@ -538,7 +538,7 @@ def _add_to_other(categories: list, slug: str):
             return
     categories.append({
         "id": "other",
-        "label": {"en": "Other", "zh": "其他", "ja": "その他"},
+        "label": {"en": "Other", "it": "Altro"},
         "article_slugs": [slug],
         "children": [],
     })
@@ -655,7 +655,7 @@ def _ensure_complete_assignment(tree: list[dict], articles: list[dict]) -> list[
         if other_node is None:
             other_node = {
                 "id": "other",
-                "label": {"en": "Other", "zh": "其他", "ja": "その他"},
+                "label": {"en": "Other", "it": "Altro"},
                 "children": [],
                 "article_slugs": [],
             }
@@ -702,7 +702,7 @@ def _fallback_taxonomy(articles: list[dict]) -> list[dict]:
         # Everything in one "All" category
         return [{
             "id": "all",
-            "label": {"en": "All Articles", "zh": "全部文章", "ja": "全記事"},
+            "label": {"en": "All Articles", "it": "Tutti gli articoli"},
             "children": [],
             "article_slugs": [a["slug"] for a in articles],
         }]
@@ -722,7 +722,7 @@ def _fallback_taxonomy(articles: list[dict]) -> list[dict]:
             # Use the tag itself as the label (best effort, no hardcoded mapping)
             categories.append({
                 "id": tag,
-                "label": {"en": tag.replace("-", " ").title(), "zh": tag, "ja": tag},
+                "label": {"en": tag.replace("-", " ").title(), "it": tag.replace("-", " ")},
                 "children": [],
                 "article_slugs": slugs,
             })
@@ -732,7 +732,7 @@ def _fallback_taxonomy(articles: list[dict]) -> list[dict]:
     if unassigned:
         categories.append({
             "id": "other",
-            "label": {"en": "Other", "zh": "其他", "ja": "その他"},
+            "label": {"en": "Other", "it": "Altro"},
             "children": [],
             "article_slugs": unassigned,
         })
@@ -743,15 +743,15 @@ def _fallback_taxonomy(articles: list[dict]) -> list[dict]:
 def _localize_title(title: str, lang: str) -> str:
     """Extract the language-specific part of a bilingual title.
 
-    "Mencius / 孟子" + lang=zh → "孟子"
-    "Mencius / 孟子" + lang=en → "Mencius"
-    "Mencius / 孟子" + lang=zh-en → "Mencius / 孟子"
+    "Mencius / Menzio" + lang=it → "Menzio"
+    "Mencius / Menzio" + lang=en → "Mencius"
+    "Mencius / Menzio" + lang=en-it → "Mencius / Menzio"
     "some-slug-only" → "some-slug-only" (no change)
     """
     import re
     if not title or "/" not in title:
         return title
-    if lang == "zh-en":
+    if lang in ("en-it", "zh-en"):
         return title
 
     parts = [p.strip() for p in title.split("/") if p.strip()]
@@ -760,12 +760,34 @@ def _localize_title(title: str, lang: str) -> str:
 
     has_cjk = lambda s: bool(re.search(r'[\u4e00-\u9fff\u3400-\u4dbf\u3040-\u309f\u30a0-\u30ff]', s))
 
+    if lang == "it":
+        return parts[1] if len(parts) > 1 else parts[0]
+
     if lang in ("zh", "ja"):
         cjk = next((p for p in parts if has_cjk(p)), None)
         return cjk or parts[-1]
     else:
         en = next((p for p in parts if not has_cjk(p)), None)
         return en or parts[0]
+
+
+def _display_label(label: dict | str, lang: str, node_id: str) -> str:
+    if isinstance(label, str):
+        return label
+    if lang == "en-it":
+        en = label.get("en")
+        it = label.get("it")
+        if en and it and en != it:
+            return f"{en} / {it}"
+        return en or it or node_id
+    if lang == "it":
+        return label.get("it", label.get("en", node_id))
+    if lang == "zh-en":
+        zh = label.get("zh")
+        en = label.get("en")
+        if zh and en and zh != en:
+            return f"{en} / {zh}"
+    return label.get(lang, label.get("en", label.get("it", label.get("zh", node_id))))
 
 
 def _localize_tree(tree: list[dict], lang: str, title_map: dict[str, str]) -> list[dict]:
@@ -783,10 +805,7 @@ def _localize_tree(tree: list[dict], lang: str, title_map: dict[str, str]) -> li
         child_count = sum(c["total"] for c in children)
 
         label = node.get("label", {})
-        if isinstance(label, str):
-            display_label = label
-        else:
-            display_label = label.get(lang, label.get("en", label.get("zh", node["id"])))
+        display_label = _display_label(label, lang, node["id"])
 
         result.append({
             "id": node["id"],

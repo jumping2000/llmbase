@@ -20,7 +20,7 @@ const PALETTE = ['#60a5fa', '#34d399', '#fbbf24', '#f87171', '#a78bfa', '#38bdf8
 export function Graph() {
   const navigate = useNavigate();
   const { lang } = useLang();
-  const zh = lang === 'zh' || lang === 'zh-en';
+  const it = lang === 'it' || lang === 'en-it';
   const svgRef = useRef<SVGSVGElement>(null);
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
@@ -193,7 +193,7 @@ export function Graph() {
         return t.length > 10 ? t.slice(0, 10) + '…' : t;
       })
       .attr('font-size', d => d.linkCount > 5 ? 11 : 10)
-      .attr('font-family', zh ? "'Noto Serif SC', serif" : 'Inter, sans-serif')
+      .attr('font-family', 'Inter, sans-serif')
       .attr('fill', '#d1d5db')
       .attr('text-anchor', 'middle')
       .attr('dy', d => d.size + 12)
@@ -243,7 +243,7 @@ export function Graph() {
     return () => { simulation.stop(); };
   }, [articles, showLabels, selectedTag, linkThreshold, lang, navigate]);
 
-  if (loading) return <Loading text="Building graph..." />;
+  if (loading) return <Loading text={it ? 'Costruzione del grafo...' : 'Building graph...'} />;
 
   return (
     <div className="h-full flex flex-col">
@@ -251,7 +251,7 @@ export function Graph() {
       <div className="flex items-center gap-3 p-4 border-b border-outline-variant/30 flex-wrap">
         <h1 className="font-headline text-lg font-bold flex items-center gap-2">
           <Icon name="hub" className="text-primary" />
-          {zh ? '知识图谱' : 'Knowledge Graph'}
+          {it ? 'Grafo della conoscenza' : 'Knowledge Graph'}
         </h1>
         <div className="flex-1" />
 
@@ -262,7 +262,7 @@ export function Graph() {
             className={`px-2 py-0.5 rounded-full text-[11px] transition-colors ${
               !selectedTag ? 'bg-primary text-on-primary' : 'bg-surface-high text-on-surface-variant hover:bg-surface-highest'
             }`}>
-            {zh ? '全部' : 'All'}
+            {it ? 'Tutti' : 'All'}
           </button>
           {topTags.slice(0, 10).map(t => (
             <button key={t} onClick={() => setSelectedTag(selectedTag === t ? null : t)}
@@ -277,7 +277,7 @@ export function Graph() {
 
         {/* Link threshold slider */}
         <div className="flex items-center gap-2 text-xs text-on-surface-variant">
-          <span>{zh ? '连接密度' : 'Density'}</span>
+          <span>{it ? 'Densita' : 'Density'}</span>
           <input type="range" min={1} max={4} value={linkThreshold}
             onChange={e => setLinkThreshold(+e.target.value)}
             className="w-16 h-1 accent-primary" />
@@ -285,12 +285,12 @@ export function Graph() {
         </div>
 
         <span className="text-xs text-outline">
-          {visibleCount ?? articles.length} {zh ? '篇' : 'nodes'}
+          {visibleCount ?? articles.length} {it ? 'nodi' : 'nodes'}
         </span>
 
         <label className="flex items-center gap-1.5 text-xs text-on-surface-variant cursor-pointer">
           <input type="checkbox" checked={showLabels} onChange={e => setShowLabels(e.target.checked)} className="rounded" />
-          {zh ? '标签' : 'Labels'}
+          {it ? 'Etichette' : 'Labels'}
         </label>
       </div>
 
@@ -305,7 +305,7 @@ export function Graph() {
               <p className="text-xs text-on-surface-variant mb-2 line-clamp-2">{hovered.summary}</p>
             )}
             <div className="flex items-center gap-3 text-[11px] text-outline">
-              <span>{hovered.linkCount} {zh ? '连接' : 'connections'}</span>
+              <span>{hovered.linkCount} {it ? 'connessioni' : 'connections'}</span>
               <span>{hovered.tags.filter(t => !t.startsWith('category:')).slice(0, 3).join(', ')}</span>
             </div>
           </div>
@@ -314,7 +314,7 @@ export function Graph() {
         {articles.length === 0 && (
           <div className="absolute inset-0 flex items-center justify-center text-on-surface-variant">
             <Icon name="hub" className="text-5xl mb-3 block" />
-            <p>{zh ? '没有文章可以可视化' : 'No articles to visualize'}</p>
+            <p>{it ? 'Nessun articolo da visualizzare' : 'No articles to visualize'}</p>
           </div>
         )}
       </div>

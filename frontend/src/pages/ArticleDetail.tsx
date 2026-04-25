@@ -15,6 +15,7 @@ export function ArticleDetail() {
   const [allArticles, setAllArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
   const { lang } = useLang();
+  const it = lang === 'it' || lang === 'en-it';
   const { recordStep } = useTrail();
 
   // Auto-record article visit to trail
@@ -71,8 +72,8 @@ export function ArticleDetail() {
     ).slice(0, 5);
   }, [article, allArticles, slug]);
 
-  if (loading) return <Loading text="Loading article..." />;
-  if (!article) return <div className="p-8 text-center text-on-surface-variant">Article not found</div>;
+  if (loading) return <Loading text={it ? 'Caricamento articolo...' : 'Loading article...'} />;
+  if (!article) return <div className="p-8 text-center text-on-surface-variant">{it ? 'Articolo non trovato' : 'Article not found'}</div>;
 
   return (
     <div className="flex">
@@ -104,7 +105,7 @@ export function ArticleDetail() {
           <div className="mt-10 pt-6 border-t border-outline-variant/30">
             <h3 className="text-xs uppercase tracking-widest text-on-surface-variant mb-3 flex items-center gap-2">
               <Icon name="menu_book" className="text-[14px]" />
-              {lang === 'zh' || lang === 'zh-en' ? '引用来源' : 'Sources'}
+              {it ? 'Fonti' : 'Sources'}
             </h3>
             <div className="space-y-2">
               {article.sources.map((src: { plugin?: string; url?: string; title?: string; work_id?: string }, i: number) => (
@@ -119,7 +120,7 @@ export function ArticleDetail() {
                       {src.work_id && <span className="text-outline ml-1">({src.work_id})</span>}
                     </a>
                   ) : (
-                    <span className="text-on-surface-variant">{src.title || 'Unknown source'}</span>
+                    <span className="text-on-surface-variant">{src.title || (it ? 'Fonte sconosciuta' : 'Unknown source')}</span>
                   )}
                 </div>
               ))}
@@ -133,7 +134,7 @@ export function ArticleDetail() {
         {/* TOC */}
         {headings.length > 0 && (
           <div className="mb-8">
-            <h4 className="text-xs uppercase tracking-widest text-on-surface-variant mb-3">On this page</h4>
+            <h4 className="text-xs uppercase tracking-widest text-on-surface-variant mb-3">{it ? 'In questa pagina' : 'On this page'}</h4>
             <nav className="space-y-1">
               {headings.map((h, i) => (
                 <a
@@ -154,7 +155,7 @@ export function ArticleDetail() {
           <div className="mb-8">
             <h4 className="text-xs uppercase tracking-widest text-on-surface-variant mb-3 flex items-center gap-1.5">
               <Icon name="link" className="text-[12px]" />
-              {lang === 'zh' || lang === 'zh-en' ? '被引用' : 'Cited by'} ({article.backlinks.length})
+              {it ? 'Citato da' : 'Cited by'} ({article.backlinks.length})
             </h4>
             <div className="space-y-1.5">
               {article.backlinks.map(bl => (
@@ -173,7 +174,7 @@ export function ArticleDetail() {
         {/* Related */}
         {related.length > 0 && (
           <div className="mb-8">
-            <h4 className="text-xs uppercase tracking-widest text-on-surface-variant mb-3">Related</h4>
+            <h4 className="text-xs uppercase tracking-widest text-on-surface-variant mb-3">{it ? 'Correlati' : 'Related'}</h4>
             <div className="space-y-1.5">
               {related.map(a => (
                 <div

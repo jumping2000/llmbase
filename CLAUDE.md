@@ -3,14 +3,14 @@
 ## Architecture
 - Domain-agnostic: no hardcoded domains, all structure emerges from content via LLM
 - Three-layer: raw/ → wiki/concepts/ → config.yaml (Karpathy pattern)
-- Trilingual by default: EN / 中文 / 日本語
+- Bilingual by default: EN / IT
 - All wiki-links use [[target]] syntax; resolved via alias map (aliases.json)
 
 ## Code Patterns
 - LLM calls go through llmwiki/llm.py:chat() — never call OpenAI directly
 - Alias resolution via llmwiki/resolve.py — always use resolve_link() for wiki-link targets
 - Taxonomy is LLM-generated (not hardcoded) — llmwiki/taxonomy.py
-- Article slugs are pinyin/kebab-case; titles are bilingual "English / 中文"
+- Article slugs are pinyin/kebab-case; titles are bilingual "English / Italiano"
 - Never expose specific LLM provider names in public code or commits
 
 ## Customization Contract (for downstream projects)

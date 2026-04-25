@@ -90,8 +90,7 @@ export function Layout() {
 
   // Reload taxonomy when language changes
   useEffect(() => {
-    const l = lang === 'zh-en' ? 'zh' : lang;
-    api.getTaxonomy(l).then(setTaxonomy).catch(() => {});
+    api.getTaxonomy(lang).then(setTaxonomy).catch(() => {});
   }, [lang]);
 
   const toggleCat = (id: string) => {
@@ -179,7 +178,7 @@ export function Layout() {
         <header className="h-14 bg-surface-container border-b border-outline-variant/30 flex items-center px-5 gap-3 flex-shrink-0 card-shadow">
           <div className="flex-1 relative">
             <Icon name="search" className="absolute left-3 top-1/2 -translate-y-1/2 text-outline text-[18px]" />
-            <input type="text" placeholder="Search across documents... ⌘K"
+            <input type="text" placeholder={lang === 'it' || lang === 'en-it' ? 'Cerca in tutta la base documentale... ⌘K' : 'Search across documents... ⌘K'}
               className="w-full bg-surface-high border border-outline-variant/40 rounded-lg pl-10 pr-4 py-2 text-sm text-on-surface placeholder:text-outline outline-none focus:border-primary/60 transition-colors"
               value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter' && searchQuery.trim()) navigate(`/search?q=${encodeURIComponent(searchQuery)}`); }} />
@@ -215,14 +214,16 @@ export function Layout() {
           {/* Theme toggle */}
           <button onClick={toggle}
             className="p-2 rounded-lg hover:bg-surface-high text-on-surface-variant transition-colors"
-            title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}>
+            title={lang === 'it' || lang === 'en-it'
+              ? `Passa alla modalita ${theme === 'dark' ? 'chiara' : 'scura'}`
+              : `Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}>
             <Icon name={theme === 'dark' ? 'light_mode' : 'dark_mode'} className="text-[20px]" />
           </button>
 
           <button onClick={() => { api.compile().then(() => api.getArticles().then(setArticles)); }}
             className="flex items-center gap-2 px-4 py-2 bg-primary text-on-primary rounded-lg text-sm font-medium hover:opacity-90 transition-opacity">
             <Icon name="auto_awesome" className="text-[18px]" />
-            Compile
+            {lang === 'it' || lang === 'en-it' ? 'Compila' : 'Compile'}
           </button>
         </header>
 

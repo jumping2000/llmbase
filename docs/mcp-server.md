@@ -49,7 +49,7 @@ llmbase mcp
 | `kb_get` | `slug` | Get article by slug or alias. Supports Chinese (`空`), pinyin (`kong`), English |
 | `kb_list` | `tag?` | List all articles, optionally filtered by tag |
 | `kb_backlinks` | `slug` | Find all articles that reference the given article |
-| `kb_taxonomy` | `lang?` | Hierarchical category tree (zh/en/ja/zh-en) |
+| `kb_taxonomy` | `lang?` | Hierarchical category tree (en/it/en-it) |
 | `kb_stats` | — | Article count, raw doc count |
 | `kb_xici` | `lang?` | Guided reading (导读) — LLM-generated introduction |
 

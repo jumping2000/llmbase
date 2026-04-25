@@ -49,6 +49,22 @@ def test_split_sections():
 
 English content here.
 
+## Italiano
+
+Contenuto italiano qui."""
+
+    sections = _split_sections(content)
+    assert "english" in sections
+    assert "italian" in sections
+    assert "English content here." in sections["english"]
+    assert "Contenuto italiano qui." in sections["italian"]
+
+
+def test_split_sections_recognizes_legacy_headers():
+    content = """## English
+
+English content here.
+
 ## 中文
 
 中文内容在这里。
@@ -61,22 +77,32 @@ English content here.
     assert "english" in sections
     assert "中文" in sections
     assert "日本語" in sections
-    assert "English content here." in sections["english"]
-    assert "中文内容在这里。" in sections["中文"]
 
 
 def test_assemble_sections():
     sections = {
         "_preamble": "",
         "english": "Hello world",
-        "中文": "你好世界",
-        "日本語": "こんにちは世界",
+        "italian": "Ciao mondo",
     }
     result = _assemble_sections(sections)
     assert "## English" in result
-    assert "## 中文" in result
-    assert "## 日本語" in result
+    assert "## Italiano" in result
     assert "Hello world" in result
+    assert "Ciao mondo" in result
+
+
+def test_assemble_sections_preserves_legacy_sections():
+    sections = {
+        "_preamble": "",
+        "english": "Hello world",
+        "italian": "Ciao mondo",
+        "中文": "你好世界",
+    }
+    result = _assemble_sections(sections)
+    assert "## English" in result
+    assert "## Italiano" in result
+    assert "## 中文" in result
 
 
 def test_merge_into_adds_content(tmp_kb):
@@ -84,7 +110,7 @@ def test_merge_into_adds_content(tmp_kb):
     article_path = concepts_dir / "kong.md"
 
     article = {
-        "content": "## English\n\nNew insight about emptiness.\n\n## 中文\n\n关于空性的新见解。非常长的新内容，比原来的更详细更丰富，超过了原来的1.2倍。",
+        "content": "## English\n\nNew insight about emptiness.\n\n## Italiano\n\nNuova interpretazione della vacuita, piu ampia e articolata della versione precedente.",
         "tags": ["mahayana"],
     }
 
@@ -92,6 +118,8 @@ def test_merge_into_adds_content(tmp_kb):
 
     post = frontmatter.load(str(article_path))
     assert "mahayana" in post.metadata["tags"]
+    assert "## Italiano" in post.content
+    assert "## 中文" in post.content
 
 
 def test_merge_into_no_duplicate_content(tmp_kb):

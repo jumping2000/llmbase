@@ -37,12 +37,12 @@ One registry — `llmwiki/operations.py` — declares every KB operation exactly
 ```
 raw/ ──compile──>  wiki/concepts/  ──query/lint──>  wiki/ (enhanced)
                          │                               ↑
-                         └─────── 叠加进化 ───────────────┘
+                         └─────── evolution ─────────────┘
 ```
 
 **1 · Ingest** — URLs, PDFs, local files, or corpus plugins (CBETA canon, ctext.org, Wikisource) land in `raw/` with provenance metadata.
 
-**2 · Compile** — the LLM extracts concepts and writes trilingual articles (EN / 中文 / 日本語) with cross-references, aliases, and an emergent taxonomy. Existing concepts update in place.
+**2 · Compile** — the LLM extracts concepts and writes bilingual articles (EN / IT) with cross-references, aliases, and an emergent taxonomy. Existing concepts update in place.
 
 **3 · Query** — a deep-research loop pulls context from compiled concepts, answers in the voice you choose (scholar 🎓 · 文言 📜 · ELI5 👶 · caveman 🦴), and optionally files the answer back. Agents that need verbatim material can call `kb_search_raw` directly for a second-layer recall over the original sources.
 
@@ -52,7 +52,7 @@ raw/ ──compile──>  wiki/concepts/  ──query/lint──>  wiki/ (enhan
 
 - **Synthesis, not archiving.** The wiki *is* the memory. No vector store, no giant transcript tape.
 - **Two-layer recall.** `kb_search` scores compiled concepts with a TF-IDF tokenizer; `kb_search_raw` runs the same scoring over the original `raw/` sources — verbatim fallback when the compile glossed over a detail.
-- **Trilingual by default.** Every article ships with English, 中文, and 日本語 sections. A multilingual alias map resolves `[[参禅]]` → `can-chan.md`, with simplified/traditional conversion via opencc.
+- **Bilingual by default.** Every article ships with English and Italian sections. Legacy multilingual content remains readable, and the alias map still resolves `[[参禅]]` → `can-chan.md`, with simplified/traditional conversion via opencc.
 - **Emergent structure.** Taxonomy is LLM-generated per-domain — nothing hardcoded to Buddhism or classics. Works for any field.
 - **One contract, three surfaces.** The same `Operation(name=..., handler=..., params=...)` powers CLI / HTTP / MCP simultaneously.
 - **Self-healing.** 7-step auto-fix: clean → metadata → broken-links → dedup → taxonomy. Merges `benevolence` + `ren` + `仁爱` into one article rather than three.
@@ -164,8 +164,8 @@ llmbase serve                   # Agent API  :5556
 | GET  | `/api/articles/<slug>`   | article + backlinks + citations |
 | GET  | `/api/search?q=...`      | full-text search over concepts |
 | POST | `/api/ask`               | deep-research Q&A |
-| GET  | `/api/taxonomy?lang=zh`  | hierarchical categories |
-| GET  | `/api/xici?lang=zh`      | guided reading (导读) |
+| GET  | `/api/taxonomy?lang=en-it`  | hierarchical categories |
+| GET  | `/api/xici?lang=en-it`      | guided reading |
 | GET  | `/api/entities`          | people / events / places |
 | GET  | `/api/trails`            | research exploration paths |
 | POST | `/api/lint/fix`          | auto-fix pipeline |

@@ -33,8 +33,9 @@ def export_article(slug: str, base_dir: Path | None = None) -> dict | None:
     if resolved:
         slug = resolved
 
+    concepts_resolved = concepts_dir.resolve()
     article_path = (concepts_dir / f"{slug}.md").resolve()
-    if not str(article_path).startswith(str(concepts_dir.resolve()) + "/"):
+    if not article_path.is_relative_to(concepts_resolved):
         return None  # Path traversal guard
     if not article_path.exists():
         return None
@@ -44,11 +45,16 @@ def export_article(slug: str, base_dir: Path | None = None) -> dict | None:
     # Split content by language
     sections = _split_sections(post.content)
     content = {}
-    # Map SECTION_HEADERS keys to API-stable short keys for export.
-    # Default mapping: "english" → "english", "中文" → "zh", "日本語" → "ja".
-    # For custom SECTION_HEADERS, section_key is used as-is.
-    _EXPORT_KEY_MAP = {"中文": "zh", "日本語": "ja"}
-    for section_key, _header in _compile_mod.SECTION_HEADERS:
+    # Map known section keys to API-stable short keys for export.
+    # Iterate over the parsed sections instead of the active default so legacy
+    # content remains exportable while new EN/IT content uses stable keys.
+    _EXPORT_KEY_MAP = {"italian": "it", "中文": "zh", "日本語": "ja"}
+    ordered_keys = [key for key, _header in _compile_mod._all_section_headers()]
+    ordered_keys.extend(k for k in sections.keys() if k not in ordered_keys and k != "_preamble")
+
+    for section_key in ordered_keys:
+        if section_key == "_preamble":
+            continue
         section = sections.get(section_key, "").strip()
         if section:
             export_key = _EXPORT_KEY_MAP.get(section_key, section_key)

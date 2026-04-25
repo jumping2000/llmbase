@@ -36,7 +36,7 @@ function parseYear(dateStr?: string): number | null {
 export function Explore() {
   const navigate = useNavigate();
   const { lang } = useLang();
-  const zh = lang === 'zh' || lang === 'zh-en';
+  const it = lang === 'it' || lang === 'en-it';
   const [tab, setTab] = useState<Tab>('timeline');
   const [people, setPeople] = useState<Person[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
@@ -58,7 +58,7 @@ export function Explore() {
   }, []);
 
   const displayName = (entity: { name: string; name_local?: string }) =>
-    (zh && entity.name_local) ? entity.name_local : entity.name;
+    (it && entity.name_local) ? entity.name_local : entity.name;
 
   // Build timeline items with parsed years
   const timelineItems = useMemo(() => {
@@ -135,10 +135,10 @@ export function Explore() {
 
     // ─── Era background bands ──────────────────────────────
     const eras = [
-      { label: zh ? '上古' : 'Ancient', start: -800, end: -200, color: '#1e3a5f' },
-      { label: zh ? '古典' : 'Classical', start: -200, end: 200, color: '#1a3d2e' },
-      { label: zh ? '中古' : 'Medieval', start: 200, end: 1000, color: '#3d2e1a' },
-      { label: zh ? '近世' : 'Early Modern', start: 1000, end: 1800, color: '#2e1a3d' },
+      { label: it ? 'Antichita' : 'Ancient', start: -800, end: -200, color: '#1e3a5f' },
+      { label: it ? 'Classico' : 'Classical', start: -200, end: 200, color: '#1a3d2e' },
+      { label: it ? 'Medioevo' : 'Medieval', start: 200, end: 1000, color: '#3d2e1a' },
+      { label: it ? 'Prima eta moderna' : 'Early Modern', start: 1000, end: 1800, color: '#2e1a3d' },
     ];
 
     const eraG = svg.append('g').attr('class', 'eras');
@@ -244,7 +244,7 @@ export function Explore() {
         .attr('filter', isPerson ? 'url(#glow-blue)' : 'url(#glow-amber)');
 
       // Label (serif font)
-      const label = zh
+      const label = it
         ? (d.localName.length > 8 ? d.localName.slice(0, 8) + '…' : d.localName)
         : (d.name.length > 14 ? d.name.slice(0, 14) + '…' : d.name);
 
@@ -273,7 +273,7 @@ export function Explore() {
 
     items.on('mouseenter', function (event, d) {
       const cx = currentTransform.rescaleX(x)(d.year);
-      setHovered({ name: zh ? d.localName : d.name, dates: d.dates, role: d.role || d.description, x: cx, y: 10 });
+      setHovered({ name: it ? d.localName : d.name, dates: d.dates, role: d.role || d.description, x: cx, y: 10 });
       d3.select(this).select('.dot').transition().duration(200).attr('r', DOT_R + 4).attr('stroke-width', 3);
       d3.select(this).select('.label').transition().duration(200).attr('fill', '#ffffff');
     }).on('mouseleave', function () {
@@ -317,19 +317,19 @@ export function Explore() {
 
     svg.call(zoom);
 
-  }, [tab, timelineItems, zh, navigate]);
+  }, [tab, timelineItems, it, navigate]);
 
   const tabs: { id: Tab; label: string; icon: string }[] = [
-    { id: 'timeline', label: zh ? '时间线' : 'Timeline', icon: 'timeline' },
-    { id: 'people', label: zh ? '人物' : 'People', icon: 'groups' },
-    { id: 'map', label: zh ? '地图' : 'Map', icon: 'map' },
+    { id: 'timeline', label: it ? 'Timeline' : 'Timeline', icon: 'timeline' },
+    { id: 'people', label: it ? 'Persone' : 'People', icon: 'groups' },
+    { id: 'map', label: it ? 'Mappa' : 'Map', icon: 'map' },
   ];
 
   const isEmpty = people.length === 0 && events.length === 0 && places.length === 0;
 
   return (
     <div className="p-8 max-w-[1100px] mx-auto">
-      <h1 className="font-headline text-3xl font-bold mb-6">{zh ? '探索' : 'Explore'}</h1>
+      <h1 className="font-headline text-3xl font-bold mb-6">{it ? 'Esplora' : 'Explore'}</h1>
 
       {/* Tabs */}
       <div className="flex gap-1 mb-6 border-b border-outline-variant/30">
@@ -351,7 +351,7 @@ export function Explore() {
       {!loading && isEmpty && (
         <div className="text-center py-16 text-on-surface-variant">
           <Icon name="explore" className="text-5xl mb-3 block" />
-          <p className="mb-4">{zh ? '尚未提取实体。请在设置中启用 entities 功能。' : 'No entities extracted yet. Enable entities in config.'}</p>
+          <p className="mb-4">{it ? 'Nessuna entita estratta. Abilita entities nella configurazione.' : 'No entities extracted yet. Enable entities in config.'}</p>
           <code className="text-xs bg-surface-container px-3 py-1.5 rounded-lg">entities: {'{'} enabled: true {'}'}</code>
         </div>
       )}
@@ -366,12 +366,12 @@ export function Explore() {
                   className={`px-3 py-1 text-xs rounded-full transition-colors ${
                     filter === f ? 'bg-primary/15 text-primary' : 'bg-surface-container text-on-surface-variant'
                   }`}>
-                  {f === 'all' ? (zh ? '全部' : 'All') :
-                   f === 'people' ? (zh ? '人物' : 'People') : (zh ? '事件' : 'Events')}
+                  {f === 'all' ? (it ? 'Tutti' : 'All') :
+                   f === 'people' ? (it ? 'Persone' : 'People') : (it ? 'Eventi' : 'Events')}
                 </button>
               ))}
             </div>
-            <span className="text-[10px] text-outline">{zh ? '滚轮缩放，拖拽平移' : 'Scroll to zoom, drag to pan'}</span>
+            <span className="text-[10px] text-outline">{it ? 'Rotella per zoom, trascina per spostarti' : 'Scroll to zoom, drag to pan'}</span>
           </div>
 
           <div className="relative bg-[#141414] rounded-xl border border-outline-variant/15 overflow-hidden">
@@ -388,7 +388,7 @@ export function Explore() {
 
           {timelineItems.length === 0 && (
             <div className="text-center py-8 text-on-surface-variant text-sm">
-              {zh ? '没有可用日期的实体。实体需要包含日期信息才能显示在时间线上。' : 'No entities with parseable dates.'}
+              {it ? 'Nessuna entita con date interpretabili.' : 'No entities with parseable dates.'}
             </div>
           )}
         </div>
@@ -402,13 +402,13 @@ export function Explore() {
               onClick={() => p.articles[0] && navigate(`/wiki/${p.articles[0]}`)}>
               <div className="font-medium mb-1">{displayName(p)}</div>
               {p.name_local && p.name !== p.name_local && (
-                <div className="text-xs text-on-surface-variant mb-2">{zh ? p.name : p.name_local}</div>
+                <div className="text-xs text-on-surface-variant mb-2">{it ? p.name : p.name_local}</div>
               )}
               <div className="flex items-center justify-between text-xs text-outline">
                 <span>{p.dates || '—'}</span>
                 <span>{p.role}</span>
               </div>
-              <div className="mt-2 text-[10px] text-outline">{p.articles.length} {zh ? '篇相关文章' : 'related articles'}</div>
+              <div className="mt-2 text-[10px] text-outline">{p.articles.length} {it ? 'articoli correlati' : 'related articles'}</div>
             </div>
           ))}
         </div>
@@ -418,11 +418,11 @@ export function Explore() {
       {!loading && tab === 'map' && (
         <div className="bg-surface-container rounded-xl p-8 border border-outline-variant/20 text-center">
           <Icon name="map" className="text-5xl text-on-surface-variant mb-3 block" />
-          <p className="text-on-surface-variant mb-2">{zh ? '地图视图' : 'Map View'}</p>
+          <p className="text-on-surface-variant mb-2">{it ? 'Vista mappa' : 'Map View'}</p>
           <p className="text-xs text-outline">
             {places.length > 0
-              ? `${places.length} ${zh ? '个地点已提取' : 'places extracted'}`
-              : (zh ? '需要在实体数据中包含坐标信息' : 'Requires coordinates in entity data')}
+              ? `${places.length} ${it ? 'luoghi estratti' : 'places extracted'}`
+              : (it ? 'Richiede coordinate nei dati delle entita' : 'Requires coordinates in entity data')}
           </p>
           {places.length > 0 && (
             <div className="mt-4 space-y-2 max-w-md mx-auto text-left">
@@ -443,7 +443,7 @@ export function Explore() {
       {/* Stats banner */}
       {!isEmpty && (
         <div className="mt-8 text-center text-xs text-outline">
-          {zh ? '实体提取' : 'Entity extraction'}: {people.length} {zh ? '人物' : 'people'}, {events.length} {zh ? '事件' : 'events'}, {places.length} {zh ? '地点' : 'places'} — {zh ? '来自' : 'from'} {articleCount} {zh ? '篇文章' : 'articles'}
+          {it ? 'Estrazione entita' : 'Entity extraction'}: {people.length} {it ? 'persone' : 'people'}, {events.length} {it ? 'eventi' : 'events'}, {places.length} {it ? 'luoghi' : 'places'} — {it ? 'da' : 'from'} {articleCount} {it ? 'articoli' : 'articles'}
         </div>
       )}
     </div>

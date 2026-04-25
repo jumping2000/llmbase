@@ -51,7 +51,7 @@ checks_mod.ALLOW_CJK_SLUGS = True
 | `llmwiki.compile` | `COMPILE_ARTICLE_FORMAT` | Example article format in user prompt (most common override) |
 | `llmwiki.compile` | `SECTION_HEADERS` | Language sections: `[("key", "## Header"), ...]` |
 | `llmwiki.taxonomy` | `TAXONOMY_SYSTEM_PROMPT` | LLM system message for taxonomy |
-| `llmwiki.taxonomy` | `TAXONOMY_LABEL_KEYS` | Language keys in label dicts (default `["en", "zh", "ja"]`) |
+| `llmwiki.taxonomy` | `TAXONOMY_LABEL_KEYS` | Language keys in label dicts (default `["en", "it"]`) |
 | `llmwiki.taxonomy` | `TAXONOMY_GENERATOR` | Callable `(articles, cfg) -> tree` or `None` for LLM |
 | `llmwiki.query` | `SYSTEM_PROMPT` | LLM system message for Q&A |
 | `llmwiki.query` | `TONE_INSTRUCTIONS` | Dict of `tone_id -> instruction_string` |

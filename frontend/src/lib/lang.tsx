@@ -1,23 +1,33 @@
 import { createContext, useContext, useState, type ReactNode } from 'react';
 
-export type Lang = 'zh' | 'en' | 'ja' | 'zh-en';
+export type Lang = 'en' | 'it' | 'en-it';
 
 export const LANG_OPTIONS: { value: Lang; label: string; icon: string }[] = [
-  { value: 'zh', label: '中文', icon: '中' },
   { value: 'en', label: 'English', icon: 'EN' },
-  { value: 'ja', label: '日本語', icon: '日' },
-  { value: 'zh-en', label: '中英双语', icon: '双' },
+  { value: 'it', label: 'Italiano', icon: 'IT' },
+  { value: 'en-it', label: 'EN / IT', icon: 'BI' },
 ];
+
+const DEFAULT_LANG: Lang = 'en-it';
+
+function isValidLang(value: string | null): value is Lang {
+  return value === 'en' || value === 'it' || value === 'en-it';
+}
+
+export function isItalianUI(lang: Lang): boolean {
+  return lang === 'it' || lang === 'en-it';
+}
 
 const LangContext = createContext<{
   lang: Lang;
   setLang: (l: Lang) => void;
-}>({ lang: 'zh', setLang: () => {} });
+}>({ lang: DEFAULT_LANG, setLang: () => {} });
 
 export function LangProvider({ children }: { children: ReactNode }) {
   const [lang, setLangState] = useState<Lang>(() => {
-    if (typeof window === 'undefined') return 'zh';
-    return (localStorage.getItem('llmbase-lang') as Lang) || 'zh-en';
+    if (typeof window === 'undefined') return DEFAULT_LANG;
+    const stored = localStorage.getItem('llmbase-lang');
+    return isValidLang(stored) ? stored : DEFAULT_LANG;
   });
 
   const setLang = (l: Lang) => {
@@ -35,48 +45,45 @@ export function LangProvider({ children }: { children: ReactNode }) {
 export const useLang = () => useContext(LangContext);
 
 /**
- * Extract the localized part from a bilingual title like "English Title / 中文标题"
+ * Extract the localized part from a bilingual title like "English Title / Titolo italiano"
  */
 export function localizeTitle(title: string, lang: Lang): string {
   if (!title) return '';
   const parts = title.split('/').map(s => s.trim());
   if (parts.length < 2) return title;
 
-  const hasCJK = (s: string) => /[\u4e00-\u9fff\u3400-\u4dbf]/.test(s);
-
-  if (lang === 'zh-en') return title; // Show both
-
-  if (lang === 'zh' || lang === 'ja') {
-    const cjk = parts.find(p => hasCJK(p));
-    return cjk || parts[parts.length - 1];
-  }
-  const en = parts.find(p => !hasCJK(p));
-  return en || parts[0];
+  if (lang === 'en-it') return title;
+  if (lang === 'it') return parts[1] || parts[parts.length - 1] || parts[0];
+  return parts[0];
 }
 
 /**
- * Extract language section(s) from trilingual article content
+ * Extract the requested section(s) from bilingual article content.
+ * Legacy Chinese/Japanese sections are still readable as fallbacks.
  */
 export function extractLangContent(content: string, lang: Lang): string {
-  if (lang === 'zh-en') {
-    // Bilingual: show both English and Chinese sections
-    const en = _extractSection(content, '## English');
-    const zh = _extractSection(content, '## 中文');
-    if (en && zh) return `## English\n\n${en}\n\n---\n\n## 中文\n\n${zh}`;
+  const english = _extractFirstSection(content, ['## English']);
+  const italian = _extractFirstSection(content, ['## Italiano', '## Italian']);
+  const legacyAlt = _extractFirstSection(content, ['## 中文', '## 日本語']);
+  const secondary = italian || legacyAlt;
+
+  if (lang === 'en-it') {
+    if (english && secondary) {
+      const secondaryHeader = italian ? '## Italiano' : _detectLegacyHeader(content) || '## Italiano';
+      return `## English\n\n${english}\n\n---\n\n${secondaryHeader}\n\n${secondary}`;
+    }
     return content;
   }
 
-  const headers: Record<string, string> = {
-    en: '## English',
-    zh: '## 中文',
-    ja: '## 日本語',
-  };
-
-  const marker = headers[lang];
-  if (marker) {
-    const section = _extractSection(content, marker);
-    if (section) return section;
+  if (lang === 'en' && english) {
+    return english;
   }
+
+  if (lang === 'it') {
+    if (italian) return italian;
+    if (legacyAlt) return legacyAlt;
+  }
+
   return content;
 }
 
@@ -86,4 +93,18 @@ function _extractSection(content: string, marker: string): string | null {
   const start = idx + marker.length;
   const nextH2 = content.indexOf('\n## ', start);
   return (nextH2 === -1 ? content.slice(start) : content.slice(start, nextH2)).trim();
+}
+
+function _extractFirstSection(content: string, markers: string[]): string | null {
+  for (const marker of markers) {
+    const section = _extractSection(content, marker);
+    if (section) return section;
+  }
+  return null;
+}
+
+function _detectLegacyHeader(content: string): string | null {
+  if (content.includes('## 中文')) return '## 中文';
+  if (content.includes('## 日本語')) return '## 日本語';
+  return null;
 }

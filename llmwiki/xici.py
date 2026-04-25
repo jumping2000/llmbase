@@ -26,7 +26,7 @@ logger = logging.getLogger("llmbase.xici")
 #
 #     import llmwiki.xici as xici
 #     xici.XICI_SYSTEM_PROMPT = "You are a Confucian scholar..."
-#     xici.LANG_STYLES["zh"] = "请用白话文撰写。"
+#     xici.LANG_STYLES["it"] = "Scrivi in un italiano piu piano e contemporaneo."
 #
 
 XICI_SYSTEM_PROMPT = """You are a master librarian and intellectual guide. Your task is to write
@@ -44,20 +44,17 @@ Rules:
 - Do NOT mention "knowledge base" or "wiki" — write as if introducing a body of thought"""
 
 LANG_STYLES = {
-    "zh": "请用古典中文（文言文）风格撰写。用字简练，句式古雅。可用「者」「也」「矣」「焉」等语气词。",
-    "en": "Write in elegant academic English. Formal but not stuffy. Like a well-crafted book preface.",
-    "ja": "学術的な日本語で書いてください。格調高く、簡潔に。古典的な教養を感じさせる文体で。",
-    "zh-en": "写两段：第一段用文言文，第二段用 English。两段各自独立，不是翻译关系，而是从不同文化视角解读同一知识体系。",
+    "en": "Write in elegant academic English. Formal but not stiff. Like a well-crafted book preface.",
+    "it": "Scrivi in un italiano elegante, saggistico e scorrevole. Tono colto ma naturale, non burocratico.",
+    "en-it": "Write two parallel paragraphs: first in English, then in Italian. They should illuminate the same body of knowledge from two close but not identical rhetorical angles.",
 }
 
 
-def generate_xici(base_dir: Path | None = None, lang: str = "zh") -> dict:
+def generate_xici(base_dir: Path | None = None, lang: str = "en-it") -> dict:
     """Generate Xi Ci for the given language.
 
-    All languages are derived from a Chinese 文言文 base version:
-    1. Generate (or load cached) 文言文 导读
-    2. If lang != "zh", translate from 文言文 into target language
-    This ensures all versions share the same intellectual framework.
+    Default behavior is bilingual English/Italian. The English version is
+    treated as the base text, and derived variants are translated from it.
     """
     cfg = load_config(base_dir)
     ensure_dirs(cfg)
@@ -90,12 +87,12 @@ def generate_xici(base_dir: Path | None = None, lang: str = "zh") -> dict:
             tag_counter[t] += 1
     themes = [tag for tag, _ in tag_counter.most_common(7)]
 
-    # Step 1: Get or generate the 文言文 base
-    zh_xici = get_xici(base_dir, "zh")
-    zh_text = zh_xici.get("text", "")
+    # Step 1: Get or generate the English base
+    en_xici = get_xici(base_dir, "en")
+    en_text = en_xici.get("text", "")
 
-    if not zh_text or zh_xici.get("article_count", 0) != len(articles):
-        # Need to (re)generate the 文言文 base
+    if not en_text or en_xici.get("article_count", 0) != len(articles):
+        # Need to (re)generate the English base
         # For large KBs, use compact summary (tag frequencies + sample titles)
         # to avoid token overflow
         if len(articles) <= 80:
@@ -117,69 +114,79 @@ def generate_xici(base_dir: Path | None = None, lang: str = "zh") -> dict:
                 f"- {tag} ({len(titles)} articles): {', '.join(titles[:3])}"
                 for tag, titles in top_themes
             )
-        style = LANG_STYLES["zh"]
+        style = LANG_STYLES["en"]
         prompt = (
             f"Here are {len(articles)} articles in a personal knowledge base:\n\n"
             f"{overview}\n\n"
-            f"Write a guided introduction (导读) for this knowledge base.\n\n"
+            f"Write a guided introduction for this knowledge base.\n\n"
             f"Language and style instruction:\n{style}\n\n"
             f"Remember: weave a narrative, don't list. Reveal the hidden structure."
         )
         try:
-            zh_text = chat(prompt, system=XICI_SYSTEM_PROMPT, max_tokens=1024).strip()
+            en_text = chat(prompt, system=XICI_SYSTEM_PROMPT, max_tokens=1024).strip()
         except Exception as e:
-            logger.error(f"[xici] 文言文 generation failed: {e}")
-            zh_text = ""
+            logger.error(f"[xici] English generation failed: {e}")
+            en_text = ""
 
-        # Cache the 文言文 base
-        zh_result = {
-            "text": zh_text,
+        # Cache the English base
+        en_result = {
+            "text": en_text,
             "themes": themes,
-            "lang": "zh",
+            "lang": "en",
             "generated_at": datetime.now(timezone.utc).isoformat(),
             "article_count": len(articles),
         }
-        _save_xici(cfg, "zh", zh_result)
+        _save_xici(cfg, "en", en_result)
 
-    # Step 2: If target lang is zh, we're done
-    if lang == "zh":
+    # Step 2: If target lang is en, we're done
+    if lang == "en":
         from .hooks import emit
-        emit("xici_generated", lang="zh", article_count=len(articles))
+        emit("xici_generated", lang="en", article_count=len(articles))
         return {
-            "text": zh_text,
+            "text": en_text,
             "themes": themes,
-            "lang": "zh",
+            "lang": "en",
             "generated_at": datetime.now(timezone.utc).isoformat(),
             "article_count": len(articles),
         }
 
-    # Step 3: Translate from 文言文 into target language
+    # Step 3: Translate from English into target language
     translate_instructions = {
-        "en": (
-            "Translate this classical Chinese (文言文) guided introduction into elegant academic English. "
-            "Preserve the intellectual structure and rhetorical rhythm. "
-            "Do not simplify — match the gravitas of the original."
+        "it": (
+            "Translate this guided introduction into elegant Italian. "
+            "Preserve the intellectual structure and rhetorical cadence. "
+            "Do not flatten it into plain summary prose."
+        ),
+        "en-it": (
+            "Output TWO paragraphs:\n"
+            "1. The original English text as-is (do not modify)\n"
+            "2. An Italian version that preserves the same intellectual structure\n\n"
+            "Separate the two paragraphs with a line containing only ---"
+        ),
+        "zh": (
+            "Translate this guided introduction into clear literary Chinese. "
+            "Preserve the conceptual structure and keep the prose concise."
         ),
         "ja": (
-            "この文言文の導読を格調高い学術的日本語に翻訳してください。"
-            "原文の知的構造と修辞的リズムを保ってください。"
+            "この導読を格調高い学術的日本語に翻訳してください。"
+            "原文の知的構造とリズムを保ってください。"
         ),
         "zh-en": (
             "Output TWO paragraphs:\n"
-            "1. The original 文言文 text as-is (do not modify)\n"
-            "2. An English translation that preserves the intellectual structure\n\n"
+            "1. An English version of the text as-is\n"
+            "2. A Chinese version that preserves the same intellectual structure\n\n"
             "Separate the two paragraphs with a line containing only ---"
         ),
     }
 
-    instruction = translate_instructions.get(lang, translate_instructions["en"])
-    translate_prompt = f"{instruction}\n\nOriginal 文言文:\n\n{zh_text}"
+    instruction = translate_instructions.get(lang, translate_instructions["it"])
+    translate_prompt = f"{instruction}\n\nOriginal English:\n\n{en_text}"
 
     try:
         text = chat(translate_prompt, max_tokens=1024).strip()
     except Exception as e:
         logger.error(f"[xici] Translation to {lang} failed: {e}")
-        text = zh_text  # Fallback to 文言文
+        text = en_text
 
     result = {
         "text": text,
@@ -198,7 +205,7 @@ def generate_xici(base_dir: Path | None = None, lang: str = "zh") -> dict:
     return result
 
 
-def get_xici(base_dir: Path | None = None, lang: str = "zh") -> dict:
+def get_xici(base_dir: Path | None = None, lang: str = "en-it") -> dict:
     """Get cached Xi Ci, or empty if not generated yet."""
     cfg = load_config(base_dir)
     meta_dir = Path(cfg["paths"]["meta"])
