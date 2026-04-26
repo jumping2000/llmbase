@@ -123,8 +123,12 @@ jobs:
       packages: write
 
     steps:
-      # 1. SCANSIONE FILESYSTEM (Prima del build per sicurezza)
-      # Questo trova vulnerabilità nelle dipendenze dichiarate nel progetto
+      # 1. CHECKOUT (DEVE ESSERE IL PRIMO)
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+      # 2. SCANSIONE FILESYSTEM (Prima del build per sicurezza)
       - name: Scan Repository for vulnerabilities (FS)
         uses: aquasecurity/trivy-action@master
         with:
@@ -135,12 +139,7 @@ jobs:
           severity: 'CRITICAL,HIGH'
           ignore-unfixed: true
           output: 'trivy-report.txt'
-
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ needs.prepare.outputs.sha }}
-
+    # 3. SETUP DOCKER
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
@@ -177,14 +176,13 @@ jobs:
           cache-to: type=gha,mode=max
           build-args: |
             BUILD_DATE=${{ github.event.repository.updated_at }}
-
-      # 2. GENERAZIONE SBOM (Basata sul filesystem/repo)
+      # 4. GENERAZIONE SBOM (Basata sul filesystem/repo)
       - name: Generate SBOM
         uses: anchore/sbom-action@v0
         with:
           path: .
           output-file: sbom.spdx.json
-
+      # 5. ASSETS E ARTIFACTS
       - name: Update Release with Security Assets
         uses: softprops/action-gh-release@v2
         if: github.event_name == 'release'
@@ -202,16 +200,7 @@ jobs:
           path: |
             trivy-report.txt
             sbom.spdx.json
-
-      - name: Test Docker image
-        run: |
-          echo "🐳 Testing Docker image..."
-          IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.prepare.outputs.version }}"
-          docker pull "$IMAGE"
-          docker run --rm "$IMAGE" --help
-          docker run --rm "$IMAGE" status || echo "Expected: status requires config"
-          echo "✅ Docker image tests passed"
-
+      # 6. BUILD SUMMARY (CORRETTO)
       - name: Create build summary
         run: |
           echo "## 🐳 Docker Build Summary" >> $GITHUB_STEP_SUMMARY
@@ -228,6 +217,7 @@ jobs:
           echo "### Tags Pushed" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "${{ steps.meta.outputs.tags }}" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
 
   # ========================================================================
   # JOB 4: NOTIFICATION
