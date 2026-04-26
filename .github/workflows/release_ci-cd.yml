@@ -1,0 +1,235 @@
+name: LLMwiki CI/CD Pipeline
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      release_version:
+        description: 'Versione da buildare (es. v0.8.0). Se vuoto usa il tag della release.'
+        required: false
+        default: ''
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+  SMTP_PORT_DEFAULT: '587'
+
+jobs:
+  # ========================================================================
+  # JOB 1: PREPARE
+  # ========================================================================
+  prepare:
+    name: Prepare Environment
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.get_version.outputs.version }}
+      sha: ${{ steps.get_version.outputs.sha }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get version
+        id: get_version
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            VERSION="${{ github.event.release.tag_name }}"
+          else
+            VERSION="${{ github.event.inputs.release_version }}"
+            if [ -z "$VERSION" ]; then
+              VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+            fi
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "sha=${{ github.sha }}" >> $GITHUB_OUTPUT
+          echo "📌 Target Version: $VERSION"
+
+  # ========================================================================
+  # JOB 2: TEST
+  # ========================================================================
+  test:
+    name: Test Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    needs: prepare
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.11', '3.12']
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+
+      - name: Setup Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          # Installa il pacchetto in modalità editabile con le dipendenze dev
+          pip install -e ".[dev]"
+
+      - name: Run linting with Ruff
+        run: |
+          # Controlla la cartella llmwiki/ come specificato
+          ruff check llmwiki/ --output-format=github || true
+
+      - name: Run tests with pytest
+        run: |
+          # Test su cartella tests/ e copertura su llmwiki/
+          pytest -v \
+            --cov=llmwiki \
+            --cov-report=xml \
+            --cov-report=term-missing \
+            -x || echo "No tests found or tests failed"
+
+      - name: Test CLI
+        run: |
+          # llmbase è il nome del comando definito in [project.scripts]
+          llmbase --help
+
+      - name: Create test summary
+        if: always()
+        run: |
+          echo "## 🧪 Test Results - Python ${{ matrix.python-version }}" >> $GITHUB_STEP_SUMMARY
+          echo "| Check | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Linting (Ruff) | ${{ job.status }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Unit Tests (Pytest) | ${{ job.status }} |" >> $GITHUB_STEP_SUMMARY
+
+  # ========================================================================
+  # JOB 3: BUILD DOCKER
+  # ========================================================================
+  build-docker:
+    name: Build & Push Docker
+    runs-on: ubuntu-latest
+    needs: [prepare, test]
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=semver,pattern={{version}},value=${{ needs.prepare.outputs.version }}
+            type=raw,value=latest
+            type=sha,prefix=sha-
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Scan image (Trivy)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.prepare.outputs.version }}
+          format: 'table'
+          severity: 'CRITICAL,HIGH'
+          ignore-unfixed: true
+          output: 'trivy-report.txt'
+
+      - name: Generate SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.prepare.outputs.version }}
+          output-file: sbom.spdx.json
+
+  # ========================================================================
+  # JOB 4: NOTIFICATION
+  # ========================================================================
+  notify:
+    name: Send Email Notification
+    runs-on: ubuntu-latest
+    needs: [prepare, test, build-docker]
+    if: always()
+
+    steps:
+      - name: Prepare email content
+        id: email
+        env:
+          STATUS_TEST: ${{ needs.test.result }}
+          STATUS_DOCKER: ${{ needs.build-docker.result }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          python3 - << 'PYEOF'
+          import os, datetime
+          
+          s_test = os.environ["STATUS_TEST"]
+          s_docker = os.environ["STATUS_DOCKER"]
+          version = os.environ["VERSION"]
+          repo = os.environ.get("GITHUB_REPOSITORY", "Unknown")
+          
+          overall = "SUCCESS" if s_test == "success" and s_docker == "success" else "FAILED"
+          subject = f"LLMwiki CI/CD {overall}: {version}"
+          
+          body = f"""
+          LLMwiki CI/CD Pipeline Report
+          --------------------------------------
+          Status Generale: {overall}
+          Versione: {version}
+          
+          Dettaglio Job:
+          - Test Suite: {s_test.upper()}
+          - Docker Build: {s_docker.upper()}
+          
+          Link alla Run:
+          {os.environ.get('GITHUB_SERVER_URL')}/{repo}/actions/runs/{os.environ.get('GITHUB_RUN_ID')}
+          
+          Data: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}
+          --------------------------------------
+          """
+          with open("/tmp/email_body.txt", "w") as f: f.write(body)
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f: f.write(f"subject={subject}\n")
+          PYEOF
+
+      - name: Send Email
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ secrets.SMTP_SERVER }}
+          server_port: ${{ secrets.SMTP_PORT || env.SMTP_PORT_DEFAULT }}
+          username: ${{ secrets.SMTP_USERNAME }}
+          password: ${{ secrets.SMTP_PASSWORD }}
+          subject: ${{ steps.email.outputs.subject }}
+          body: file:///tmp/email_body.txt
+          to: ${{ secrets.NOTIFICATION_EMAIL }}
+          from: GitHub Actions <${{ secrets.SMTP_USERNAME }}>

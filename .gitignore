@@ -10,6 +10,9 @@ build/
 node_modules/
 stitch/
 STITCH_PROMPT.md
+.venv/
+.pytest_cache/
+
 
 # Knowledge base data (users generate their own)
 raw/

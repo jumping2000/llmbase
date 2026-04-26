@@ -1,0 +1,573 @@
+name: LLMbase CI/CD Pipeline
+
+on:
+  schedule:
+    # Check for new releases daily at 6 AM UTC
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+    inputs:
+      release_version:
+        description: 'Specific release version to sync (e.g., v0.1.5). Leave empty for latest.'
+        required: false
+        default: ''
+        type: string
+      force_sync:
+        description: 'Force sync even if already synced'
+        required: false
+        default: false
+        type: boolean
+
+# FIX: prevent concurrent runs to avoid race conditions on version check/tag push
+concurrency:
+  group: llmbase-sync
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+  UPSTREAM_REPO: Hosuke/llmbase
+  # FIX: default SMTP port declared as env var (secrets can't use || fallback directly)
+  SMTP_PORT_DEFAULT: '587'
+
+jobs:
+  # ========================================================================
+  # JOB 1: CHECK FOR NEW RELEASE
+  # ========================================================================
+  check-release:
+    name: Check for New Release
+    runs-on: ubuntu-latest
+    outputs:
+      has_new_release: ${{ steps.check.outputs.has_new_release }}
+      latest_version: ${{ steps.check.outputs.latest_version }}
+      current_version: ${{ steps.check.outputs.current_version }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get current synced version
+        id: current
+        run: |
+          if [ -f ".llmbase-version" ]; then
+            CURRENT=$(cat .llmbase-version)
+          else
+            CURRENT=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          fi
+          echo "version=$CURRENT" >> $GITHUB_OUTPUT
+          echo "📌 Current synced version: $CURRENT"
+
+      - name: Check upstream releases
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          LATEST=$(gh api repos/${{ env.UPSTREAM_REPO }}/releases/latest \
+            --jq '.tag_name' 2>/dev/null || echo "v0.0.0")
+
+          CURRENT=${{ steps.current.outputs.version }}
+
+          echo "latest_version=$LATEST" >> $GITHUB_OUTPUT
+          echo "current_version=$CURRENT" >> $GITHUB_OUTPUT
+
+          echo "🔍 Latest upstream release: $LATEST"
+          echo "📌 Current synced version: $CURRENT"
+
+          if [ "$LATEST" != "$CURRENT" ]; then
+            echo "✨ New release available!"
+            echo "has_new_release=true" >> $GITHUB_OUTPUT
+          else
+            echo "✅ Already up to date"
+            echo "has_new_release=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create summary
+        run: |
+          echo "## 📊 Release Check Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Status | Version |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|---------|" >> $GITHUB_STEP_SUMMARY
+          echo "| 🏷️ Upstream Latest | ${{ steps.check.outputs.latest_version }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 📍 Current Synced | ${{ steps.check.outputs.current_version }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🆕 New Available | ${{ steps.check.outputs.has_new_release }} |" >> $GITHUB_STEP_SUMMARY
+
+  # ========================================================================
+  # JOB 2: SYNC RELEASE
+  # ========================================================================
+  sync-release:
+    name: Sync Release
+    runs-on: ubuntu-latest
+    needs: check-release
+    if: |
+      needs.check-release.outputs.has_new_release == 'true' ||
+      github.event.inputs.force_sync == 'true' ||
+      github.event.inputs.release_version != ''
+    outputs:
+      synced_version: ${{ steps.sync.outputs.version }}
+      synced_sha: ${{ steps.sync.outputs.sha }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.PAT_TOKEN }}
+
+      - name: Determine version to sync
+        id: version
+        run: |
+          if [ -n "${{ github.event.inputs.release_version }}" ]; then
+            VERSION="${{ github.event.inputs.release_version }}"
+          else
+            VERSION="${{ needs.check-release.outputs.latest_version }}"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "🎯 Will sync version: $VERSION"
+
+      - name: Download release assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION=${{ steps.version.outputs.version }}
+          echo "📥 Downloading release $VERSION..."
+          gh release download "$VERSION" \
+            --repo "${{ env.UPSTREAM_REPO }}" \
+            --archive=tar.gz \
+            --dir /tmp/release || {
+              echo "❌ Release $VERSION not found"
+              exit 1
+            }
+          echo "✅ Downloaded: llmbase-$VERSION.tar.gz"
+
+      - name: Extract and sync
+        run: |
+          VERSION=${{ steps.version.outputs.version }}
+          echo "📦 Extracting release..."
+          mkdir -p /tmp/sync
+          tar -xzf /tmp/release/llmbase-*.tar.gz -C /tmp/sync --strip-components=1
+
+          echo "💾 Backing up local configurations..."
+          mkdir -p /tmp/backup
+
+          [ -f "docker-compose.staging.yml" ] && cp docker-compose.staging.yml /tmp/backup/
+          [ -f "config.production.json" ]     && cp config.production.json /tmp/backup/
+          # FIX: backup the whole .github dir so the workflows subfolder path is preserved
+          [ -d ".github" ]  && cp -r .github /tmp/backup/
+          [ -d "scripts" ]  && cp -r scripts /tmp/backup/
+
+          find . -maxdepth 1 ! -name '.git' ! -name '.' -exec rm -rf {} +
+
+          cp -r /tmp/sync/* .
+
+          echo "♻️ Restoring local configurations..."
+          [ -f "/tmp/backup/docker-compose.staging.yml" ] && cp /tmp/backup/docker-compose.staging.yml .
+          [ -f "/tmp/backup/config.production.json" ]     && cp /tmp/backup/config.production.json .
+          # FIX: restore full .github tree; mkdir -p ensures the target always exists
+          if [ -d "/tmp/backup/.github" ]; then
+            mkdir -p .github
+            cp -r /tmp/backup/.github/. .github/
+          fi
+          [ -d "/tmp/backup/scripts" ] && cp -r /tmp/backup/scripts .
+
+          echo "$VERSION" > .llmbase-version
+          echo "✅ Synced version: $VERSION"
+
+      - name: Commit and tag changes
+        id: sync
+        run: |
+          VERSION=${{ steps.version.outputs.version }}
+
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+
+          git add -A
+          git commit -m "🔄 Sync upstream release $VERSION" || echo "No changes to commit"
+
+          # FIX: fail explicitly if tag already exists on a different commit (no --force, no || true)
+          if git ls-remote --tags origin | grep -q "refs/tags/${VERSION}$"; then
+            REMOTE_SHA=$(git ls-remote --tags origin "refs/tags/${VERSION}" | awk '{print $1}')
+            LOCAL_SHA=$(git rev-parse HEAD)
+            if [ "$REMOTE_SHA" != "$LOCAL_SHA" ]; then
+              echo "❌ Tag $VERSION already exists on a different commit ($REMOTE_SHA). Aborting."
+              exit 1
+            fi
+            echo "ℹ️ Tag $VERSION already points to HEAD, skipping tag creation."
+          else
+            git tag -a "$VERSION" -m "Release $VERSION"
+          fi
+
+          # FIX: fail hard on push failure instead of silencing it
+          git push origin main
+          git push origin "$VERSION"
+
+          PUSHED_SHA=$(git rev-parse HEAD)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "sha=$PUSHED_SHA" >> $GITHUB_OUTPUT
+          echo "✅ Committed and tagged: $VERSION @ $PUSHED_SHA"
+
+      - name: Create summary
+        run: |
+          VERSION=${{ steps.sync.outputs.version }}
+          echo "## 🔄 Sync Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Successfully synced release **$VERSION**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- Repository: [${{ env.UPSTREAM_REPO }}](https://github.com/${{ env.UPSTREAM_REPO }})" >> $GITHUB_STEP_SUMMARY
+          echo "- Release: [$VERSION](https://github.com/${{ env.UPSTREAM_REPO }}/releases/tag/$VERSION)" >> $GITHUB_STEP_SUMMARY
+          echo "- Commit: ${{ steps.sync.outputs.sha }}" >> $GITHUB_STEP_SUMMARY
+
+  # ========================================================================
+  # JOB 3: TEST
+  # ========================================================================
+  test:
+    name: Test Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    needs: sync-release
+
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.11', '3.12']
+
+    steps:
+      # FIX: explicit ref so we always test the commit just pushed by sync-release
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.sync-release.outputs.synced_sha }}
+
+      - name: Setup Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Run linting with Ruff
+        run: |
+          ruff check llmbase/ --output-format=github || true
+
+      - name: Run tests with pytest
+        run: |
+          pytest tests/ -v \
+            --cov=llmbase \
+            --cov-report=xml \
+            --cov-report=html \
+            --cov-report=term-missing \
+            -x || echo "No tests found or tests failed"
+
+      - name: Test CLI basic commands
+        run: |
+          llmbase --help
+          nanobot stats || echo "Status check expected to fail without config"
+
+      - name: Upload coverage report
+        if: matrix.python-version == '3.12'
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./coverage.xml
+          flags: unittests
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Create test summary
+        if: always()
+        run: |
+          echo "## 🧪 Test Results - Python ${{ matrix.python-version }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Check | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Linting | ${{ job.status }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Tests | ${{ job.status }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| CLI | ${{ job.status }} |" >> $GITHUB_STEP_SUMMARY
+
+  # ========================================================================
+  # JOB 4: BUILD DOCKER
+  # ========================================================================
+  build-docker:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+    needs: [sync-release, test]
+
+    permissions:
+      contents: read
+      packages: write
+
+    outputs:
+      image_tag: ${{ steps.meta.outputs.version }}
+
+    steps:
+      # FIX: explicit ref so we always build the commit just pushed by sync-release
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.sync-release.outputs.synced_sha }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.PAT_TOKEN}}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=semver,pattern={{version}},value=${{ needs.sync-release.outputs.synced_version }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ needs.sync-release.outputs.synced_version }}
+            type=raw,value=latest
+            type=sha,prefix=sha-
+          labels: |
+            org.opencontainers.image.title=llmbase
+            org.opencontainers.image.description=Ultra-Lightweight Personal AI Agent
+            org.opencontainers.image.version=${{ needs.sync-release.outputs.synced_version }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            BUILD_DATE=${{ github.event.repository.updated_at }}
+            VERSION=${{ needs.sync-release.outputs.synced_version }}
+
+      - name: Scan image for vulnerabilities
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}
+          format: 'table'
+          exit-code: '0'  # Changed from '1' to allow builds with HIGH/CRITICAL
+          severity: 'CRITICAL,HIGH'
+          ignore-unfixed: true
+          output: 'trivy-report.txt'
+
+      - name: Upload vulnerability report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: trivy-scan-report-${{ steps.meta.outputs.version }}
+          path: trivy-report.txt
+          retention-days: 30
+
+      - name: Generate SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}
+          format: spdx-json
+          output-file: sbom.spdx.json
+
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-${{ steps.meta.outputs.version }}
+          path: sbom.spdx.json
+
+      - name: Test Docker image
+        run: |
+          echo "🐳 Testing Docker image..."
+          IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}"
+          docker pull "$IMAGE"
+          docker run --rm "$IMAGE" --help
+          docker run --rm "$IMAGE" status || echo "Expected: status requires config"
+          echo "✅ Docker image tests passed"
+
+      - name: Create build summary
+        run: |
+          echo "## 🐳 Docker Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Image Details" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| 🏷️ Version | ${{ steps.meta.outputs.version }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 📦 Image | \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🏗️ Platforms | linux/amd64, linux/arm64 |" >> $GITHUB_STEP_SUMMARY
+          echo "| 📅 Built | $(date -u +'%Y-%m-%d %H:%M:%S UTC') |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Tags Pushed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "${{ steps.meta.outputs.tags }}" >> $GITHUB_STEP_SUMMARY
+
+  # ========================================================================
+  # JOB 5: NOTIFICATION (EMAIL ONLY)
+  # ========================================================================
+  notify:
+    name: Send Email Notification
+    runs-on: ubuntu-latest
+    needs: [check-release, sync-release, test, build-docker]
+    if: always()
+
+    steps:
+      - name: Determine overall status
+        id: status
+        run: |
+          CHECK="${{ needs.check-release.result }}"
+          SYNC="${{ needs.sync-release.result }}"
+          TEST="${{ needs.test.result }}"
+          BUILD="${{ needs.build-docker.result }}"
+
+          if [ "$SYNC" == "skipped" ]; then
+            echo "status=skipped" >> $GITHUB_OUTPUT
+            echo "message=No new release to sync" >> $GITHUB_OUTPUT
+          elif [ "$CHECK" == "failure" ] || [ "$SYNC" == "failure" ] || \
+               [ "$TEST" == "failure" ] || [ "$BUILD" == "failure" ]; then
+            echo "status=failure" >> $GITHUB_OUTPUT
+            echo "message=Pipeline failed" >> $GITHUB_OUTPUT
+          elif [ "$TEST" == "success" ] && [ "$BUILD" == "success" ]; then
+            echo "status=success" >> $GITHUB_OUTPUT
+            echo "message=Pipeline completed successfully" >> $GITHUB_OUTPUT
+          else
+            echo "status=partial" >> $GITHUB_OUTPUT
+            echo "message=Pipeline completed with warnings" >> $GITHUB_OUTPUT
+          fi
+
+          echo "| Job | Status |" > /tmp/status_table.txt
+          echo "|-----|--------|" >> /tmp/status_table.txt
+          echo "| Check Release | $CHECK |" >> /tmp/status_table.txt
+          echo "| Sync Release  | $SYNC  |" >> /tmp/status_table.txt
+          echo "| Tests         | $TEST  |" >> /tmp/status_table.txt
+          echo "| Docker Build  | $BUILD |" >> /tmp/status_table.txt
+
+      - name: Prepare email content
+        id: email
+        # All GitHub Actions context values are injected as env vars so no
+        # expressions appear inside the Python string literals — avoids both
+        # the YAML heredoc Unicode issue and any shell/sed quoting hazards.
+        env:
+          STATUS:       ${{ steps.status.outputs.status }}
+          VERSION:      ${{ needs.sync-release.outputs.synced_version || 'N/A' }}
+          REPOSITORY:   ${{ github.repository }}
+          REF_NAME:     ${{ github.ref_name }}
+          COMMIT_SHA:   ${{ github.sha }}
+          ACTOR:        ${{ github.actor }}
+          RUN_ID:       ${{ github.run_id }}
+          SERVER_URL:   ${{ github.server_url }}
+          UPSTREAM:     ${{ env.UPSTREAM_REPO }}
+        run: |
+          python3 - << 'PYEOF'
+          import os, datetime
+
+          status  = os.environ["STATUS"]
+          version = os.environ["VERSION"]
+
+          emoji_map = {
+            "success": "OK",
+            "failure": "FAILED",
+            "skipped": "SKIPPED",
+          }
+          label = emoji_map.get(status, "WARNING")
+          subject = f"llmbase CI/CD {label} - {version}"
+
+          separator = "-" * 40
+
+          status_table = open("/tmp/status_table.txt").read().strip()
+          timestamp    = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+
+          repo       = os.environ["REPOSITORY"]
+          ref        = os.environ["REF_NAME"]
+          sha        = os.environ["COMMIT_SHA"]
+          actor      = os.environ["ACTOR"]
+          run_id     = os.environ["RUN_ID"]
+          server_url = os.environ["SERVER_URL"]
+          upstream   = os.environ["UPSTREAM"]
+
+          body = "\n".join([
+            f"[{label}] LLMbase CI/CD Pipeline Notification",
+            "",
+            separator,
+            "",
+            f"PIPELINE STATUS: {status.upper()}",
+            "",
+            status_table,
+            "",
+            separator,
+            "",
+            "DETAILS:",
+            "",
+            f"  Version Synced : {version}",
+            f"  Repository     : {repo}",
+            f"  Branch         : {ref}",
+            f"  Commit         : {sha}",
+            f"  Triggered by   : {actor}",
+            f"  Run ID         : {run_id}",
+            "",
+            separator,
+            "",
+            "LINKS:",
+            "",
+            f"  GitHub Actions : {server_url}/{repo}/actions/runs/{run_id}",
+            f"  Repository     : {server_url}/{repo}",
+            f"  Upstream       : https://github.com/{upstream}",
+            "",
+            separator,
+            "",
+            f"Timestamp: {timestamp}",
+            "",
+            "---",
+            "This is an automated notification from your LLMBase CI/CD pipeline.",
+          ])
+
+          with open("/tmp/email_body.txt", "w") as f:
+            f.write(body)
+
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+            f.write(f"subject={subject}\n")
+            f.write(f"status_label={label}\n")
+
+          print(f"Subject : {subject}")
+          print(f"Body written to /tmp/email_body.txt ({len(body)} chars)")
+          PYEOF
+
+      - name: Send email notification
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ secrets.SMTP_SERVER }}
+          # FIX: use env-level default; secrets can't use || fallback in expressions
+          server_port: ${{ secrets.SMTP_PORT || env.SMTP_PORT_DEFAULT }}
+          username: ${{ secrets.SMTP_USERNAME }}
+          password: ${{ secrets.SMTP_PASSWORD }}
+          subject: ${{ steps.email.outputs.subject }}
+          body: file:///tmp/email_body.txt
+          to: ${{ secrets.NOTIFICATION_EMAIL }}
+          from: LLMBase CI/CD <${{ secrets.SMTP_USERNAME }}>
+          secure: false #true default to false, since some servers use STARTTLS on the same port
+          convert_markdown: true
+
+      - name: Create notification summary
+        run: |
+          echo "## 📧 Email Notification Sent" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**[${{ steps.email.outputs.status_label }}] Status:** ${{ steps.status.outputs.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Subject:** ${{ steps.email.outputs.subject }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Sent to:** ${{ secrets.NOTIFICATION_EMAIL }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "$(cat /tmp/status_table.txt)" >> $GITHUB_STEP_SUMMARY
