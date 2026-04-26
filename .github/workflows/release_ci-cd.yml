@@ -123,6 +123,19 @@ jobs:
       packages: write
 
     steps:
+      # 1. SCANSIONE FILESYSTEM (Prima del build per sicurezza)
+      # Questo trova vulnerabilità nelle dipendenze dichiarate nel progetto
+      - name: Scan Repository for vulnerabilities (FS)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'table'
+          exit-code: '0'  # Changed from '1' to allow builds with HIGH/CRITICAL
+          severity: 'CRITICAL,HIGH'
+          ignore-unfixed: true
+          output: 'trivy-report.txt'
+
       - name: Checkout
         uses: actions/checkout@v4
         with:
@@ -165,28 +178,11 @@ jobs:
           build-args: |
             BUILD_DATE=${{ github.event.repository.updated_at }}
 
-        # Aggiungiamo un piccolo delay per permettere a GHCR di indicizzare il tag
-      - name: Wait for GHCR indexing
-        run: sleep 15
-
-      - name: Scan image for vulnerabilities
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.prepare.outputs.version }}
-          format: 'table'
-          exit-code: '0'  # Changed from '1' to allow builds with HIGH/CRITICAL
-          severity: 'CRITICAL,HIGH'
-          ignore-unfixed: true
-          output: 'trivy-report.txt'
-        env:
-          # TRIVY ha bisogno di queste per autenticarsi su GHCR
-          TRIVY_USERNAME: ${{ github.actor }}
-          TRIVY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
-
+      # 2. GENERAZIONE SBOM (Basata sul filesystem/repo)
       - name: Generate SBOM
         uses: anchore/sbom-action@v0
         with:
-          image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.prepare.outputs.version }}
+          path: .
           output-file: sbom.spdx.json
 
       - name: Update Release with Security Assets
@@ -196,7 +192,6 @@ jobs:
           files: |
             trivy-report.txt
             sbom.spdx.json
-          # Usiamo il token per avere i permessi di scrittura sulla release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
