@@ -276,5 +276,20 @@ jobs:
           password: ${{ secrets.SMTP_PASSWORD }}
           subject: ${{ steps.email.outputs.subject }}
           body: file:///tmp/email_body.txt
-          to: ${{ secrets.NOTIFICATION_EMAIL }}
+          to: LLMbase CI/CD <${{ secrets.NOTIFICATION_EMAIL }}>
           from: GitHub Actions <${{ secrets.SMTP_USERNAME }}>
+          convert_markdown: false
+
+      - name: Create notification summary
+        run: |
+          echo "## 📧 Email Notification Sent" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**[${{ steps.email.outputs.status_label }}] Status:** ${{ steps.status.outputs.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Subject:** ${{ steps.email.outputs.subject }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Sent to:** ${{ secrets.NOTIFICATION_EMAIL }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "$(cat /tmp/status_table.txt)" >> $GITHUB_STEP_SUMMARY
