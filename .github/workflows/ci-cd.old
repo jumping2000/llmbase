@@ -224,7 +224,6 @@ jobs:
     name: Test Python ${{ matrix.python-version }}
     runs-on: ubuntu-latest
     needs: sync-release
-
     strategy:
       fail-fast: false
       matrix:
@@ -269,7 +268,7 @@ jobs:
       - name: Test CLI basic commands
         run: |
           llmbase --help
-          nanobot stats || echo "Status check expected to fail without config"
+          llmbase stats || echo "Status check expected to fail without config"
 
       - name: Upload coverage report
         if: matrix.python-version == '3.12'
@@ -298,7 +297,6 @@ jobs:
     name: Build Docker Image
     runs-on: ubuntu-latest
     needs: [sync-release, test]
-
     permissions:
       contents: read
       packages: write
