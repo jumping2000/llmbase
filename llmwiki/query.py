@@ -11,7 +11,7 @@ Downstream projects can override these module-level constants:
 Example::
 
     import llmwiki.query as q
-    q.TONE_INSTRUCTIONS["formal_chinese"] = "請以正式中文回答。"
+    q.TONE_INSTRUCTIONS["formal_it"] = "Rispondi in italiano formale e sorvegliato."
 """
 
 import json
@@ -49,15 +49,6 @@ TONE_INSTRUCTIONS = {
         "No-self mean no worry. Caveman like.' "
         "Still convey the actual knowledge accurately, but wrap it in caveman speech. "
         "Use grunts (Ugg, Hmm, Ooga) for emphasis."
-    ),
-    "wenyan": (
-        "重要語氣覆蓋：請以文言文風格作答。全文須用古典漢語（文言文）書寫，"
-        "仿先秦兩漢之文風，用字簡練，句式古雅。"
-        "可用「者」「也」「矣」「焉」「乎」「哉」等語氣詞，"
-        "用「蓋」「夫」「且」「然則」等發語詞及連詞。"
-        "引經據典時宜用原文。切勿用白話文。"
-        "範例：'學者，覺也。覺其所未知，明其所未明，是為真學。"
-        "蓋天下之理，非一端可盡，故博學而篤志，切問而近思。'"
     ),
     "scholar": (
         "TONE OVERRIDE: Respond in the style of a careful academic scholar. "
@@ -344,7 +335,7 @@ def promote_to_concept(
          "merged": bool, "reason": "..."}
 
     Relies on compile._write_article() for the actual write, which handles
-    3-layer deduplication (slug / alias / CJK substring) — so even if the
+    deduplication (slug / alias) — so even if the
     judge mistakenly re-proposes an existing concept, the writer will merge
     rather than create a duplicate.
     """
@@ -497,7 +488,7 @@ If rejecting, reply with:
 
     # Determine whether this was a merge or a new file. Merge happens when:
     # - the target file already existed (exact slug or alias hit), or
-    # - dedup redirected the write to a different file (CJK substring)
+    # - dedup redirected the write to a different file
     final_slug = article_path.stem
     merged = pre_exists or (final_slug != safe_slug)
 
@@ -645,7 +636,7 @@ def _bm25_prefilter(question: str, index: list[dict], top_k: int) -> list[dict]:
     deep-ask path always has candidates to hand to the LLM selector.
 
     Reuses ``tools.search._tokenize`` to stay consistent with the main
-    search path — CJK-aware (chars + bigrams) and stopword-filtered.
+    search path — Unicode word-tokenized and stopword-filtered.
     """
     import math
     from collections import Counter

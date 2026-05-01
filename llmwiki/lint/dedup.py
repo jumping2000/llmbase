@@ -14,68 +14,11 @@ def _find_duplicate_candidates(articles: list[dict]) -> list[tuple[str, str]]:
     """Pre-filter: find article pairs that are likely duplicates.
 
     Uses cheap heuristics — no LLM call:
-    - Slug substring overlap (ASCII: min 4 chars; CJK: any length)
+    - Slug substring overlap (min 4 chars)
     - High tag overlap (>= 60% Jaccard)
-    - CJK substring matching across titles AND slugs
-      (仁 is substring of 仁爱 → candidate)
     """
-    import re
-    cjk_re = re.compile(r'[\u4e00-\u9fff\u3400-\u4dbf]')
-
     candidates = []
     n = len(articles)
-
-    def _is_cjk(text: str) -> bool:
-        return bool(cjk_re.search(text))
-
-    def _extract_cjk(text: str) -> str:
-        """Extract all CJK characters from text."""
-        return re.sub(r'[^\u4e00-\u9fff\u3400-\u4dbf]', '', text)
-
-    def _all_cjk_names(article: dict) -> set[str]:
-        """Get all CJK names for an article: from title parts AND slug."""
-        names = set()
-        # From title: split by / and extract CJK
-        for part in article["title"].split("/"):
-            cjk = _extract_cjk(part.strip())
-            if cjk:
-                names.add(cjk)
-        # From slug if it contains CJK
-        slug_cjk = _extract_cjk(article["slug"])
-        if slug_cjk:
-            names.add(slug_cjk)
-        return names
-
-    def _simplify(text: str) -> str:
-        """Convert traditional Chinese to simplified for comparison."""
-        try:
-            from opencc import OpenCC
-            return OpenCC('t2s').convert(text)
-        except ImportError:
-            return text
-
-    def _cjk_substring_match(names_a: set[str], names_b: set[str]) -> bool:
-        """Check if CJK names match (exact, simplified/traditional, or near-exact).
-
-        Rules:
-        - Exact match (including after simplification): always match
-        - Single char (仁): exact only, no substring
-        - 2+ chars: substring OK if >= 67% of longer string
-        """
-        # Expand both sets with simplified variants
-        expanded_a = names_a | {_simplify(n) for n in names_a}
-        expanded_b = names_b | {_simplify(n) for n in names_b}
-
-        for a in expanded_a:
-            for b in expanded_b:
-                if a == b:
-                    return True
-                short, long = (a, b) if len(a) <= len(b) else (b, a)
-                if len(short) <= 1:
-                    continue
-                if short in long and len(short) / len(long) >= 0.67:
-                    return True
-        return False
 
     for i in range(n):
         for j in range(i + 1, n):
@@ -84,16 +27,10 @@ def _find_duplicate_candidates(articles: list[dict]) -> list[tuple[str, str]]:
 
             # Slug substring matching
             a_slug, b_slug = a["slug"], b["slug"]
-            if _is_cjk(a_slug) or _is_cjk(b_slug):
-                # CJK slug: no minimum length
-                if a_slug in b_slug or b_slug in a_slug:
-                    score += 2
-            else:
-                # ASCII slug: min 4 chars to avoid "ren" in "renzhe" false positive
-                if len(a_slug) >= 4 and a_slug in b_slug:
-                    score += 2
-                elif len(b_slug) >= 4 and b_slug in a_slug:
-                    score += 2
+            if len(a_slug) >= 4 and a_slug in b_slug:
+                score += 2
+            elif len(b_slug) >= 4 and b_slug in a_slug:
+                score += 2
 
             # Tag Jaccard similarity
             if a["tags"] and b["tags"]:
@@ -101,13 +38,6 @@ def _find_duplicate_candidates(articles: list[dict]) -> list[tuple[str, str]]:
                 union = len(a["tags"] | b["tags"])
                 if union > 0 and intersection / union >= 0.6:
                     score += 2
-
-            # CJK name substring matching (the key fix)
-            # Collects CJK from title parts AND slug, then does substring comparison
-            cjk_a = _all_cjk_names(a)
-            cjk_b = _all_cjk_names(b)
-            if cjk_a and cjk_b and _cjk_substring_match(cjk_a, cjk_b):
-                score += 3
 
             if score >= 2:
                 candidates.append((a["slug"], b["slug"]))
@@ -152,18 +82,8 @@ def merge_duplicates(base_dir: Path | None = None, max_merges: int = 15) -> list
         post_a = frontmatter.load(str(path_a))
         post_b = frontmatter.load(str(path_b))
 
-        # Pick primary — rule-based, no LLM needed:
-        # ASCII slug preferred over CJK slug; longer content wins
-        import re as _re
-        a_is_ascii = not bool(_re.search(r'[\u4e00-\u9fff]', slug_a))
-        b_is_ascii = not bool(_re.search(r'[\u4e00-\u9fff]', slug_b))
-
-        if a_is_ascii and not b_is_ascii:
-            choose_b = False
-        elif b_is_ascii and not a_is_ascii:
-            choose_b = True
-        else:
-            choose_b = len(post_b.content) > len(post_a.content)
+        # Pick primary — longer content wins.
+        choose_b = len(post_b.content) > len(post_a.content)
 
         if choose_b:
             primary_path, secondary_path = path_b, path_a
@@ -257,7 +177,7 @@ def _refresh_taxonomy_after_merge(base_dir: Path | None = None):
         else:
             categories.append({
                 "id": "other",
-                "label": {"en": "Other", "zh": "其他", "ja": "その他"},
+                "label": {"en": "Other", "it": "Altro"},
                 "article_slugs": list(unassigned),
                 "children": [],
             })

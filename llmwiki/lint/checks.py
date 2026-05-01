@@ -10,19 +10,6 @@ from ..config import load_config, ensure_dirs
 from ..llm import chat
 
 
-# ─── Customizable constants ──────────────────────────────────────
-# Downstream can override to adjust lint behaviour.
-#
-#     import llmwiki.lint.checks as checks
-#     checks.ALLOW_CJK_SLUGS = True   # don't flag CJK slugs as issues
-#
-
-# When True, CJK-character slugs (e.g. "仁" instead of "ren") are accepted
-# as valid and will NOT be reported by check_stubs.  Default False preserves
-# the original pinyin-slug convention.
-ALLOW_CJK_SLUGS: bool = False
-
-
 SYSTEM_PROMPT = """You are a knowledge base quality analyst. Your job is to review wiki articles
 and identify issues, inconsistencies, and opportunities for improvement.
 
@@ -159,8 +146,8 @@ def check_broken_links(
 ) -> list[str]:
     """Find broken wiki-links [[target]] that don't have corresponding articles.
 
-    Uses alias resolution so that [[参禅]] correctly resolves to can-chan.md
-    instead of being falsely flagged as broken.
+    Uses alias resolution so title variants and slug aliases are not falsely
+    flagged as broken.
     """
     from ..resolve import load_aliases, resolve_link
 
@@ -282,16 +269,14 @@ def check_stubs(cfg: dict, articles: list[dict] | None = None) -> list[str]:
     """Find garbage/empty stub articles that should be cleaned.
 
     Detects:
-    - Unfilled LLM templates ("English Title / 中文标题")
+    - Unfilled LLM templates ("English Title / Titolo italiano")
     - Stubs with no real content (< 50 chars)
     - "has not been written yet" placeholder text
     - LLM prompt leak in summary ("The user says", "the user wants")
     - Title is "..." or only dots/punctuation
-    - CJK-only slug (should be pinyin, e.g. "人性善" instead of "ren-xing-shan")
     """
     issues = []
     concepts_dir = Path(cfg["paths"]["concepts"])
-    cjk_re = re.compile(r'^[\u4e00-\u9fff\u3400-\u4dbf]+$')
 
     if articles is None:
         articles = _load_articles(concepts_dir)
@@ -303,7 +288,7 @@ def check_stubs(cfg: dict, articles: list[dict] | None = None) -> list[str]:
         slug = art["slug"]
         meta = art["metadata"]
 
-        if "English Title / 中文标题" in title:
+        if "English Title / Titolo italiano" in title:
             issues.append(f"Unfilled template: {slug}")
         elif "One-line summary in English" in summary:
             issues.append(f"Unfilled template: {slug}")
@@ -311,12 +296,8 @@ def check_stubs(cfg: dict, articles: list[dict] | None = None) -> list[str]:
             issues.append(f"Empty/garbage title: {slug}")
         elif "has not been fully written" in content or "has not been written yet" in content:
             issues.append(f"Placeholder stub: {slug}")
-        elif "尚未完成撰写" in content:
-            issues.append(f"Placeholder stub: {slug}")
         elif any(leak in summary.lower() for leak in ["the user says", "the user wants", "the user asks", "the user is"]):
             issues.append(f"LLM prompt leak: {slug}")
-        elif not ALLOW_CJK_SLUGS and cjk_re.match(slug):
-            issues.append(f"CJK slug (should be pinyin): {slug}")
         elif len(content) < 50 and not meta.get("stub"):
             issues.append(f"Near-empty article: {slug} ({len(content)} chars)")
 
@@ -340,7 +321,7 @@ def check_uncategorized(cfg: dict, base_dir: Path | None = None) -> list[str]:
 def check_duplicates(cfg: dict, articles: list[dict] | None = None) -> list[str]:
     """Detect duplicate articles using scored heuristics.
 
-    High-confidence pairs (score >= 3, e.g. identical CJK title) are
+    High-confidence pairs are
     confirmed without LLM. No LLM call needed — avoids thinking-token issues.
     """
     concepts_dir = Path(cfg["paths"]["concepts"])

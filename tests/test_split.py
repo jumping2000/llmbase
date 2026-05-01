@@ -1,18 +1,11 @@
-"""Tests for tools.split — 议 E flat-section primitive (v0.7.6).
+"""Tests for tools.split — flat-section primitive.
 
-Strict primitive: parse only. No corpus heuristics. These tests
-exercise the core contract siwen's ``split_taixu_bian`` and any
-other downstream will build on top of.
+Strict primitive: parse only. No corpus heuristics.
 """
-
-from pathlib import Path
 
 import pytest
 
 from llmwiki.split import Section, split_by_heading
-
-
-FIXTURES_DIR = Path(__file__).parent / "fixtures" / "taixu"
 
 
 # ─── empty / no-match → [] ─────────────────────────────────────────────
@@ -45,23 +38,23 @@ def test_invalid_level_raises(level):
 
 
 def test_single_heading_yields_one_section():
-    body = "## 緒論\n第一段。\n"
+    body = "## Intro\nFirst paragraph.\n"
     out = split_by_heading(body, level=2)
     assert len(out) == 1
     s = out[0]
     assert s.level == 2
-    assert s.title == "緒論"
-    assert s.header_line == "## 緒論"
+    assert s.title == "Intro"
+    assert s.header_line == "## Intro"
     assert s.start == 0
     assert s.end == len(body)
-    assert s.content == "第一段。"
+    assert s.content == "First paragraph."
 
 
 def test_single_heading_last_line_no_newline():
-    body = "## 終"
+    body = "## End"
     out = split_by_heading(body, level=2)
     assert len(out) == 1
-    assert out[0].header_line == "## 終"
+    assert out[0].header_line == "## End"
     assert out[0].content == ""
 
 
@@ -69,14 +62,14 @@ def test_single_heading_last_line_no_newline():
 
 
 def test_two_same_level_sections():
-    body = "## 一\n第一段。\n## 二\n第二段。\n"
+    body = "## One\nFirst paragraph.\n## Two\nSecond paragraph.\n"
     out = split_by_heading(body, level=2)
-    assert [s.title for s in out] == ["一", "二"]
-    assert out[0].content == "第一段。"
-    assert out[1].content == "第二段。"
+    assert [s.title for s in out] == ["One", "Two"]
+    assert out[0].content == "First paragraph."
+    assert out[1].content == "Second paragraph."
     # Offsets are consistent with body slicing.
-    assert body[out[0].start:out[0].end].startswith("## 一")
-    assert body[out[1].start:out[1].end].startswith("## 二")
+    assert body[out[0].start:out[0].end].startswith("## One")
+    assert body[out[1].start:out[1].end].startswith("## Two")
 
 
 def test_section_offsets_cover_body_contiguously():
@@ -94,37 +87,36 @@ def test_section_offsets_cover_body_contiguously():
 
 def test_deeper_headings_stay_in_content():
     """### inside a ## section is not a split point — stays in content."""
-    body = "## 章\n前言\n### 節\n節內\n## 次章\nx\n"
+    body = "## Chapter\nPreface\n### Section\nInside\n## Next Chapter\nx\n"
     out = split_by_heading(body, level=2)
     assert len(out) == 2
-    assert out[0].title == "章"
+    assert out[0].title == "Chapter"
     # The ### line and its content belong to section 0, not a new section.
-    assert "### 節" in out[0].content
-    assert "節內" in out[0].content
+    assert "### Section" in out[0].content
+    assert "Inside" in out[0].content
 
 
 def test_higher_level_ends_section():
     """# (higher in hierarchy) ends a ## section."""
-    body = "## 一\naaa\n# 頂\nbbb\n## 二\nccc\n"
+    body = "## One\naaa\n# Top\nbbb\n## Two\nccc\n"
     out = split_by_heading(body, level=2)
     assert len(out) == 2
-    # Section ["一"] must end at "# 頂" (not include it).
+    # Section ["One"] must end at "# Top" (not include it).
     assert out[0].content == "aaa"
-    assert "# 頂" not in out[0].content
-    # "# 頂" is not level=2 so it's NOT in return; "二" is.
-    assert out[1].title == "二"
+    assert "# Top" not in out[0].content
+    assert out[1].title == "Two"
 
 
 # ─── preface handling (NOT returned — downstream slices body) ─────────
 
 
 def test_preface_before_first_heading_not_in_result():
-    body = "這是前言\n還有一句\n## 章\n內文\n"
+    body = "This is the preface\nAnother line\n## Chapter\nBody\n"
     out = split_by_heading(body, level=2)
     assert len(out) == 1
     # Downstream recovery pattern:
     preface = body[:out[0].start]
-    assert preface == "這是前言\n還有一句\n"
+    assert preface == "This is the preface\nAnother line\n"
 
 
 # ─── fenced code blocks — headings inside must NOT split ──────────────
@@ -193,15 +185,15 @@ def test_cr_only_body():
 
 
 def test_content_leading_trailing_blank_lines_stripped():
-    body = "## a\n\n\n正文。\n\n\n## b\nx\n"
+    body = "## a\n\n\nBody text.\n\n\n## b\nx\n"
     out = split_by_heading(body, level=2)
-    assert out[0].content == "正文。"
+    assert out[0].content == "Body text."
 
 
 def test_content_preserves_internal_blank_lines():
-    body = "## a\n第一段\n\n第二段\n## b\nx\n"
+    body = "## a\nFirst paragraph\n\nSecond paragraph\n## b\nx\n"
     out = split_by_heading(body, level=2)
-    assert "第一段\n\n第二段" in out[0].content
+    assert "First paragraph\n\nSecond paragraph" in out[0].content
 
 
 # ─── various levels ───────────────────────────────────────────────────
@@ -215,34 +207,30 @@ def test_splits_at_requested_level(level, hashes):
     assert all(s.level == level for s in out)
 
 
-# ─── realistic 太虛-style structure ────────────────────────────────────
+# ─── representative multi-level structure ─────────────────────────────
 
 
-def test_taixu_style_bian_with_chapters():
-    """Representative shape of siwen 太虛 input: one 編 header at level=1
-    with multiple 章 sections at level=2, each with 甲乙 sub-items at
-    level=3. split_by_heading(body, level=2) yields one section per 章."""
+def test_book_with_chapters_and_sections():
+    """A level-1 book heading may contain multiple level-2 chapters and level-3 sub-sections."""
     body = (
-        "# 第一編 判教論\n"
-        "前言\n"
-        "## 第一章 總論\n"
-        "甲乙丙丁...\n"
-        "### 甲、釋義\n"
-        "釋文...\n"
-        "### 乙、判屬\n"
-        "判文...\n"
-        "## 第二章 別論\n"
-        "別論內文...\n"
-        "### 甲、分科\n"
-        "分科文...\n"
+        "# Book One\n"
+        "Preface\n"
+        "## Chapter One\n"
+        "Overview...\n"
+        "### Section A\n"
+        "Details...\n"
+        "### Section B\n"
+        "More details...\n"
+        "## Chapter Two\n"
+        "Chapter two body...\n"
+        "### Section A\n"
+        "Section text...\n"
     )
     out = split_by_heading(body, level=2)
-    assert [s.title for s in out] == ["第一章 總論", "第二章 別論"]
-    # Chapter 1's ### subsections stay in its content:
-    assert "### 甲、釋義" in out[0].content
-    assert "### 乙、判屬" in out[0].content
-    # Chapter 2 doesn't accidentally absorb chapter 1's tail:
-    assert "甲乙丙丁" not in out[1].content
+    assert [s.title for s in out] == ["Chapter One", "Chapter Two"]
+    assert "### Section A" in out[0].content
+    assert "### Section B" in out[0].content
+    assert "Overview..." not in out[1].content
 
 
 # ─── Section dataclass ────────────────────────────────────────────────
@@ -259,50 +247,17 @@ def test_section_is_dataclass():
         assert hasattr(s, f)
 
 
-# ─── Taixu corpus fixtures (tests/fixtures/taixu/) ────────────────────
-# These exercise split_by_heading against real siwen·太虛 book bodies
-# (post-wenguan / post-normalize). The expected counts match the per-
-# file shape documented in tests/fixtures/taixu/README.md; regressions
-# here mean either the splitter changed semantics or a fixture drifted.
-
-
-@pytest.mark.parametrize("filename, level2_count, level3_count", [
-    # (file, expected h2 sections, expected h3 sections)
-    ("sanming_lun.md", 3, 0),
-    ("xinjing_shiyi.md", 1, 7),
-    ("focheng_zongyao_lun_head50kb.md", 6, 24),
-])
-def test_taixu_fixture_split_counts(filename, level2_count, level3_count):
-    body = (FIXTURES_DIR / filename).read_text(encoding="utf-8")
-    assert len(split_by_heading(body, level=2)) == level2_count
-    assert len(split_by_heading(body, level=3)) == level3_count
-
-
-def test_taixu_fixture_sanming_lun_h2_titles():
-    """Concrete titles the splitter should recover — guards against
-    off-by-one or whitespace-handling regressions on CJK titles."""
-    body = (FIXTURES_DIR / "sanming_lun.md").read_text(encoding="utf-8")
+def test_duplicate_chapter_titles_are_preserved():
+    body = (
+        "# Book One\n"
+        "## Chapter One\n"
+        "Body a\n"
+        "## Chapter Two\n"
+        "Body b\n"
+        "# Book Two\n"
+        "## Chapter One\n"
+        "Body c\n"
+    )
     out = split_by_heading(body, level=2)
-    assert [s.title for s in out] == ["緣起分第一", "名義分第二", "界別分第三"]
-
-
-def test_taixu_fixture_duplicate_chapter_numbers_preserved():
-    """``focheng_zongyao_lun`` restarts chapter numbering at each 编
-    boundary — ``第一章`` appears twice at h2. The splitter must yield
-    every occurrence (no title-based dedup)."""
-    body = (FIXTURES_DIR / "focheng_zongyao_lun_head50kb.md").read_text(encoding="utf-8")
-    out = split_by_heading(body, level=2)
-    first_chapters = [s for s in out if s.title.startswith("第一章")]
-    assert len(first_chapters) == 2, \
-        f"expected two '第一章' sections (multi-编 cross-boundary), got {len(first_chapters)}"
-
-
-def test_taixu_fixture_xinjing_no_h1_in_body():
-    """Parse-only contract: body has no h1 even though frontmatter's
-    ``book`` field matches the h2 title. Upstream must not fabricate
-    an h1 — that's siwen's post-processor concern."""
-    body = (FIXTURES_DIR / "xinjing_shiyi.md").read_text(encoding="utf-8")
-    assert split_by_heading(body, level=1) == []
-    h2 = split_by_heading(body, level=2)
-    assert len(h2) == 1
-    assert h2[0].title == "般若波羅密多心經釋義"
+    first_chapters = [s for s in out if s.title == "Chapter One"]
+    assert len(first_chapters) == 2

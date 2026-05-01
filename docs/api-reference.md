@@ -1,173 +1,68 @@
 # API Reference
 
-All endpoints are served by the web server (`llmbase web`). Read endpoints are generally open; write endpoints and sensitive data (trails, health fixes) require auth in cloud deployments.
+The web server exposes a JSON HTTP API alongside the frontend.
 
-## Authentication
+## Read endpoints
 
-```
-Authorization: Bearer <LLMBASE_API_SECRET>
-```
+- `GET /api/healthz`
+- `GET /api/branding`
+- `GET /api/stats`
+- `GET /api/taxonomy`
+- `GET /api/collections`
+- `GET /api/articles`
+- `GET /api/articles/lite`
+- `GET /api/articles/<slug>`
+- `GET /api/articles/<slug>/sections`
+- `GET /api/aliases`
+- `GET /api/search?q=<query>&top_k=<n>`
+- `GET /api/tones`
+- `GET /api/sources`
+- `GET /api/sources/<slug>`
+- `GET /api/export/article/<slug>`
+- `GET /api/export/tag/<tag>`
+- `GET /api/export/graph/<slug>?depth=<n>`
+- `GET /api/refs/plugins`
+- `GET /api/xici`
 
-Local dev: no auth needed. Cloud: auto-generated or set via env var.
+## Write endpoints
 
-## Articles
+- `POST /api/ask`
+- `POST /api/ingest`
+- `POST /api/upload`
+- `POST /api/compile`
+- `POST /api/lint`
+- `POST /api/lint/fix`
+- `POST /api/wiki/clean`
+- `POST /api/taxonomy/update`
+- `POST /api/index/rebuild`
+- `POST /api/xici/generate`
+- `POST /api/trails`
+- `POST /api/trails/<trail_id>/delete`
+- `DELETE /api/articles/<slug>`
 
-### List Articles
-```
-GET /api/articles
-→ { "articles": [{ "slug", "title", "summary", "tags" }] }
-```
+When `LLMBASE_API_SECRET` is set, write endpoints require authentication.
 
-### Get Article
-```
-GET /api/articles/<slug>
-→ { "slug", "title", "summary", "tags", "content", "sources", "backlinks" }
-```
+## Ask payload
 
-Supports alias resolution: `/api/articles/参禅` → resolves to `can-chan`.
+Example:
 
-### Delete Article (auth required)
-```
-DELETE /api/articles/<slug>
-→ { "status": "ok", "deleted": "slug" }
-```
-
-## Query
-
-### Ask (Deep Research)
-```
-POST /api/ask
-{ "question": "What is X?", "deep": true, "tone": "wenyan", "file_back": true }
-→ { "answer": "...", "consulted": [{"slug", "title"}], "output_path": "wiki/outputs/..." }
-```
-
-Tones: `default`, `caveman`, `wenyan`, `scholar`, `eli5`
-
-`output_path` is returned only when `file_back=true`. It is project-root
-relative when the configured outputs dir lies under the project (the
-common case), and falls back to a bare filename if the outputs dir is
-configured outside the project base. Either way it is never an absolute
-filesystem path, so it can be safely shown to clients. Use it to link a
-research trail to its filed answer without fuzzy-matching by title.
-
-### Search
-```
-GET /api/search?q=keyword&top_k=10
-→ { "results": [{ "slug", "title", "score", "snippet" }] }
-```
-
-## Knowledge Structure
-
-### Taxonomy
-```
-GET /api/taxonomy?lang=en-it
-→ { "categories": [{ "id", "label", "count", "total", "articles", "children" }] }
+```json
+{
+  "question": "What is the main idea?",
+  "deep": true,
+  "tone": "scholar",
+  "file_back": false,
+  "promote": false,
+  "model": null
+}
 ```
 
-### Aliases
-```
-GET /api/aliases
-→ { "aliases": { "参禅": "can-chan", "can-chan": "can-chan" } }
-```
+Supported tones:
+- `default`
+- `caveman`
+- `scholar`
+- `eli5`
 
-### Guided Reading
-```
-GET /api/xici?lang=en-it
-→ { "text": "...", "themes": [...], "lang": "en-it", "generated_at": "..." }
+## Reference plugins
 
-POST /api/xici/generate  (auth required)
-{ "lang": "en-it" }
-→ { "text": "...", "themes": [...] }
-```
-
-## Entities (opt-in)
-
-```
-GET /api/entities
-→ { "people": [...], "events": [...], "places": [...] }
-
-POST /api/entities/extract  (auth required)
-→ { "people": [...], "events": [...], "places": [...] }
-```
-
-## Research Trails (auth required)
-
-```
-GET /api/trails
-→ { "trails": [{ "id", "name", "steps": [{ "type", "slug", "question", "ts" }] }] }
-
-POST /api/trails
-{ "trail_id": null, "step": { "type": "query", "question": "..." }, "name": "My Trail" }
-→ { "trail": { ... } }
-
-POST /api/trails/<id>/delete
-→ { "status": "ok" }
-```
-
-## Health & Repair
-
-### Lint Check
-```
-POST /api/lint
-{ "deep": false }
-→ { "results": { "structural", "broken_links", "orphans", "missing_metadata", "dirty_tags", "duplicates", "stubs", "uncategorized", "total_issues" } }
-```
-
-### Auto-Fix (auth required, runs in background)
-```
-POST /api/lint/fix
-→ { "status": "started", "message": "..." }
-```
-
-### Health Report
-```
-GET /api/health
-→ { "report": { "checked_at", "results", "fixes_applied" } }
-```
-
-### Clean Garbage (auth required)
-```
-POST /api/wiki/clean
-→ { "removed": 5, "slugs": ["slug1", "slug2"] }
-```
-
-## Raw Sources
-
-```
-GET /api/sources
-→ { "documents": [{ "path", "title", "type", "compiled", "ingested_at", ...all frontmatter fields }] }
-
-GET /api/sources/<slug>
-→ { "slug", "title", "type", "compiled", "content", "metadata" }
-Content capped by config: sources.max_content_chars (default 50K, max 500K)
-```
-
-## Ingest & Compile (auth required)
-
-```
-POST /api/ingest
-{ "source": "https://example.com/article" }
-
-POST /api/upload
-multipart/form-data with file
-
-POST /api/compile
-→ { "articles_created": 3 }
-
-POST /api/index/rebuild
-→ { "article_count": 250 }
-```
-
-## Reference Sources
-
-```
-GET /api/refs/plugins
-→ { "plugins": [{ "id": "cbeta", "name": { "en", "zh", "ja" } }] }
-```
-
-## Stats
-
-```
-GET /api/stats
-→ { "raw_count", "article_count", "output_count", "total_words", "link_count", "health_score" }
-```
+`GET /api/refs/plugins` returns the currently registered reference plugins. The project no longer ships built-in corpus-specific plugins; downstream projects can register their own.

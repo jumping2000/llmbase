@@ -54,13 +54,12 @@ def test_promote_new_concept(tmp_kb, monkeypatch):
         "reason": "clear new concept",
         "merge_into": None,
         "slug": "wu-wei",
-        "title": "Non-Action / 無為",
+        "title": "Non-Action / Non azione",
         "summary": "Daoist principle of effortless action",
         "tags": ["daoism", "philosophy"],
         "content": (
             "## English\n\nWu Wei means effortless action.\n\n"
-            "## 中文\n\n無為即不強為。\n\n"
-            "## 日本語\n\n無為とは作為のない行いをいう。"
+            "## Italiano\n\nIl wu wei indica un agire senza forzatura."
         ),
     }
 
@@ -85,7 +84,7 @@ def test_promote_new_concept(tmp_kb, monkeypatch):
     assert article_path.exists()
 
     post = frontmatter.load(str(article_path))
-    assert post.metadata["title"] == "Non-Action / 無為"
+    assert post.metadata["title"] == "Non-Action / Non azione"
     assert "daoism" in post.metadata["tags"]
     assert post.metadata["sources"][0]["plugin"] == "qa"
     assert post.metadata["sources"][0]["question"] == "What is wu wei?"
@@ -103,20 +102,20 @@ def test_promote_merges_into_existing(tmp_kb, monkeypatch):
     rather than duplicates. promotion.merged should be True."""
     monkeypatch.chdir(tmp_kb)
 
-    # tmp_kb already has 'kong' (Emptiness / 空)
+    # tmp_kb already has 'kong' (Emptiness / Vacuita)
     judge_decision = {
         "promote": True,
         "reason": "extends existing concept",
         "merge_into": "kong",
         "slug": "kong",
-        "title": "Emptiness / 空",
+        "title": "Emptiness / Vacuita",
         "summary": "Extended view of emptiness",
         "tags": ["buddhism", "madhyamaka"],
         "content": (
             "## English\n\nEmptiness, as elaborated by Nagarjuna, "
             "denies inherent existence to all phenomena. " * 5 + "\n\n"
-            "## 中文\n\n空者，破自性也。" * 5 + "\n\n"
-            "## 日本語\n\n空とは自性の否定をいう。" * 5
+            "## Italiano\n\nLa vacuita, come elaborata da Nagarjuna, "
+            "nega l'esistenza intrinseca di tutti i fenomeni. " * 5
         ),
     }
 
@@ -131,9 +130,9 @@ def test_promote_merges_into_existing(tmp_kb, monkeypatch):
     result = promote_to_concept(
         question="What is emptiness in Madhyamaka?",
         answer="In Madhyamaka, emptiness means…",
-        consulted=[{"slug": "kong", "title": "Emptiness / 空"}],
+        consulted=[{"slug": "kong", "title": "Emptiness / Vacuita"}],
         index=[
-            {"slug": "kong", "title": "Emptiness / 空", "summary": "core concept"},
+            {"slug": "kong", "title": "Emptiness / Vacuita", "summary": "core concept"},
         ],
         base_dir=tmp_kb,
     )
@@ -214,8 +213,7 @@ def test_promote_merge_into_overrides_slug(tmp_kb, monkeypatch):
         "tags": ["buddhism"],
         "content": (
             "## English\n\nMadhyamaka view of emptiness as elaborated by Nagarjuna. " * 4 + "\n\n"
-            "## 中文\n\n中观对空的阐发。" * 4 + "\n\n"
-            "## 日本語\n\n中観の空観。" * 4
+            "## Italiano\n\nLa lettura madhyamaka della vacuita secondo Nagarjuna. " * 4
         ),
     }
 
@@ -230,8 +228,8 @@ def test_promote_merge_into_overrides_slug(tmp_kb, monkeypatch):
     result = promote_to_concept(
         question="What is emptiness in Madhyamaka?",
         answer="Madhyamaka emptiness…",
-        consulted=[{"slug": "kong", "title": "Emptiness / 空"}],
-        index=[{"slug": "kong", "title": "Emptiness / 空", "summary": "core"}],
+        consulted=[{"slug": "kong", "title": "Emptiness / Vacuita"}],
+        index=[{"slug": "kong", "title": "Emptiness / Vacuita", "summary": "core"}],
         base_dir=tmp_kb,
     )
 

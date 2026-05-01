@@ -1,4 +1,4 @@
-"""Xi Ci (系辞) — LLM-generated guided introduction for the knowledge base.
+"""Xi Ci — LLM-generated guided introduction for the knowledge base.
 
 Like a master librarian writing a guided introduction, this module
 generates a living overview that ties together all articles into a
@@ -30,7 +30,7 @@ logger = logging.getLogger("llmbase.xici")
 #
 
 XICI_SYSTEM_PROMPT = """You are a master librarian and intellectual guide. Your task is to write
-a guided introduction (导读) for a personal knowledge base — a living preface that reveals
+a guided introduction for a personal knowledge base — a living preface that reveals
 the deep structure and significance of the collected knowledge.
 
 Rules:
@@ -161,20 +161,6 @@ def generate_xici(base_dir: Path | None = None, lang: str = "en-it") -> dict:
             "Output TWO paragraphs:\n"
             "1. The original English text as-is (do not modify)\n"
             "2. An Italian version that preserves the same intellectual structure\n\n"
-            "Separate the two paragraphs with a line containing only ---"
-        ),
-        "zh": (
-            "Translate this guided introduction into clear literary Chinese. "
-            "Preserve the conceptual structure and keep the prose concise."
-        ),
-        "ja": (
-            "この導読を格調高い学術的日本語に翻訳してください。"
-            "原文の知的構造とリズムを保ってください。"
-        ),
-        "zh-en": (
-            "Output TWO paragraphs:\n"
-            "1. An English version of the text as-is\n"
-            "2. A Chinese version that preserves the same intellectual structure\n\n"
             "Separate the two paragraphs with a line containing only ---"
         ),
     }

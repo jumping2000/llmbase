@@ -6,12 +6,15 @@ import pytest
 
 from llmwiki.llm import strip_surrogates
 
+pytest.importorskip("flask")
+pytest.importorskip("requests")
+
 
 # ─── C: surrogate sanitize ────────────────────────────────────────
 
 
 def test_strip_surrogates_passes_clean_text():
-    s = "玄之又玄，眾妙之門。Hello — 日本語"
+    s = "Introduzione generale. Hello - Italiano"
     assert strip_surrogates(s) == s
 
 
@@ -85,7 +88,7 @@ def test_query_with_search_passes_model_through(tmp_kb):
     meta_dir = tmp_kb / "wiki" / "_meta"
     meta_dir.mkdir(parents=True, exist_ok=True)
     (meta_dir / "index.json").write_text(json.dumps([
-        {"slug": "kong", "title": "Emptiness / 空", "summary": "x", "tags": []},
+        {"slug": "kong", "title": "Emptiness / Vacuita", "summary": "x", "tags": []},
     ]))
 
     selector_calls = []
@@ -93,7 +96,7 @@ def test_query_with_search_passes_model_through(tmp_kb):
 
     def fake_chat(prompt, system="", model=None, max_tokens=16384, **kwargs):
         selector_calls.append(model)
-        return "Emptiness / 空"
+        return "Emptiness / Vacuita"
 
     def fake_cwc(question, context_files, system="", model=None, max_tokens=16384, **kwargs):
         answer_calls.append(model)

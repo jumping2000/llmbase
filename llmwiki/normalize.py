@@ -49,15 +49,13 @@ from .sections import _FENCE_CLOSE_RE, _FENCE_OPEN_RE, _HEADING_RE
 
 # Sentence terminators — a line whose last non-wrapper character is NOT in
 # this set is considered unfinished and merged with the next line.
-# Default covers CJK full-width (。！？；) and ASCII (.!?;). Override to
-# add (or remove — e.g. some corpora prefer merging on ASCII ``.`` too
-# aggressively) as needed.
-SENTENCE_TERMINATORS = "。！？；.!?;"
+# Default covers ASCII sentence terminators used in English and Italian.
+SENTENCE_TERMINATORS = ".!?;"
 
 # Closing wrappers: trailing brackets / quotes that may follow a
-# terminator (``說：『道』。`` ends at the ``。`` even with a ``』`` after).
+# terminator (e.g. a sentence ending before a closing quote or bracket).
 # Stripped from the right before checking the terminator.
-CLOSING_WRAPPERS = "）」』】》〉)]}\"'"
+CLOSING_WRAPPERS = ")]}'\""
 
 
 class HeadRule(TypedDict):
@@ -226,11 +224,8 @@ def normalize_paragraphs(body: str) -> str:
 
     Preserves fenced code blocks, ATX headings, list items, blockquotes,
     table rows, thematic breaks, HTML block starters, and blank lines.
-    Merged lines are joined with no separator — correct for CJK prose
-    and harmless for ASCII (source newlines between ASCII words usually
-    came with a trailing space, which ``rstrip`` on the predecessor
-    already consumed; callers needing word-boundary space can override
-    ``SENTENCE_TERMINATORS`` to include more punctuation).
+    Merged lines are joined with no separator. This primarily targets
+    OCR or scrape artifacts where a sentence was broken across lines.
     """
     nl = _line_ending(body)
     lines = body.splitlines()

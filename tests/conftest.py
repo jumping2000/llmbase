@@ -39,26 +39,26 @@ def tmp_kb(tmp_path):
     }
 
     import yaml
-    (tmp_path / "config.yaml").write_text(yaml.dump(config))
+    (tmp_path / "config.yaml").write_text(yaml.dump(config), encoding="utf-8")
 
     # Sample articles
     _write_article(concepts_dir, "kong", {
-        "title": "Emptiness / 空",
+        "title": "Emptiness / Vacuita",
         "summary": "The concept of emptiness in Buddhist philosophy",
         "tags": ["buddhism", "philosophy"],
-    }, "## English\n\nEmptiness ([[sunyata]]) is central to [[Nagarjuna]]'s philosophy.\n\n## 中文\n\n空是佛教哲学的核心概念。\n\n## 日本語\n\n空は仏教哲学の中心概念です。")
+    }, "## English\n\nEmptiness ([[sunyata]]) is central to [[Nagarjuna]]'s philosophy.\n\n## Italiano\n\nLa vacuita e un concetto centrale nella filosofia buddhista.")
 
     _write_article(concepts_dir, "si-di", {
-        "title": "Four Noble Truths / 四諦",
+        "title": "Four Noble Truths / Quattro Nobili Verita",
         "summary": "The four truths taught by the Buddha",
         "tags": ["buddhism", "doctrine"],
-    }, "## English\n\nThe [[Four Noble Truths]] are the foundation. See also [[kong|Emptiness]].\n\n## 中文\n\n四諦是佛教的根本教義。参见[[空]]。")
+    }, "## English\n\nThe [[Four Noble Truths]] are the foundation. See also [[kong|Emptiness]].\n\n## Italiano\n\nLe quattro nobili verita sono il fondamento dell'insegnamento buddhista. Vedi anche [[kong|Vacuita]].")
 
     _write_article(concepts_dir, "ren", {
-        "title": "Benevolence / 仁",
+        "title": "Benevolence / Benevolenza",
         "summary": "Central Confucian virtue",
         "tags": ["confucianism", "ethics"],
-    }, "## English\n\nRen is Confucianism's cardinal virtue.\n\n## 中文\n\n仁是儒家核心德性。")
+    }, "## English\n\nBenevolence is a cardinal Confucian virtue.\n\n## Italiano\n\nLa benevolenza e una virtu cardinale del confucianesimo.")
 
     return tmp_path
 

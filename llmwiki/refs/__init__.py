@@ -4,8 +4,8 @@ Each .py file in this directory with a PLUGIN_ID is a ref plugin.
 Plugins provide source URLs and metadata for verifiable citations.
 
 Protocol — a ref plugin must define:
-  PLUGIN_ID: str          — unique identifier (e.g., "cbeta")
-  PLUGIN_NAME: dict       — trilingual display name {"en": ..., "zh": ..., "ja": ...}
+    PLUGIN_ID: str          — unique identifier (e.g., "docs")
+    PLUGIN_NAME: dict       — display name, typically bilingual {"en": ..., "it": ...}
   get_source_url(source: dict) -> str   — build permalink from source metadata
 
 Optional:

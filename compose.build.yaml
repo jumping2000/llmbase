@@ -15,7 +15,7 @@
 # =============================================================================
 services:
   llmbase:
-    build .
+    build: .
     restart: unless-stopped
     ports:
       - 5555:5555

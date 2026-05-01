@@ -38,23 +38,18 @@ from typing import Literal
 
 NormalizeLevel = Literal["none", "punct", "punct_spaces"]
 
-# Punctuation charset — CJK + ASCII common marks.
-# JS mirror must use this exact set:
-#   CJK: ！。，、；：？「」『』（）〔〕【】《》〈〉·・—–―…
-#   ASCII: !.,;:?()[]{}"'
+# Punctuation charset — ASCII/common typography marks.
+# JS mirror must use this exact set.
 # Whitespace for ``punct_spaces`` uses ``\s`` which matches U+3000
 # (ideographic space) in both Python (re default is UNICODE for str
 # patterns) and JavaScript (ECMAScript \s includes U+3000).
 _PUNCT_CHARS = (
-    "！。，、；：？"          # CJK terminators / comma / semicolon / colon
-    "「」『』"                # CJK quotes
-    "（）〔〕【】《》〈〉"    # CJK brackets (full-width)
-    "·・—–―…"                # middle dots, em/en/horizontal dashes, ellipsis
-    "!.,;:?"                  # ASCII terminators
-    "()"                      # ASCII parens
-    r"\[\]"                   # ASCII square brackets (escaped for re class)
-    "{}"                      # ASCII curly
-    "\"'"                     # ASCII quotes
+  "—–―…"                    # em/en/horizontal dashes, ellipsis
+  "!.,;:?"                  # ASCII terminators
+  "()"                      # ASCII parens
+  r"\[\]"                   # ASCII square brackets (escaped for re class)
+  "{}"                      # ASCII curly
+  "\"'"                     # ASCII quotes
 )
 _PUNCT_RE = re.compile(f"[{_PUNCT_CHARS}]+")
 _PUNCT_SPACES_RE = re.compile(f"[{_PUNCT_CHARS}\\s]+")
@@ -80,16 +75,15 @@ def normalize_text(s: str, level: NormalizeLevel = "punct_spaces") -> str:
 
     Levels:
       - ``"none"``          — return as-is.
-      - ``"punct"``         — strip CJK + ASCII punctuation (see charset below).
+      - ``"punct"``         — strip configured punctuation (see charset below).
       - ``"punct_spaces"``  — ``punct`` plus all whitespace (``\\s``, which
         includes U+3000 ideographic space in both Python and JavaScript).
 
     Charset (JS mirror must match exactly):
-      CJK punct: ``！。，、；：？「」『』（）〔〕【】《》〈〉·・—–―…``
-      ASCII punct: ``!.,;:?()[]{}"'``
+      Punctuation: ``—–―…!.,;:?()[]{}"'``
 
     JS equivalents:
-      punct        — ``/[！。，、；：？「」『』（）〔〕【】《》〈〉·・—–―…!.,;:?()\\[\\]{}"']+/g``
+      punct        — ``/[—–―…!.,;:?()\[\]{}"']+/g``
       punct_spaces — same class plus ``\\s``
 
     Raises:

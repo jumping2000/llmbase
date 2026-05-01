@@ -11,6 +11,7 @@ from llmwiki.sections import (
     normalize_title,
     parse_sections,
 )
+pytest.importorskip("flask")
 from llmwiki.web import create_web_app
 
 
@@ -19,14 +20,14 @@ from llmwiki.web import create_web_app
 
 def test_normalize_strips_invisibles_and_punct():
     # U+3000 (ideographic space), U+200B (zero-width), U+202E (RTL override),
-    # CJK punctuation, and ASCII punctuation all stripped.
-    assert normalize_title("緒論\u3000（一）：第一章\u200b") == "緒論一第一章"
+    # punctuation, and ASCII punctuation all stripped.
+    assert normalize_title("Introduzione\u3000(parte uno): Capitolo 1\u200b") == "IntroduzioneparteunoCapitolo1"
     assert normalize_title("Title — with [brackets]!") == "Titlewithbrackets"
 
 
-def test_normalize_preserves_cjk_kana_alnum():
-    assert normalize_title("第三章 判教") == "第三章判教"
-    assert normalize_title("ひらがな カタカナ ABC123") == "ひらがなカタカナABC123"
+def test_normalize_preserves_letters_and_digits():
+    assert normalize_title("Capitolo Tre") == "CapitoloTre"
+    assert normalize_title("Sezione ABC123") == "SezioneABC123"
 
 
 def test_normalize_empty_title_safely():
@@ -39,44 +40,43 @@ def test_normalize_empty_title_safely():
 
 
 def test_anchor_format_and_components():
-    a = make_anchor(2, ["緒論"])
-    assert a.startswith("h2-緒論-")
-    # Bumped from 4 to 6 hex post-Codex to keep birthday-paradox collision
-    # rate <1% even on ~300-section 太虛 books.
+    a = make_anchor(2, ["Introduzione"])
+    assert a.startswith("h2-Introduzione-")
+    # Bumped from 4 to 6 hex to keep collision risk low.
     assert len(a.rsplit("-", 1)[1]) == 6
 
 
 def test_anchor_stable_across_whitespace_and_punct_noise():
     """The whole point: trivial title edits must not change the anchor."""
-    a1 = make_anchor(3, ["緒論", "第一章 判教"])
-    a2 = make_anchor(3, ["緒論", "第一章\u3000判教"])  # ideographic space inserted
-    a3 = make_anchor(3, ["緒論：", "第一章——判教！"])  # punctuation noise
+    a1 = make_anchor(3, ["Introduzione", "Capitolo Uno Dottrina"])
+    a2 = make_anchor(3, ["Introduzione", "Capitolo Uno\u3000Dottrina"])
+    a3 = make_anchor(3, ["Introduzione:", "Capitolo Uno—Dottrina!"])
     assert a1 == a2 == a3
 
 
 def test_anchor_changes_when_title_word_changes():
     """A real edit (字 change) must produce a new anchor — caller handles via aliases."""
-    a1 = make_anchor(2, ["緒言"])
-    a2 = make_anchor(2, ["弁言"])
+    a1 = make_anchor(2, ["Premessa"])
+    a2 = make_anchor(2, ["Introduzione"])
     assert a1 != a2
 
 
 def test_anchor_path_distinguishes_same_title_under_different_parents():
-    """The 結論 collision case from the design doc."""
-    a1 = make_anchor(4, ["緒論", "第一章", "結論"])
-    a2 = make_anchor(4, ["緒論", "第二章", "結論"])
+    """The repeated conclusion case under different parents must diverge."""
+    a1 = make_anchor(4, ["Introduzione", "Capitolo Uno", "Conclusione"])
+    a2 = make_anchor(4, ["Introduzione", "Capitolo Due", "Conclusione"])
     assert a1 != a2
 
 
 def test_anchor_independent_of_sibling_position():
     """Reordering siblings must not shift any sibling's anchor."""
-    a = make_anchor(3, ["緒論", "結論"])
+    a = make_anchor(3, ["Introduzione", "Conclusione"])
     # Same chain, regardless of how many siblings exist before it in flat parse.
     assert make_anchor(3, ["緒論", "結論"]) == a
 
 
 def test_anchor_empty_title_falls_back():
-    a = make_anchor(3, ["——「」（）"])  # normalize → empty
+    a = make_anchor(3, ["——()[]"])  # normalize → empty
     assert a.startswith("h3-_-")
 
 

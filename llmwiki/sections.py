@@ -4,7 +4,7 @@ Markdown section parser with stable anchors.
 Anchor format: ``h{level}-{slug-short}-{hash6}``
   - level: heading depth (1-6).
   - slug-short: ``normalize_title(title)`` truncated to 20 code points
-    (CJK + ASCII alphanumeric retained; punctuation/whitespace stripped).
+        (alphanumeric content retained; punctuation/whitespace stripped).
   - hash6: first 6 hex digits of sha1 over the joined ancestor chain
     (each title individually normalized, joined by U+203A "›"). Current
     title is the last element of the chain. (6 hex = 16M buckets — keeps
@@ -16,12 +16,10 @@ Stable across:
   - Sibling reordering (position is not part of the hash).
 
 Breaks on (caller's responsibility — handled via aliases in v0.7.2):
-  - Title 字 changes anywhere in the ancestor chain.
+    - Title text changes anywhere in the ancestor chain.
   - Reparenting / structural moves.
 
-Setext (=== / ---) headings are intentionally not parsed: 古籍 markdown
-does not use them and disambiguating hr-vs-setext adds parser complexity
-for zero practical gain on the target corpus.
+Setext (=== / ---) headings are intentionally not parsed.
 """
 
 from __future__ import annotations
@@ -31,19 +29,16 @@ import re
 from typing import Iterator, TypedDict
 
 # Invisible / control / bidi / zero-width / ideographic-space / BOM.
-# 古籍 OCR 常含 U+3000 (ideographic space)、U+200B (zero-width space)、
-# U+202E (right-to-left override).
 _INVISIBLE_RE = re.compile(
     r"[\u0000-\u001F\u200B-\u200F\u202A-\u202E\u2060-\u206F\u3000\uFEFF]+"
 )
 
 # Punctuation / brackets / whitespace stripped before slug-shortening + hashing.
-# Leaves CJK characters, kana, and ASCII alphanumerics intact. Includes common
-# 古籍 punctuation: em/en/horizontal dashes, ellipsis, interpunct — LLM compile
-# routinely inserts/removes these, so they must not affect the hash.
+# Leaves letters and numbers intact. Includes common typography that LLMs
+# may insert or remove without semantic change.
 _PUNCT_RE = re.compile(
-    r"[《》「」『』（）()【】\[\]：:，。、？?！!"
-    r"\u2014\u2013\u2015\u2026\u00B7\u30FB"  # — – ― … · ・
+    r"[()\[\]:,.?!!"
+    r"\u2014\u2013\u2015\u2026"  # — – ― …
     r"\-_/\\.\s]+"
 )
 
@@ -85,7 +80,7 @@ class Section(TypedDict):
 
 
 def normalize_title(title: str) -> str:
-    """Strip invisibles + punctuation + whitespace; preserve CJK / kana / alphanumerics."""
+    """Strip invisibles + punctuation + whitespace; preserve alphanumerics."""
     s = _INVISIBLE_RE.sub("", title)
     s = _PUNCT_RE.sub("", s)
     return s

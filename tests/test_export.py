@@ -12,19 +12,19 @@ def test_export_article(tmp_kb):
 
     assert result is not None
     assert result["slug"] == "kong"
-    assert result["title"] == "Emptiness / 空"
+    assert result["title"] == "Emptiness / Vacuita"
     assert "buddhism" in result["tags"]
-    assert "english" in result["content"]
-    assert "zh" in result["content"]
+    assert "en" in result["content"]
+    assert "it" in result["content"]
     assert isinstance(result["backlinks"], list)
     assert isinstance(result["outgoing_links"], list)
     assert isinstance(result["sources"], list)
 
 
 def test_export_article_alias(tmp_kb):
-    """Export by Chinese name should resolve via alias."""
+    """Export by Italian name should resolve via alias."""
     rebuild_index(tmp_kb)
-    result = export_article("空", tmp_kb)
+    result = export_article("Vacuita", tmp_kb)
 
     assert result is not None
     assert result["slug"] == "kong"
@@ -39,8 +39,8 @@ def test_export_article_content_split(tmp_kb):
     rebuild_index(tmp_kb)
     result = export_article("kong", tmp_kb)
 
-    assert "Emptiness" in result["content"]["english"]
-    assert "空" in result["content"]["zh"]
+    assert "Emptiness" in result["content"]["en"]
+    assert "vacuita" in result["content"]["it"].lower()
 
 
 def test_export_article_backlinks(tmp_kb):

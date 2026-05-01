@@ -602,8 +602,8 @@ def reasoning_budget(
             )
 
         Rough baselines (verify against your own prompts):
-        - CJK reasoning-model output with mild normalization: ~15-20
-        - CJK non-reasoning LLM, translation/restatement: ~2-4
+        - Dense dual-language output with mild normalization: ~15-20
+        - Translation/restatement tasks: ~2-4
         - ASCII summarization: ~1-3
 
         siwen's 2026-04-21 post-mortem measured 17 for wenguan/taixu.

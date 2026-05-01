@@ -14,12 +14,12 @@ time to change compile behavior **without forking any function**:
                             control how _split_sections / _assemble_sections /
                             _merge_into handle multi-language content
 
-Example (single-language classical-Chinese KB)::
+Example (single-language Italian KB)::
 
     import llmwiki.compile as c
-    c.SECTION_HEADERS = [("文言", "## 文言")]
-    c.COMPILE_ARTICLE_FORMAT = "## 文言\\n\\n以文言撰寫完整內容。"
-    c.SYSTEM_PROMPT = "You are a classical-Chinese knowledge compiler..."
+    c.SECTION_HEADERS = [("italian", "## Italiano")]
+    c.COMPILE_ARTICLE_FORMAT = "## Italiano\\n\\nScrivi il contenuto completo in italiano."
+    c.SYSTEM_PROMPT = "You are an Italian knowledge compiler..."
 """
 
 import json
@@ -55,12 +55,7 @@ def sanitize_slug(slug: str) -> str:
 # plugin id used in source refs and remote sync rows. Plugins not listed
 # here pass through unchanged (so the registry stays open and llmbase
 # never needs to know about every domain a downstream may add).
-_RAW_TYPE_TO_PLUGIN = {
-    "buddhist_sutra": "cbeta",
-    "wikisource": "wikisource",
-    "classical_text": "ctext",
-    "ctext": "ctext",
-}
+_RAW_TYPE_TO_PLUGIN = {}
 
 
 # ─── Customizable constants ──────────────────────────────────────
@@ -79,14 +74,6 @@ SECTION_HEADERS: list[tuple[str, str]] = [
     ("english", "## English"),
     ("italian", "## Italiano"),
 ]
-
-# Legacy headers remain readable so existing KBs do not lose content when
-# the default language contract changes.
-LEGACY_SECTION_HEADERS: list[tuple[str, str]] = [
-    ("中文", "## 中文"),
-    ("日本語", "## 日本語"),
-]
-
 
 SYSTEM_PROMPT = """You are a knowledge base compiler. Your job is to read raw source documents
 and produce structured wiki articles in markdown format.
@@ -169,15 +156,8 @@ Focus on extracting knowledge, not just summarizing. Each language section shoul
 
 
 def _all_section_headers() -> list[tuple[str, str]]:
-    """Return default plus legacy section headers without duplicate keys."""
-    seen: set[str] = set()
-    combined: list[tuple[str, str]] = []
-    for key, header in [*SECTION_HEADERS, *LEGACY_SECTION_HEADERS]:
-        if key in seen:
-            continue
-        seen.add(key)
-        combined.append((key, header))
-    return combined
+    """Return the active section headers in display order."""
+    return list(SECTION_HEADERS)
 
 
 def _header_for_section(section_key: str) -> str:
@@ -542,12 +522,10 @@ def _parse_update_block(block: str) -> dict | None:
 def _write_article(article: dict, concepts_dir: Path) -> Path | None:
     """Write or update an article file. Merges into existing articles.
 
-    Three-layer duplicate prevention:
+    Duplicate prevention:
     1. Exact slug match → merge
-    2. Alias resolution (title, slug, CJK variants) → merge
-    3. CJK substring scan across all articles → merge
+    2. Alias resolution (title, slug, title parts) → merge
     """
-    import re as _re
     from .resolve import build_aliases, resolve_link
 
     slug = sanitize_slug(article["slug"])
@@ -575,25 +553,6 @@ def _write_article(article: dict, concepts_dir: Path) -> Path | None:
             if existing_path.exists():
                 _merge_into(existing_path, article)
                 return existing_path
-
-    # Layer 3: CJK substring scan — catches variant titles (e.g., "X说" matching "X")
-    new_cjk = _re.sub(r'[^\u4e00-\u9fff\u3400-\u4dbf]', '', title)
-    if new_cjk:
-        for md_file in concepts_dir.glob("*.md"):
-            existing_post = frontmatter.load(str(md_file))
-            existing_title = existing_post.metadata.get("title", "")
-            existing_cjk = _re.sub(r'[^\u4e00-\u9fff\u3400-\u4dbf]', '', existing_title)
-            if not existing_cjk:
-                continue
-            # Exact CJK match (handles single chars: 仁 == 仁)
-            if new_cjk == existing_cjk:
-                _merge_into(md_file, article)
-                return md_file
-            # Substring match for 2+ chars with 60% length ratio
-            short, long = (new_cjk, existing_cjk) if len(new_cjk) <= len(existing_cjk) else (existing_cjk, new_cjk)
-            if len(short) >= 2 and short in long and len(short) / len(long) >= 0.6:
-                _merge_into(md_file, article)
-                return md_file
 
     # Truly new article
     post = frontmatter.Post(article.get("content", ""))
@@ -678,16 +637,15 @@ def _merge_into(existing_path: Path, article: dict):
 def _split_sections(content: str) -> dict[str, str]:
     """Split article into {section_key: content} dict.
 
-    Recognises headers defined in the module-level SECTION_HEADERS list,
-    plus legacy defaults kept for backward compatibility. Downstream
-    projects that override SECTION_HEADERS (e.g. to a single "## 文言"
-    section) still get correct splitting automatically.
+    Recognises headers defined in the module-level SECTION_HEADERS list.
+    Downstream projects that override SECTION_HEADERS still get correct
+    splitting automatically.
     """
     import re
     sections: dict[str, str] = {"_preamble": ""}
     current = "_preamble"
 
-    # Build header → key mapping from default + legacy section headers.
+    # Build header → key mapping from the active section headers.
     header_map: list[tuple[str, re.Pattern]] = []
     for key, header in _all_section_headers():
         # Build a regex: "## English" → r"^## English\s*$"
@@ -753,7 +711,7 @@ def _build_backlinks(concepts_dir: Path, meta_dir: Path):
     link_pattern = re.compile(r"\[\[([^\]|]+)(?:\|[^\]]+)?\]\]")
 
     for md_file in concepts_dir.glob("*.md"):
-        content = md_file.read_text()
+        content = md_file.read_text(encoding="utf-8")
         slug = md_file.stem
         for match in link_pattern.finditer(content):
             raw_target = match.group(1).strip()

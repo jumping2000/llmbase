@@ -1,8 +1,8 @@
 """Structured export — clean data for downstream projects.
 
 Provides semantic export functions that resolve relationships,
-split trilingual content, and package everything a downstream
-project (like Nuwa) needs.
+split bilingual EN/IT content, and package everything a downstream
+project needs.
 """
 
 import json
@@ -48,7 +48,7 @@ def export_article(slug: str, base_dir: Path | None = None) -> dict | None:
     # Map known section keys to API-stable short keys for export.
     # Iterate over the parsed sections instead of the active default so legacy
     # content remains exportable while new EN/IT content uses stable keys.
-    _EXPORT_KEY_MAP = {"italian": "it", "中文": "zh", "日本語": "ja"}
+    _EXPORT_KEY_MAP = {"english": "en", "italian": "it"}
     ordered_keys = [key for key, _header in _compile_mod._all_section_headers()]
     ordered_keys.extend(k for k in sections.keys() if k not in ordered_keys and k != "_preamble")
 

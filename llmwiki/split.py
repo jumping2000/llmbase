@@ -3,7 +3,7 @@
 Upstream primitive that cuts a Markdown body into a flat list of
 sections at a chosen ATX heading level. **Parse only** — no domain
 heuristics (no "single-book 弁", no "merge tiny items", no "strip
-trailing next title"). Downstream corpora (siwen 太虛, CBETA, ...)
+trailing next title"). Downstream corpora can layer their own heuristics on top.
 compose their own ``split_<corpus>.py`` on top of this parse output.
 
 Contrast with ``tools/sections.py``: that module produces a *nested*

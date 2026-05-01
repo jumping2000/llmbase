@@ -13,7 +13,7 @@ Configuration is via environment variables — completely no-op when unset:
 - LLMBASE_SYNC_TABLE  — table name (default: llmbase_ingested)
 
 Expected table schema:
-    source        text         not null   -- arbitrary plugin id, e.g. 'cbeta'
+    source        text         not null   -- arbitrary plugin id, e.g. 'docs'
     work_id       text         not null   -- canonical work id within the source
     title         text         null
     ingested_at   timestamptz  default now()

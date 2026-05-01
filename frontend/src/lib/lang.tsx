@@ -59,18 +59,14 @@ export function localizeTitle(title: string, lang: Lang): string {
 
 /**
  * Extract the requested section(s) from bilingual article content.
- * Legacy Chinese/Japanese sections are still readable as fallbacks.
  */
 export function extractLangContent(content: string, lang: Lang): string {
   const english = _extractFirstSection(content, ['## English']);
   const italian = _extractFirstSection(content, ['## Italiano', '## Italian']);
-  const legacyAlt = _extractFirstSection(content, ['## 中文', '## 日本語']);
-  const secondary = italian || legacyAlt;
 
   if (lang === 'en-it') {
-    if (english && secondary) {
-      const secondaryHeader = italian ? '## Italiano' : _detectLegacyHeader(content) || '## Italiano';
-      return `## English\n\n${english}\n\n---\n\n${secondaryHeader}\n\n${secondary}`;
+    if (english && italian) {
+      return `## English\n\n${english}\n\n---\n\n## Italiano\n\n${italian}`;
     }
     return content;
   }
@@ -81,7 +77,6 @@ export function extractLangContent(content: string, lang: Lang): string {
 
   if (lang === 'it') {
     if (italian) return italian;
-    if (legacyAlt) return legacyAlt;
   }
 
   return content;
@@ -100,11 +95,5 @@ function _extractFirstSection(content: string, markers: string[]): string | null
     const section = _extractSection(content, marker);
     if (section) return section;
   }
-  return null;
-}
-
-function _detectLegacyHeader(content: string): string | null {
-  if (content.includes('## 中文')) return '## 中文';
-  if (content.includes('## 日本語')) return '## 日本語';
   return null;
 }

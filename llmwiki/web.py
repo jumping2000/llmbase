@@ -1013,11 +1013,10 @@ def create_web_app(base_dir: Path | None = None):
         """List available response tone modes."""
         from .query import TONE_INSTRUCTIONS
         tones = [
-            {"id": "default", "label": "Default", "label_zh": "默认", "icon": "chat"},
-            {"id": "caveman", "label": "Caveman", "label_zh": "原始人", "icon": "pets"},
-            {"id": "wenyan", "label": "文言文", "label_zh": "文言文", "icon": "history_edu"},
-            {"id": "scholar", "label": "Scholar", "label_zh": "学术", "icon": "school"},
-            {"id": "eli5", "label": "ELI5", "label_zh": "幼儿园", "icon": "child_care"},
+            {"id": "default", "label": "Default", "icon": "chat"},
+            {"id": "caveman", "label": "Caveman", "icon": "pets"},
+            {"id": "scholar", "label": "Scholar", "icon": "school"},
+            {"id": "eli5", "label": "ELI5", "icon": "child_care"},
         ]
         return jsonify({"tones": [t for t in tones if t["id"] in TONE_INSTRUCTIONS]})
 
@@ -1123,12 +1122,11 @@ def create_web_app(base_dir: Path | None = None):
             summary = post.metadata.get("summary", "")
             content = post.content.strip()
             if (
-                "English Title / 中文标题" in title
+                "English Title / Titolo italiano" in title
                 or "One-line summary in English" in summary
                 or "The user says" in summary
                 or "has not been fully written" in content
                 or "has not been written yet" in content
-                or "尚未完成撰写" in content
                 or len(content) < 50
             ):
                 f.unlink()

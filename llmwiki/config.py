@@ -47,7 +47,7 @@ def _defaults(base_dir: Path | None = None) -> dict:
             "taxonomy_interval_hours": 12,
             "health_check_interval_hours": 24,
             "learn_batch_size": 10,
-            "learn_source": "cbeta",
+            "learn_source": "url",
         },
         "health": {
             "auto_fix_broken_links": True,

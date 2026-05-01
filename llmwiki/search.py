@@ -25,23 +25,7 @@ STOPWORDS: set[str] = {
     "not", "only", "own", "same", "so", "than", "too", "very", "and",
     "but", "or", "if", "while", "that", "this", "it", "its", "they",
 }
-CJK_STOPWORDS: set[str] = {"的", "了", "是", "在", "也", "與", "与", "和"}
-# Unsegmented scripts: CJK ideographs + Hiragana + Katakana + Hangul.
-# These get decomposed into chars + bigrams (no whitespace boundaries).
-_CJK_LIKE_RANGE = (
-    r"\u3040-\u309f"          # Hiragana
-    r"\u30a0-\u30ff"          # Katakana
-    r"\u31f0-\u31ff"          # Katakana Phonetic Extensions
-    r"\uff65-\uff9f"          # Halfwidth Katakana
-    r"\u3400-\u4dbf"          # CJK Extension A
-    r"\u4e00-\u9fff"          # CJK Unified Ideographs
-    r"\uac00-\ud7af"          # Hangul Syllables
-    r"\uf900-\ufaff"          # CJK Compatibility Ideographs
-    r"\U00020000-\U0003ffff"  # CJK Extension B-G + supplements (Plane 2-3)
-)
 _WORD_RE = re.compile(r"\w+", re.UNICODE)
-_CJK_LIKE_CHAR_RE = re.compile(f"[{_CJK_LIKE_RANGE}]")
-_CJK_LIKE_RUN_RE = re.compile(f"[{_CJK_LIKE_RANGE}]+")
 
 
 def search(query: str, top_k: int = 10, base_dir: Path | None = None) -> list[dict]:
@@ -305,7 +289,7 @@ def create_search_app(base_dir: Path | None = None):
 
 
 def _tokenize(text: str) -> list[str]:
-    """Tokenize: Latin words (filtered by stopwords, len>1) + CJK chars + CJK bigrams.
+    """Tokenize words using Unicode-aware word boundaries.
 
     Downstream may override by setting module-level SEARCH_TOKENIZER to a callable.
     """
@@ -315,20 +299,9 @@ def _tokenize(text: str) -> list[str]:
     tokens: list[str] = []
     text_lower = text.lower()
 
-    # Whitespace-segmented words (Latin, Cyrillic, Greek, accented, etc.).
-    # Strip CJK-like chars so mixed tokens like "Go语言" still yield "go".
-    text_for_words = _CJK_LIKE_CHAR_RE.sub(" ", text_lower)
-    for w in _WORD_RE.findall(text_for_words):
+    for w in _WORD_RE.findall(text_lower):
         if w not in STOPWORDS and len(w) > 1:
             tokens.append(w)
-
-    # Unsegmented runs (CJK / kana / Hangul): single chars + bigrams.
-    for run in _CJK_LIKE_RUN_RE.findall(text):
-        for ch in run:
-            if ch not in CJK_STOPWORDS:
-                tokens.append(ch)
-        for i in range(len(run) - 1):
-            tokens.append(run[i:i + 2])
 
     return tokens
 

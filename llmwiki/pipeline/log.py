@@ -115,7 +115,7 @@ def iter_events(base_dir: Path, stage: str, key: str) -> Iterator[dict]:
         return
     # Read as bytes and decode per line: a torn write that truncates
     # a multi-byte UTF-8 sequence (common with ``ensure_ascii=False``
-    # + CJK payloads) would raise ``UnicodeDecodeError`` under strict
+    # + non-ASCII payloads) would raise ``UnicodeDecodeError`` under strict
     # text mode and abort iteration, breaking the crash-recovery
     # contract. Codex HIGH v0.7.7 round 8. Per-line ``try/except``
     # keeps one bad line from poisoning the rest of the history.

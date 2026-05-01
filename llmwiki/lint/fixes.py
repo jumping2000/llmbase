@@ -18,11 +18,11 @@ from .dedup import merge_duplicates
 # Override to change the LLM instructions for stub generation.
 # See tools/compile.py docstring for the full constants contract.
 
-STUB_SYSTEM_PROMPT = """You are a trilingual knowledge base compiler. Generate a stub article
+STUB_SYSTEM_PROMPT = """You are a bilingual knowledge base compiler. Generate a stub article
 for a missing concept based on how existing articles reference it.
 
 Rules:
-- Write in three languages: English, 中文, 日本語 (each under an h2 header)
+- Write in two languages: English and Italian (each under an h2 header)
 - Keep it concise but informative (2-3 paragraphs per language)
 - Use [[wiki-link]] for cross-references to related concepts
 - Base your content ONLY on what can be reasonably inferred from the provided contexts
@@ -304,7 +304,7 @@ def fix_broken_links(base_dir: Path | None = None, max_stubs: int = 10) -> list[
     """Generate stub articles for broken wiki-link targets.
 
     Only creates stubs for truly unresolvable links (after alias resolution).
-    Strategy A: Use LLM to generate a trilingual stub from referencing context.
+    Strategy A: Use LLM to generate a bilingual stub from referencing context.
     Strategy B: If LLM fails, create a minimal placeholder stub.
     Returns list of fix descriptions.
     """
@@ -373,13 +373,12 @@ def fix_broken_links(base_dir: Path | None = None, max_stubs: int = 10) -> list[
                 f"The concept '{target_slug}' is referenced in existing articles but has no article yet.\n\n"
                 f"Here is how it appears in context:\n\n{contexts}\n\n"
                 f"Generate a wiki article in this exact format (no extra text before or after):\n\n"
-                f"title: English Title / 中文标题\n"
+                f"title: English Title / Titolo italiano\n"
                 f"summary: One-line summary in English\n"
                 f"tags: tag1, tag2\n"
                 f"---\n"
                 f"## English\n\n(content)\n\n"
-                f"## 中文\n\n(内容)\n\n"
-                f"## 日本語\n\n(内容)"
+                f"## Italiano\n\n(contenuto)"
             )
             response = chat(prompt, system=STUB_SYSTEM_PROMPT, max_tokens=2048)
 
@@ -415,10 +414,9 @@ def fix_broken_links(base_dir: Path | None = None, max_stubs: int = 10) -> list[
                 f"## English\n\n"
                 f"This article has not been fully written yet. "
                 f"It is referenced by: {referrers}.\n\n"
-                f"## 中文\n\n"
-                f"本条目尚未完成撰写。引用来源：{referrers}。\n\n"
-                f"## 日本語\n\n"
-                f"この記事はまだ完成していません。参照元：{referrers}。"
+                f"## Italiano\n\n"
+                f"Questo articolo non e ancora completo. "
+                f"E referenziato da: {referrers}."
             )
             summary = summary or "Stub article — referenced but not yet written"
             title = target_slug.replace("-", " ").title()

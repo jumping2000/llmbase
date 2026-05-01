@@ -29,7 +29,7 @@ logger = logging.getLogger("llmbase.taxonomy")
 # Downstream projects can override these to customise taxonomy behaviour.
 #
 #     import llmwiki.taxonomy as tax
-#     tax.TAXONOMY_LABEL_KEYS = ["zh"]          # single-language labels
+#     tax.TAXONOMY_LABEL_KEYS = ["it"]          # single-language labels
 #     tax.TAXONOMY_GENERATOR = my_rule_fn        # skip LLM entirely
 #
 
@@ -251,7 +251,7 @@ Create a DEEP hierarchical taxonomy. CRITICAL RULES:
 Produce a JSON array:
 {{
   "id": "kebab-case-id",
-  "label": {{"en": "English Name", "zh": "中文名", "ja": "日本語名"}},
+    "label": {{"en": "English Name", "it": "Nome italiano"}},
   "match_tags": ["tag1", "tag2"],
   "match_title_keywords": ["keyword1", "keyword2"],
   "children": [...]
@@ -341,7 +341,7 @@ def _assign_articles_to_tree(tree: list[dict], articles: list[dict]):
     if unassigned:
         tree.append({
             "id": "other",
-            "label": {"en": "Other", "zh": "其他", "ja": "その他"},
+            "label": {"en": "Other", "it": "Altro"},
             "children": [],
             "article_slugs": unassigned,
         })
@@ -582,7 +582,7 @@ def _parse_taxonomy_response(response: str) -> list[dict] | None:
         for node in tree:
             if not isinstance(node, dict) or "id" not in node or "label" not in node:
                 return None
-        # Fix label format: ensure all labels are trilingual dicts
+        # Fix label format: ensure all labels are language-keyed dicts
         _fix_labels(tree)
         return tree
     except (json.JSONDecodeError, KeyError):
@@ -751,24 +751,17 @@ def _localize_title(title: str, lang: str) -> str:
     import re
     if not title or "/" not in title:
         return title
-    if lang in ("en-it", "zh-en"):
+    if lang == "en-it":
         return title
 
     parts = [p.strip() for p in title.split("/") if p.strip()]
     if len(parts) < 2:
         return title
 
-    has_cjk = lambda s: bool(re.search(r'[\u4e00-\u9fff\u3400-\u4dbf\u3040-\u309f\u30a0-\u30ff]', s))
-
     if lang == "it":
         return parts[1] if len(parts) > 1 else parts[0]
 
-    if lang in ("zh", "ja"):
-        cjk = next((p for p in parts if has_cjk(p)), None)
-        return cjk or parts[-1]
-    else:
-        en = next((p for p in parts if not has_cjk(p)), None)
-        return en or parts[0]
+    return parts[0]
 
 
 def _display_label(label: dict | str, lang: str, node_id: str) -> str:
@@ -782,12 +775,7 @@ def _display_label(label: dict | str, lang: str, node_id: str) -> str:
         return en or it or node_id
     if lang == "it":
         return label.get("it", label.get("en", node_id))
-    if lang == "zh-en":
-        zh = label.get("zh")
-        en = label.get("en")
-        if zh and en and zh != en:
-            return f"{en} / {zh}"
-    return label.get(lang, label.get("en", label.get("it", label.get("zh", node_id))))
+    return label.get(lang, label.get("en", label.get("it", node_id)))
 
 
 def _localize_tree(tree: list[dict], lang: str, title_map: dict[str, str]) -> list[dict]:

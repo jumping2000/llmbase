@@ -97,7 +97,7 @@ def run_worker(base_dir: Path | None = None):
     learn_interval = worker_cfg.get("learn_interval_hours", 6) * 3600
     compile_interval = worker_cfg.get("compile_interval_hours", 1) * 3600
     learn_batch = worker_cfg.get("learn_batch_size", 10)
-    learn_source = worker_cfg.get("learn_source", "cbeta")
+    learn_source = worker_cfg.get("learn_source", "url")
 
     taxonomy_interval = worker_cfg.get("taxonomy_interval_hours", 12) * 3600
     health_interval = worker_cfg.get("health_check_interval_hours", 24) * 3600
@@ -178,24 +178,7 @@ def _task_learn(base: Path, source: str, batch_size: int):
     """Ingest a batch from the configured source via LEARN_SOURCES registry."""
     logger.info(f"[learn] Starting batch of {batch_size} from {source}")
     try:
-        if source == "both":
-            # Split batch across all registered sources (or cbeta+wikisource)
-            sources = [s for s in ("cbeta", "wikisource") if s in LEARN_SOURCES]
-            if not sources:
-                logger.warning("[learn] 'both' requested but no sources registered")
-                return
-            per_source = batch_size // len(sources) or 1
-            # Cap total to not exceed configured batch_size
-            remaining = batch_size
-            for src_name in sources:
-                if remaining <= 0:
-                    break
-                this_batch = min(per_source, remaining)
-                handler = LEARN_SOURCES[src_name]
-                results = handler(batch_size=this_batch, base_dir=base)
-                remaining -= this_batch
-                logger.info(f"[learn] {src_name}: ingested {len(results)} new works")
-        elif source in LEARN_SOURCES:
+        if source in LEARN_SOURCES:
             handler = LEARN_SOURCES[source]
             results = handler(batch_size=batch_size, base_dir=base)
             logger.info(f"[learn] {source}: ingested {len(results)} new works")
@@ -239,11 +222,11 @@ def _task_taxonomy(base: Path):
     except Exception as e:
         logger.error(f"[taxonomy] Error: {e}")
 
-    # Regenerate Xi Ci for all languages
+    # Regenerate Xi Ci for supported languages
     logger.info("[xici] Regenerating guided introductions...")
     try:
         from .xici import generate_xici
-        for lang in ("zh", "en", "ja", "zh-en"):
+        for lang in ("en", "it", "en-it"):
             generate_xici(base, lang)
         logger.info("[xici] Generated Xi Ci for all languages")
     except Exception as e:
@@ -344,18 +327,4 @@ def start_worker_thread(base_dir: Path | None = None):
 
 
 # ─── Built-in learn sources ─────────────────────────────────────
-# Registered lazily: the actual import happens only when the handler runs,
-# so missing optional deps (e.g. no cbeta module) don't break import.
-
-def _cbeta_learn(batch_size, base_dir):
-    from .cbeta import learn
-    return learn(batch_size=batch_size, base_dir=base_dir)
-
-
-def _wikisource_learn(batch_size, base_dir):
-    from .wikisource import learn
-    return learn(batch_size=batch_size, base_dir=base_dir)
-
-
-register_learn_source("cbeta", _cbeta_learn)
-register_learn_source("wikisource", _wikisource_learn)
+# No built-in autonomous corpus sources are registered by default.

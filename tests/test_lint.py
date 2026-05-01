@@ -25,9 +25,9 @@ def test_check_broken_links_with_aliases(tmp_kb):
     cfg = load_config(tmp_kb)
     issues = check_broken_links(cfg)
 
-    # [[空]] in si-di → resolves to kong via alias → NOT broken
+    # [[kong|Vacuita]] in si-di resolves to kong via alias → NOT broken
     broken_texts = " ".join(issues)
-    assert "[[空]]" not in broken_texts
+    assert "[[kong|Vacuita]]" not in broken_texts
 
     # [[sunyata]] and [[Nagarjuna]] have no articles → truly broken
     assert any("sunyata" in i for i in issues)
@@ -54,7 +54,7 @@ def test_check_missing_metadata(tmp_kb):
     concepts_dir = Path(tmp_kb) / "wiki" / "concepts"
     post = frontmatter.load(str(concepts_dir / "ren.md"))
     post.metadata["summary"] = ""
-    (concepts_dir / "ren.md").write_text(frontmatter.dumps(post))
+    (concepts_dir / "ren.md").write_text(frontmatter.dumps(post), encoding="utf-8")
 
     issues = check_missing_metadata(cfg)
     assert any("ren" in i for i in issues)
@@ -67,10 +67,10 @@ def test_check_stubs_detects_template(tmp_kb):
 
     # Create a garbage stub
     post = frontmatter.Post("Short")
-    post.metadata["title"] = "English Title / 中文标题"  # template
+    post.metadata["title"] = "English Title / Titolo italiano"  # template
     post.metadata["summary"] = "test"
     post.metadata["tags"] = ["stub"]
-    (concepts_dir / "garbage.md").write_text(frontmatter.dumps(post))
+    (concepts_dir / "garbage.md").write_text(frontmatter.dumps(post), encoding="utf-8")
 
     issues = check_stubs(cfg)
     assert any("garbage" in i for i in issues)
@@ -84,7 +84,7 @@ def test_check_stubs_detects_prompt_leak(tmp_kb):
     post.metadata["title"] = "Test Article"
     post.metadata["summary"] = "The user says we need to write about this"
     post.metadata["tags"] = ["test"]
-    (concepts_dir / "leak.md").write_text(frontmatter.dumps(post))
+    (concepts_dir / "leak.md").write_text(frontmatter.dumps(post), encoding="utf-8")
 
     issues = check_stubs(cfg)
     assert any("leak" in i for i in issues)
@@ -96,7 +96,7 @@ def test_check_dirty_tags(tmp_kb):
 
     post = frontmatter.load(str(concepts_dir / "ren.md"))
     post.metadata["tags"] = ["confucianism", "2-4 tags. we need to interpret the content"]
-    (concepts_dir / "ren.md").write_text(frontmatter.dumps(post))
+    (concepts_dir / "ren.md").write_text(frontmatter.dumps(post), encoding="utf-8")
 
     issues = check_dirty_tags(cfg)
     assert any("ren" in i for i in issues)
@@ -107,21 +107,21 @@ def test_clean_garbage(tmp_kb):
     concepts_dir = Path(cfg["paths"]["concepts"])
 
     post = frontmatter.Post("x")
-    post.metadata["title"] = "English Title / 中文标题"
+    post.metadata["title"] = "English Title / Titolo italiano"
     post.metadata["tags"] = []
-    (concepts_dir / "junk.md").write_text(frontmatter.dumps(post))
+    (concepts_dir / "junk.md").write_text(frontmatter.dumps(post), encoding="utf-8")
 
     removed = clean_garbage(tmp_kb)
     assert "junk" in removed
     assert not (concepts_dir / "junk.md").exists()
 
 
-def test_find_duplicate_candidates_cjk():
-    """CJK title matching should detect duplicates."""
+def test_find_duplicate_candidates_slug_overlap_and_tags():
+    """Slug overlap plus strong tag overlap should detect duplicates."""
     articles = [
-        {"slug": "benevolence", "title": "Benevolence / 仁",
+        {"slug": "benevolence", "title": "Benevolence / Benevolenza",
          "tags": {"ethics", "confucianism"}, "summary": ""},
-        {"slug": "ren", "title": "Ren / 仁",
+        {"slug": "benevolence-virtue", "title": "Virtue of Benevolence / Virtu della benevolenza",
          "tags": {"ethics", "confucianism"}, "summary": ""},
     ]
 
@@ -129,15 +129,15 @@ def test_find_duplicate_candidates_cjk():
     assert len(candidates) >= 1
     slugs = {s for pair in candidates for s in pair}
     assert "benevolence" in slugs
-    assert "ren" in slugs
+    assert "benevolence-virtue" in slugs
 
 
 def test_find_duplicate_candidates_no_false_positive():
     """Different concepts should NOT be flagged."""
     articles = [
-        {"slug": "kong", "title": "Emptiness / 空",
+        {"slug": "kong", "title": "Emptiness / Vacuita",
          "tags": {"buddhism"}, "summary": ""},
-        {"slug": "ren", "title": "Benevolence / 仁",
+        {"slug": "ren", "title": "Benevolence / Benevolenza",
          "tags": {"confucianism"}, "summary": ""},
     ]
 

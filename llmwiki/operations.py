@@ -438,7 +438,7 @@ _CANONICAL: list[Operation] = [
     Operation(
         name="kb_get",
         description=(
-            "Get a wiki article by slug (alias-aware: accepts Chinese/pinyin/English names). "
+            "Get a wiki article by slug (alias-aware: accepts title variants and slug aliases). "
             "Optional `section` param extracts just that section's subtree (heading + content "
             "+ descendants); use kb_get_sections first to discover anchors."
         ),
@@ -495,7 +495,7 @@ _CANONICAL: list[Operation] = [
         handler=_op_taxonomy,
         params={
             "type": "object",
-            "properties": {"lang": {"type": "string", "default": "zh"}},
+            "properties": {"lang": {"type": "string", "default": "en-it"}},
         },
         category="read",
     ),
@@ -613,11 +613,11 @@ _CANONICAL: list[Operation] = [
     ),
     Operation(
         name="kb_xici",
-        description="Get the guided reading (导读) — an LLM-generated introduction.",
+        description="Get the guided reading — an LLM-generated introduction.",
         handler=_op_xici,
         params={
             "type": "object",
-            "properties": {"lang": {"type": "string", "default": "zh"}},
+            "properties": {"lang": {"type": "string", "default": "en-it"}},
         },
         category="read",
     ),

@@ -123,7 +123,7 @@ def test_put_after_clear_works(cache_root):
 
 
 def test_cid_with_filesystem_unfriendly_chars(cache_root):
-    """cids are sha-hashed before use, so slashes / CJK / NULs don't
+    """cids are sha-hashed before use, so slashes / unicode / NULs don't
     escape the cache dir or collide with FS semantics."""
     c = ChunkCache(cache_root)
     nasty = "../../etc/passwd"

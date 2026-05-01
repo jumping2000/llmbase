@@ -20,24 +20,24 @@ def test_rebuild_index(tmp_kb):
 
     # Check index.json written
     meta_dir = Path(tmp_kb) / "wiki" / "_meta"
-    index = json.loads((meta_dir / "index.json").read_text())
+    index = json.loads((meta_dir / "index.json").read_text(encoding="utf-8"))
     assert len(index) == 3
 
     # Check aliases.json written
-    aliases = json.loads((meta_dir / "aliases.json").read_text())
-    assert aliases["空"] == "kong"
+    aliases = json.loads((meta_dir / "aliases.json").read_text(encoding="utf-8"))
+    assert aliases["vacuita"] == "kong"
 
     # Check backlinks.json written
-    backlinks = json.loads((meta_dir / "backlinks.json").read_text())
-    assert "kong" in backlinks  # si-di links to kong via [[空]]
+    backlinks = json.loads((meta_dir / "backlinks.json").read_text(encoding="utf-8"))
+    assert "kong" in backlinks  # si-di links to kong via [[kong|Emptiness]]
 
 
 def test_rebuild_creates_backlinks(tmp_kb):
     rebuild_index(tmp_kb)
     meta_dir = Path(tmp_kb) / "wiki" / "_meta"
-    backlinks = json.loads((meta_dir / "backlinks.json").read_text())
+    backlinks = json.loads((meta_dir / "backlinks.json").read_text(encoding="utf-8"))
 
-    # si-di references kong via [[kong|Emptiness]] and [[空]]
+    # si-di references kong via [[kong|Emptiness]]
     assert "kong" in backlinks
     assert "si-di" in backlinks["kong"]
 
@@ -60,23 +60,18 @@ Contenuto italiano qui."""
     assert "Contenuto italiano qui." in sections["italian"]
 
 
-def test_split_sections_recognizes_legacy_headers():
+def test_split_sections_stops_at_unknown_headers():
     content = """## English
 
 English content here.
 
-## 中文
+## Notes
 
-中文内容在这里。
-
-## 日本語
-
-日本語の内容。"""
+Free-form note here."""
 
     sections = _split_sections(content)
     assert "english" in sections
-    assert "中文" in sections
-    assert "日本語" in sections
+    assert "## Notes" in sections["english"]
 
 
 def test_assemble_sections():
@@ -92,17 +87,17 @@ def test_assemble_sections():
     assert "Ciao mondo" in result
 
 
-def test_assemble_sections_preserves_legacy_sections():
+def test_assemble_sections_preserves_unknown_sections():
     sections = {
         "_preamble": "",
         "english": "Hello world",
         "italian": "Ciao mondo",
-        "中文": "你好世界",
+        "notes": "Extra notes",
     }
     result = _assemble_sections(sections)
     assert "## English" in result
     assert "## Italiano" in result
-    assert "## 中文" in result
+    assert "## notes" in result
 
 
 def test_merge_into_adds_content(tmp_kb):
@@ -119,16 +114,16 @@ def test_merge_into_adds_content(tmp_kb):
     post = frontmatter.load(str(article_path))
     assert "mahayana" in post.metadata["tags"]
     assert "## Italiano" in post.content
-    assert "## 中文" in post.content
+    assert "Nuova interpretazione della vacuita" in post.content
 
 
 def test_merge_into_no_duplicate_content(tmp_kb):
     concepts_dir = Path(tmp_kb) / "wiki" / "concepts"
     article_path = concepts_dir / "kong.md"
-    original = article_path.read_text()
+    original = article_path.read_text(encoding="utf-8")
 
     # Merge identical content → should not change
     article = {"content": "", "tags": []}
     _merge_into(article_path, article)
 
-    assert article_path.read_text() == original
+    assert article_path.read_text(encoding="utf-8") == original

@@ -17,14 +17,14 @@ from llmwiki.query import _bm25_prefilter, query_with_search
 def _make_entries(n: int, relevant_keyword: str = "kong-xing-emptiness") -> list[dict]:
     """Build n synthetic index entries with a few question-relevant ones."""
     entries = []
-    # 3 relevant entries on 空性
-    entries.append({"slug": "kong-xing", "title": "空性 / Emptiness",
+    # 3 relevant entries on emptiness
+    entries.append({"slug": "kong-xing", "title": "Emptiness / Vacuita",
                     "summary": f"The central concept of {relevant_keyword} in Madhyamaka.",
                     "tags": ["buddhism", relevant_keyword]})
-    entries.append({"slug": "sunyata", "title": "Sunyata / 空",
+    entries.append({"slug": "sunyata", "title": "Sunyata / Vacuita",
                     "summary": f"Sanskrit term, equivalent to {relevant_keyword}.",
                     "tags": ["buddhism"]})
-    entries.append({"slug": "nagarjuna", "title": "Nāgārjuna / 龍樹",
+    entries.append({"slug": "nagarjuna", "title": "Nagarjuna / Nagarjuna",
                     "summary": f"Philosopher who systematized {relevant_keyword}.",
                     "tags": ["philosophy", "buddhism"]})
     # n-3 filler entries
@@ -40,7 +40,7 @@ def _make_entries(n: int, relevant_keyword: str = "kong-xing-emptiness") -> list
 
 def test_prefilter_returns_top_k():
     index = _make_entries(1000)
-    result = _bm25_prefilter("空性 是 什麼", index, top_k=50)
+    result = _bm25_prefilter("what is emptiness", index, top_k=50)
     assert len(result) <= 50
     slugs = {r["slug"] for r in result}
     # At least one of the three relevant entries should rank in top 50
@@ -111,7 +111,7 @@ def test_query_with_search_caps_prompt_for_large_index(tmp_path, monkeypatch):
     def fake_chat(prompt, **kw):
         captured["search_prompt_len"] = max(captured["search_prompt_len"], len(prompt))
         # Return a title we know is relevant so the selector succeeds
-        return "空性 / Emptiness"
+        return "Emptiness / Vacuita"
 
     def fake_chat_with_context(question, context_files, **kw):
         return "answer"
@@ -120,7 +120,7 @@ def test_query_with_search_caps_prompt_for_large_index(tmp_path, monkeypatch):
     monkeypatch.setattr("llmwiki.query.chat_with_context", fake_chat_with_context)
     monkeypatch.chdir(tmp_path)
 
-    result = query_with_search("What is 空性?", base_dir=tmp_path)
+    result = query_with_search("What is emptiness?", base_dir=tmp_path)
     assert result == "answer"
     # Without prefilter: 5000 entries × ~60 chars ≈ 300k chars.
     # With prefilter (top_k=50): should be well under 50k chars.

@@ -576,7 +576,7 @@ def test_torn_line_is_skipped(tmp_path):
 def test_torn_multibyte_line_is_skipped(tmp_path):
     """Codex HIGH (v0.7.7 round 8): a torn write that slices through
     a multi-byte UTF-8 sequence (realistic with ``ensure_ascii=False``
-    on CJK payloads) would raise ``UnicodeDecodeError`` in strict
+    on non-ASCII payloads) would raise ``UnicodeDecodeError`` in strict
     text mode and abort iter_events entirely — breaking the
     crash-recovery contract. Per-line decode with except-and-skip
     isolates the damage to that one line."""
@@ -685,7 +685,7 @@ def test_key_hashed_to_full_sha256(tmp_path):
     window where two unrelated (stage, key) pairs share a jsonl and
     lock — that's semantic state contamination, not just a spurious
     busy. ``chunk_cache`` set the precedent in v0.7.5."""
-    with run_stage(tmp_path, "stage", "some-long-key-中文"):
+    with run_stage(tmp_path, "stage", "some-long-key-unicode"):
         pass
     files = list((tmp_path / ".pipeline" / "stage").iterdir())
     jsonl = [f for f in files if f.suffix == ".jsonl"]
@@ -878,7 +878,7 @@ def test_meta_update_event_key_always_wins(tmp_path):
     ".hidden",
     "x\x00y",
     "a b",  # whitespace
-    "中文/路径",
+    "unicode/path",
 ])
 def test_stage_name_rejects_path_traversal(tmp_path, bad_stage):
     """Codex HIGH (v0.7.7): stage lands on disk as a directory name.
