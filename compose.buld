@@ -13,11 +13,9 @@
 # Avvio:   docker compose up -d
 # Logs:    docker compose logs -f llmbase
 # =============================================================================
-# Creato un workflow CI/CD che costruisce l'immagine docker ghcr.io/jumping2000/llmbase:latest
-# =============================================================================
 services:
   llmbase:
-    image: ghcr.io/jumping2000/llmbase:latest
+    build .
     restart: unless-stopped
     ports:
       - 5555:5555

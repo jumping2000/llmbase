@@ -188,7 +188,7 @@ export function Layout() {
           <div className="relative" ref={langRef}>
             <button onClick={() => setLangOpen(!langOpen)}
               className="flex items-center gap-1.5 px-3 py-2 bg-surface-high border border-outline-variant/40 rounded-lg text-sm hover:border-primary/50 transition-colors">
-              <Icon name="translate" className="text-[16px] text-primary" />
+              <Icon name="dictionary" className="text-[16px] text-primary" />
               <span className="text-on-surface">{currentLangOption.label}</span>
               <Icon name="expand_more" className="text-[16px] text-on-surface-variant" />
             </button>
