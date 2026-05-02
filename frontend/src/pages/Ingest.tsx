@@ -13,13 +13,17 @@ const POLL_MAX_CONSECUTIVE_FAILURES = 5;
 
 export function Ingest() {
   const [url, setUrl] = useState('');
+  const [pdfFiles, setPdfFiles] = useState<File[]>([]);
   const [docs, setDocs] = useState<RawDoc[]>([]);
   const [ingesting, setIngesting] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [compiling, setCompiling] = useState(false);
+  const [chunkPages, setChunkPages] = useState(20);
   const [message, setMessage] = useState('');
   const [preview, setPreview] = useState<{ title: string; content: string; metadata: Record<string, string> } | null>(null);
   const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollFailures = useRef(0);
+  const pdfInputRef = useRef<HTMLInputElement | null>(null);
   // Guard against async work resolving after unmount — any setState or
   // startPolling call guarded by this ref becomes a no-op once cleanup ran.
   const mounted = useRef(true);
@@ -106,6 +110,34 @@ export function Ingest() {
     if (mounted.current) setIngesting(false);
   }
 
+  async function handlePdfUpload() {
+    if (pdfFiles.length === 0) return;
+    setUploading(true);
+    setMessage('');
+
+    try {
+      const result = await api.uploadFiles(pdfFiles, chunkPages);
+      if (!mounted.current) return;
+
+      const okCount = result.uploaded.length;
+      const failCount = result.failed.length;
+      if (failCount === 0) {
+        setMessage(`Uploaded ${okCount} PDF${okCount === 1 ? '' : 's'} successfully.`);
+      } else {
+        setMessage(`Uploaded ${okCount} file(s), ${failCount} failed.`);
+      }
+
+      setPdfFiles([]);
+      if (pdfInputRef.current) pdfInputRef.current.value = '';
+      await loadDocs();
+    } catch {
+      if (!mounted.current) return;
+      setMessage('Error: PDF upload failed.');
+    }
+
+    if (mounted.current) setUploading(false);
+  }
+
   async function handleCompile() {
     setCompiling(true);
     setMessage('');
@@ -156,6 +188,53 @@ export function Ingest() {
           <button onClick={handleIngest} disabled={ingesting}
             className="px-5 py-2.5 bg-secondary text-on-secondary rounded-lg text-sm font-medium hover:opacity-90 disabled:opacity-50">
             {ingesting ? 'Ingesting...' : 'Ingest'}
+          </button>
+        </div>
+      </div>
+
+      <div className="bg-surface-container rounded-xl p-6 border border-outline-variant/20 mb-6 card-shadow">
+        <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+          <Icon name="picture_as_pdf" className="text-secondary text-[18px]" /> Upload PDF batch
+        </h3>
+        <div className="flex flex-col gap-3">
+          <input
+            ref={pdfInputRef}
+            type="file"
+            accept=".pdf,application/pdf"
+            multiple
+            onChange={e => {
+              const files = Array.from(e.target.files ?? []).filter(file => (
+                file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
+              ));
+              setPdfFiles(files);
+            }}
+            className="block w-full text-sm text-on-surface"
+          />
+
+          <div className="flex items-center gap-3">
+            <label className="text-sm text-on-surface-variant" htmlFor="chunk-pages-input">Pages per chunk</label>
+            <input
+              id="chunk-pages-input"
+              type="number"
+              min={0}
+              value={chunkPages}
+              onChange={e => setChunkPages(Number(e.target.value) || 0)}
+              className="w-28 bg-surface-high border border-outline-variant/40 rounded-lg px-3 py-2 text-sm text-on-surface"
+            />
+          </div>
+
+          {pdfFiles.length > 0 && (
+            <div className="text-xs text-on-surface-variant">
+              {pdfFiles.length} file{pdfFiles.length === 1 ? '' : 's'} selected
+            </div>
+          )}
+
+          <button
+            onClick={handlePdfUpload}
+            disabled={uploading || pdfFiles.length === 0}
+            className="self-start px-5 py-2.5 bg-secondary text-on-secondary rounded-lg text-sm font-medium hover:opacity-90 disabled:opacity-50"
+          >
+            {uploading ? 'Uploading...' : 'Upload PDFs'}
           </button>
         </div>
       </div>

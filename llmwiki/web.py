@@ -1067,35 +1067,73 @@ def create_web_app(base_dir: Path | None = None):
     @app.route("/api/upload", methods=["POST"])
     @require_auth
     def api_upload():
-        """Upload a PDF/markdown file for ingestion."""
-        if "file" not in request.files:
-            return jsonify({"status": "error", "message": "No file provided"}), 400
-        f = request.files["file"]
-        if not f.filename:
-            return jsonify({"status": "error", "message": "Empty filename"}), 400
+        """Upload one or more PDF/markdown files for ingestion."""
+        files = [f for f in request.files.getlist("file") if f]
+        if not files:
+            return jsonify({"status": "error", "message": "No files provided"}), 400
+
+        try:
+            chunk_pages = int(request.form.get("chunk_pages", "20"))
+        except ValueError:
+            return jsonify({"status": "error", "message": "Invalid chunk_pages"}), 400
 
         cfg = load_config(base)
         raw_dir = Path(cfg["paths"]["raw"])
         raw_dir.mkdir(parents=True, exist_ok=True)
 
-        # Save uploaded file
         import tempfile
-        ext = Path(f.filename).suffix.lower()
-        with tempfile.NamedTemporaryFile(delete=False, suffix=ext, dir=str(raw_dir)) as tmp:
-            f.save(tmp)
-            tmp_path = tmp.name
+        uploaded = []
+        failed = []
 
-        # Process based on file type
-        if ext == ".pdf":
-            from .pdf import ingest_pdf
-            paths = ingest_pdf(tmp_path, chunk_pages=20, base_dir=base)
-            Path(tmp_path).unlink()  # Clean up temp file
-            return jsonify({"status": "ok", "chunks": len(paths), "filename": f.filename})
-        else:
-            from .ingest import ingest_file
-            path = ingest_file(tmp_path, base)
-            Path(tmp_path).unlink()
-            return jsonify({"status": "ok", "path": str(path), "filename": f.filename})
+        for f in files:
+            if not f.filename:
+                failed.append({"filename": "", "error": "Empty filename"})
+                continue
+
+            tmp_path = None
+            ext = Path(f.filename).suffix.lower()
+
+            try:
+                with tempfile.NamedTemporaryFile(delete=False, suffix=ext, dir=str(raw_dir)) as tmp:
+                    f.save(tmp)
+                    tmp_path = tmp.name
+
+                if ext == ".pdf":
+                    from .pdf import ingest_pdf
+
+                    paths = ingest_pdf(
+                        tmp_path,
+                        chunk_pages=chunk_pages,
+                        base_dir=base,
+                        original_name=f.filename,
+                    )
+                    uploaded.append({
+                        "filename": f.filename,
+                        "type": "pdf",
+                        "chunks": len(paths),
+                        "paths": [str(p) for p in paths],
+                    })
+                else:
+                    from .ingest import ingest_file
+
+                    path = ingest_file(tmp_path, base, original_name=f.filename)
+                    uploaded.append({
+                        "filename": f.filename,
+                        "type": ext.lstrip(".") or "file",
+                        "path": str(path),
+                    })
+            except Exception as e:
+                failed.append({"filename": f.filename, "error": str(e)})
+            finally:
+                if tmp_path:
+                    Path(tmp_path).unlink(missing_ok=True)
+
+        return jsonify({
+            "status": "ok" if not failed else "partial",
+            "uploaded": uploaded,
+            "failed": failed,
+            "total_files": len(files),
+        })
 
     @app.route("/api/articles/<slug>", methods=["DELETE"])
     @require_auth

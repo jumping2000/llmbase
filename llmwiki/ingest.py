@@ -132,7 +132,11 @@ def ingest_url(url: str, base_dir: Path | None = None) -> Path:
     return doc_path
 
 
-def ingest_file(file_path: str, base_dir: Path | None = None) -> Path:
+def ingest_file(
+    file_path: str,
+    base_dir: Path | None = None,
+    original_name: str | None = None,
+) -> Path:
     """Copy a local file (paper PDF, markdown, etc.) into raw/."""
     cfg = load_config(base_dir)
     ensure_dirs(cfg)
@@ -142,18 +146,24 @@ def ingest_file(file_path: str, base_dir: Path | None = None) -> Path:
     if not src.exists():
         raise FileNotFoundError(f"Source file not found: {file_path}")
 
-    slug = _slugify(src.stem)
+    logical_name = original_name or src.name
+    logical_stem = Path(logical_name).stem
+    source_value = original_name or str(src.resolve())
+
+    slug = _slugify(logical_stem)
     doc_dir = raw_dir / slug
     doc_dir.mkdir(parents=True, exist_ok=True)
 
-    dest = doc_dir / src.name
+    dest = doc_dir / logical_name
     shutil.copy2(src, dest)
 
     # If it's already a markdown file, add frontmatter if missing
     if src.suffix.lower() in (".md", ".markdown"):
         post = frontmatter.load(str(dest))
         if "title" not in post.metadata:
-            post.metadata["title"] = src.stem
+            post.metadata["title"] = logical_stem
+        if "source" not in post.metadata:
+            post.metadata["source"] = source_value
         if "ingested_at" not in post.metadata:
             post.metadata["ingested_at"] = datetime.now(timezone.utc).isoformat()
         post.metadata["type"] = "local_file"
@@ -166,17 +176,17 @@ def ingest_file(file_path: str, base_dir: Path | None = None) -> Path:
     else:
         # Create a companion metadata file
         meta = frontmatter.Post("")
-        meta.metadata["title"] = src.stem
-        meta.metadata["source"] = str(src.resolve())
+        meta.metadata["title"] = logical_stem
+        meta.metadata["source"] = source_value
         meta.metadata["ingested_at"] = datetime.now(timezone.utc).isoformat()
         meta.metadata["type"] = "local_file"
-        meta.metadata["file"] = src.name
+        meta.metadata["file"] = logical_name
         meta.metadata["compiled"] = False
         meta_path = doc_dir / "index.md"
         meta_path.write_text(frontmatter.dumps(meta), encoding="utf-8")
 
     from .hooks import emit
-    emit("ingested", source="file", title=src.stem, path=str(dest))
+    emit("ingested", source="file", title=logical_stem, path=str(dest))
 
     return dest
 

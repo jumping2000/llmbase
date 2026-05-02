@@ -1,5 +1,7 @@
 """Tests for v0.6.6 additions: model override (A) + surrogate sanitize (C)."""
 
+import json
+
 from unittest.mock import patch
 
 import pytest

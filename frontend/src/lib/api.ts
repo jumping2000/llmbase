@@ -92,6 +92,31 @@ async function post<T>(url: string, body?: unknown): Promise<T> {
   return res.json();
 }
 
+async function postForm<T>(url: string, body: FormData): Promise<T> {
+  const res = await fetch(BASE + url, {
+    method: 'POST',
+    body,
+  });
+  if (!res.ok) throw new ApiError(res.status, `API error: ${res.status}`);
+  return res.json();
+}
+
+export interface UploadBatchResult {
+  status: 'ok' | 'partial';
+  uploaded: Array<{
+    filename: string;
+    type: string;
+    chunks?: number;
+    path?: string;
+    paths?: string[];
+  }>;
+  failed: Array<{
+    filename: string;
+    error: string;
+  }>;
+  total_files: number;
+}
+
 export interface Collection {
   id: string;
   label: string;
@@ -146,6 +171,12 @@ export const api = {
   generateXiCi: (lang: string) => post<XiCi>('/api/xici/generate', { lang }),
   getSources: () => get<{ documents: RawDoc[] }>('/api/sources').then(d => d.documents),
   ingest: (source: string) => post<{ status: string; path: string }>('/api/ingest', { source }),
+  uploadFiles: (files: File[], chunkPages = 20) => {
+    const form = new FormData();
+    for (const file of files) form.append('file', file);
+    form.append('chunk_pages', String(chunkPages));
+    return postForm<UploadBatchResult>('/api/upload', form);
+  },
   compile: () => post<{ status: string; articles_created: number }>('/api/compile', {}),
   getWorkerStatus: () => get<{ busy: boolean }>('/api/worker/status'),
   lint: (deep = false) => post<{ results?: LintResults; report?: string }>('/api/lint', { deep }),

@@ -42,6 +42,15 @@ The web server exposes a JSON HTTP API alongside the frontend.
 
 When `LLMBASE_API_SECRET` is set, write endpoints require authentication.
 
+## Upload payload
+
+`POST /api/upload` accepts `multipart/form-data`.
+
+- send one or more `file` parts
+- optional `chunk_pages` form field controls PDF chunking
+- PDF files are expanded into one or more raw chunks
+- non-PDF files are ingested as uploaded source files
+
 ## Ask payload
 
 Example:

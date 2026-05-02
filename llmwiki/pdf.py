@@ -67,6 +67,7 @@ def ingest_pdf(
     pdf_path: str,
     chunk_pages: int = 20,
     base_dir: Path | None = None,
+    original_name: str | None = None,
 ) -> list[Path]:
     """Ingest a PDF file into the knowledge base.
 
@@ -76,6 +77,8 @@ def ingest_pdf(
         pdf_path: Path to the PDF file.
         chunk_pages: Pages per chunk (0 = single doc, default 20).
         base_dir: Knowledge base root directory.
+        original_name: Optional logical filename to preserve when the PDF
+            reached us via a temporary upload path.
 
     Returns:
         List of paths to created raw documents.
@@ -87,8 +90,9 @@ def ingest_pdf(
     chunks = pdf_to_markdown(pdf_path, chunk_pages)
     results = []
 
-    src_name = Path(pdf_path).stem
-    slug_base = re.sub(r"[^\w]+", "-", src_name).strip("-")
+    logical_name = original_name or Path(pdf_path).name
+    src_name = Path(logical_name).stem
+    slug_base = re.sub(r"[^\w]+", "-", src_name.lower()).strip("-")
 
     for i, chunk in enumerate(chunks):
         if len(chunks) == 1:
@@ -101,7 +105,7 @@ def ingest_pdf(
 
         post = frontmatter.Post(chunk["content"])
         post.metadata["title"] = chunk["title"]
-        post.metadata["source"] = str(Path(pdf_path).resolve())
+        post.metadata["source"] = logical_name
         post.metadata["ingested_at"] = datetime.now(timezone.utc).isoformat()
         post.metadata["type"] = "pdf"
         post.metadata["page_start"] = chunk["page_start"]

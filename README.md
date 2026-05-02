@@ -9,10 +9,11 @@ The repository currently targets English and Italian output across compilation, 
 ## What it does
 
 1. Ingest raw material from URLs, local files, PDFs, or directories.
-2. Compile raw material into linked wiki articles under `wiki/concepts`.
-3. Search and ask questions against the compiled knowledge base.
-4. Export article, tag, and graph views for downstream tools.
-5. Run lint and cleanup workflows to keep the KB consistent.
+2. Batch-upload multiple PDF files from the web UI.
+3. Compile raw material into linked wiki articles under `wiki/concepts`.
+4. Search and ask questions against the compiled knowledge base.
+5. Export article, tag, and graph views for downstream tools.
+6. Run lint and cleanup workflows to keep the KB consistent.
 
 ## Install
 
@@ -44,6 +45,8 @@ llmbase search query "architecture"
 
 llmbase web
 ```
+
+The web UI `/ingest` page also supports multi-PDF upload with configurable page chunking.
 
 ## Main CLI Surfaces
 
