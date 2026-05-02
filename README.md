@@ -48,6 +48,36 @@ llmbase web
 
 The web UI `/ingest` page also supports multi-PDF upload with configurable page chunking.
 
+## Reverse Proxy Auth
+
+The compose files now support an Nginx front door that protects the entire UI and HTTP API with Basic Auth, while llmbase keeps `LLMBASE_API_SECRET` for sensitive application routes.
+
+Create the local Basic Auth file before starting the stack:
+
+```bash
+docker run --rm --entrypoint htpasswd httpd:2.4-alpine -nbB admin change-me > nginx/.htpasswd
+```
+
+On Windows/PowerShell you can generate the same file with:
+
+```powershell
+.\nginx\generate-htpasswd.ps1 -Username admin -Password change-me
+```
+
+Set `LLMBASE_API_SECRET` in `.env`, then start the stack as usual:
+
+```bash
+docker compose up -d
+```
+
+If the secret contains `$`, escape it as `$$` in `.env` when using Docker Compose, otherwise Compose will try to interpolate it before the value reaches the container.
+
+With this topology:
+- Nginx challenges all browser and API traffic with Basic Auth on the public port.
+- llmbase still protects write routes internally with the derived `llmbase_auth` cookie or the API secret.
+- Browser UI requests work unchanged because the SPA response sets the app cookie.
+- Direct API clients behind Nginx must send `X-LLMBASE-Authorization: Bearer <LLMBASE_API_SECRET>` when they need application-level auth, because the standard `Authorization` header is consumed by Nginx Basic Auth.
+
 ## Main CLI Surfaces
 
 Ingest:

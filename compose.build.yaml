@@ -6,7 +6,8 @@
 #   .
 #   ├── docker-compose.yml
 #   ├── .env                        ← credenziali (non committare!)
-#   ├── Dockerfile                  ← llmbase (build locale)            
+#   ├── Dockerfile                  ← llmbase (build locale)
+#   ├── nginx/                      ← configurazione nginx (non committare!)
 #   ├── raw/                        ← dati grezzi (non committare!)
 #   └── wiki/                       ← dati conioscenza (non committare!)
 #
@@ -14,11 +15,26 @@
 # Logs:    docker compose logs -f llmbase
 # =============================================================================
 services:
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    depends_on:
+      - llmbase
+    ports:
+      - 5555:80
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - llmbase-net
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/.htpasswd:/etc/nginx/auth/.htpasswd:ro
+
   llmbase:
     build: .
     restart: unless-stopped
-    ports:
-      - 5555:5555
+    expose:
+      - "5555"
     env_file: .env
     # user: "1000:1000"
     # environment:

@@ -42,6 +42,13 @@ The web server exposes a JSON HTTP API alongside the frontend.
 
 When `LLMBASE_API_SECRET` is set, write endpoints require authentication.
 
+## Authentication
+
+- Direct app deployments can send `Authorization: Bearer <LLMBASE_API_SECRET>` to authenticated endpoints.
+- In the bundled Nginx deployment, the public `Authorization` header is used by Basic Auth at the proxy boundary.
+- Browser UI requests still work because the frontend receives the derived `llmbase_auth` cookie from the SPA response.
+- Direct API clients behind Nginx should send `X-LLMBASE-Authorization: Bearer <LLMBASE_API_SECRET>` when they need llmbase application auth; the proxy forwards that value upstream as `Authorization`.
+
 ## Upload payload
 
 `POST /api/upload` accepts `multipart/form-data`.
