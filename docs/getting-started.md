@@ -24,8 +24,10 @@ The shipped `config.yaml` is a valid starting point. The important worker defaul
 
 ```yaml
 worker:
-  learn_source: url
+  learn_source: seed_urls
 ```
+
+When you enable the worker, populate `wiki/_meta/seed-urls.json` with the URLs you want it to ingest.
 
 ## First run
 

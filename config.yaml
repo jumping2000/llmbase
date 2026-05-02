@@ -32,13 +32,15 @@ lint:
   web_search: false
 
 worker:
-  enabled: false
+  enabled: true
   learn_interval_hours: 6
   compile_interval_hours: 1
   taxonomy_interval_hours: 12
   health_check_interval_hours: 24
   learn_batch_size: 10
-  learn_source: url
+  # Reads seeds from wiki/_meta/seed-urls.json and tracks progress in
+  # wiki/_meta/worker-seeds-state.json.
+  learn_source: seed_urls
 
 health:
   auto_fix_broken_links: true

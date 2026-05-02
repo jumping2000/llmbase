@@ -6,7 +6,7 @@ This repository is configured around a compact set of customization points.
 
 - Default article sections are English and Italian.
 - Built-in ask tones are `default`, `caveman`, `scholar`, and `eli5`.
-- Worker autonomous learning defaults to URL-based sources.
+- Worker autonomous learning defaults to the built-in `seed_urls` source backed by `wiki/_meta/seed-urls.json`.
 - Search uses Unicode word tokenization by default.
 
 ## Useful module-level customization points

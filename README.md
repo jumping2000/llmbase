@@ -70,6 +70,9 @@ Set `LLMBASE_API_SECRET` in `.env`, then start the stack as usual:
 docker compose up -d
 ```
 
+The compose topology now starts three services: `nginx`, `llmbase`, and `llmbase-worker`.
+The dedicated worker container keeps background jobs out of the Gunicorn web processes.
+
 If the secret contains `$`, escape it as `$$` in `.env` when using Docker Compose, otherwise Compose will try to interpolate it before the value reaches the container.
 
 With this topology:
@@ -77,6 +80,7 @@ With this topology:
 - llmbase still protects write routes internally with the derived `llmbase_auth` cookie or the API secret.
 - Browser UI requests work unchanged because the SPA response sets the app cookie.
 - Direct API clients behind Nginx must send `X-LLMBASE-Authorization: Bearer <LLMBASE_API_SECRET>` when they need application-level auth, because the standard `Authorization` header is consumed by Nginx Basic Auth.
+- The worker container idles safely while `worker.enabled: false`; once you enable it in `config.yaml`, the same service starts ingest/compile/taxonomy/health jobs without changing the deployment topology.
 
 ## Main CLI Surfaces
 
@@ -110,7 +114,7 @@ Services:
 ## Configuration Notes
 
 Important defaults:
-- `worker.learn_source: url`
+- `worker.learn_source: seed_urls`
 - ask tones: `default`, `caveman`, `scholar`, `eli5`
 - taxonomy labels: English and Italian
 

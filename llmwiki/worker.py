@@ -327,4 +327,6 @@ def start_worker_thread(base_dir: Path | None = None):
 
 
 # ─── Built-in learn sources ─────────────────────────────────────
-# No built-in autonomous corpus sources are registered by default.
+from . import worker_sources as _worker_sources
+
+register_learn_source("seed_urls", _worker_sources.learn_from_seed_urls)

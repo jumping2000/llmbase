@@ -21,7 +21,8 @@ services:
     image: nginx:1.27-alpine
     restart: unless-stopped
     depends_on:
-      - llmbase
+      llmbase:
+        condition: service_healthy
     ports:
       - 5555:80
     security_opt:
@@ -54,6 +55,19 @@ services:
       timeout: 15s
       retries: 3
       start_period: 20s
+
+  llmbase-worker:
+    image: ghcr.io/jumping2000/llmbase:latest
+    restart: unless-stopped
+    command: ["python", "-m", "llmwiki.worker_main"]
+    env_file: .env
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - llmbase-net
+    volumes:
+      - ./raw:/app/raw
+      - ./wiki:/app/wiki
 
 networks:
   llmbase-net:

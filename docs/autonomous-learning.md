@@ -4,8 +4,9 @@ The worker can keep the knowledge base moving forward without manual supervision
 
 ## Default behavior
 
-- `worker.learn_source` defaults to `url`
-- the worker operates on URL-based or locally ingested material
+- `worker.learn_source` defaults to `seed_urls`
+- the built-in source reads `wiki/_meta/seed-urls.json`
+- ingest progress and retry state are stored in `wiki/_meta/worker-seeds-state.json`
 - built-in remote corpus sources are not shipped anymore
 
 ## Typical loop
@@ -20,7 +21,21 @@ The worker can keep the knowledge base moving forward without manual supervision
 ```yaml
 worker:
   enabled: true
-  learn_source: url
+  learn_source: seed_urls
+```
+
+In the Docker Compose deployment, the worker runs in its own `llmbase-worker` service instead of inside the Gunicorn web process.
+When `worker.enabled` is `false`, that service stays idle and polls the config instead of restarting in a loop.
+
+Seed file example:
+
+```json
+{
+  "urls": [
+    "https://example.com/article-1",
+    "https://example.com/article-2"
+  ]
+}
 ```
 
 ## Extending learning sources
