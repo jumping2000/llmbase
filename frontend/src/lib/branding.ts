@@ -24,13 +24,14 @@ export async function fetchBranding(): Promise<Branding> {
   try {
     const res = await fetch('/api/branding');
     if (res.ok) {
-      const data = await res.json();
-      _cached = { ...DEFAULT_BRANDING, ...data };
-      return _cached;
+      const data = await res.json() as Partial<Branding>;
+      const branding: Branding = { ...DEFAULT_BRANDING, ...data };
+      _cached = branding;
+      return branding;
     }
   } catch { /* fallback */ }
   _cached = DEFAULT_BRANDING;
-  return _cached;
+  return DEFAULT_BRANDING;
 }
 
 export function getBranding(): Branding {

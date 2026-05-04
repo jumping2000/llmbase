@@ -272,6 +272,7 @@ export function Explore() {
     let currentTransform = d3.zoomIdentity;
 
     items.on('mouseenter', function (event, d) {
+      void event;
       const cx = currentTransform.rescaleX(x)(d.year);
       setHovered({ name: it ? d.localName : d.name, dates: d.dates, role: d.role || d.description, x: cx, y: 10 });
       d3.select(this).select('.dot').transition().duration(200).attr('r', DOT_R + 4).attr('stroke-width', 3);

@@ -180,7 +180,7 @@ export const api = {
   compile: () => post<{ status: string; articles_created: number }>('/api/compile', {}),
   getWorkerStatus: () => get<{ busy: boolean }>('/api/worker/status'),
   lint: (deep = false) => post<{ results?: LintResults; report?: string }>('/api/lint', { deep }),
-  lintFix: () => post<{ fixes: string[]; fix_count: number }>('/api/lint/fix', {}),
+  lintFix: () => post<{ fixes?: string[]; fix_count?: number; status?: string; message?: string }>('/api/lint/fix', {}),
   cleanWiki: () => post<{ removed: number; slugs: string[] }>('/api/wiki/clean', {}),
   getHealth: () => get<{ report: { checked_at: string; results: LintResults; fixes_applied: string[] } | null }>('/api/health'),
   rebuildIndex: () => post<{ article_count: number }>('/api/index/rebuild', {}),

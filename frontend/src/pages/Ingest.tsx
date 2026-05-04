@@ -11,9 +11,74 @@ const POLL_MS = 2000;
 // status endpoint can't strand the UI in "Compiling…" forever.
 const POLL_MAX_CONSECUTIVE_FAILURES = 5;
 
+function isSupportedUploadFile(file: File) {
+  const lowerName = file.name.toLowerCase();
+  return (
+    file.type === 'application/pdf'
+    || file.type === 'text/markdown'
+    || lowerName.endsWith('.pdf')
+    || lowerName.endsWith('.md')
+    || lowerName.endsWith('.markdown')
+  );
+}
+
+function isPdfFile(file: File) {
+  const lowerName = file.name.toLowerCase();
+  return file.type === 'application/pdf' || lowerName.endsWith('.pdf');
+}
+
+function isMarkdownFile(file: File) {
+  const lowerName = file.name.toLowerCase();
+  return file.type === 'text/markdown' || lowerName.endsWith('.md') || lowerName.endsWith('.markdown');
+}
+
+function uploadFileMeta(file: File) {
+  if (isPdfFile(file)) {
+    return {
+      label: 'PDF',
+      icon: 'picture_as_pdf',
+      badgeClass: 'bg-secondary-container/30 text-secondary',
+    };
+  }
+  return {
+    label: 'Markdown',
+    icon: 'description',
+    badgeClass: 'bg-tertiary-container/30 text-tertiary',
+  };
+}
+
+function rawDocMeta(rawType: string) {
+  if (rawType === 'pdf') {
+    return {
+      label: 'PDF',
+      icon: 'picture_as_pdf',
+      className: 'bg-secondary-container/30 text-secondary',
+    };
+  }
+  if (rawType === 'web_article' || rawType === 'browser_article') {
+    return {
+      label: 'Web',
+      icon: 'language',
+      className: 'bg-primary-container/30 text-primary',
+    };
+  }
+  if (rawType === 'local_file') {
+    return {
+      label: 'File',
+      icon: 'description',
+      className: 'bg-tertiary-container/30 text-tertiary',
+    };
+  }
+  return {
+    label: rawType || 'Unknown',
+    icon: 'draft',
+    className: 'bg-surface-high text-on-surface-variant',
+  };
+}
+
 export function Ingest() {
   const [url, setUrl] = useState('');
-  const [pdfFiles, setPdfFiles] = useState<File[]>([]);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [docs, setDocs] = useState<RawDoc[]>([]);
   const [ingesting, setIngesting] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -23,7 +88,7 @@ export function Ingest() {
   const [preview, setPreview] = useState<{ title: string; content: string; metadata: Record<string, string> } | null>(null);
   const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollFailures = useRef(0);
-  const pdfInputRef = useRef<HTMLInputElement | null>(null);
+  const uploadInputRef = useRef<HTMLInputElement | null>(null);
   // Guard against async work resolving after unmount — any setState or
   // startPolling call guarded by this ref becomes a no-op once cleanup ran.
   const mounted = useRef(true);
@@ -110,29 +175,43 @@ export function Ingest() {
     if (mounted.current) setIngesting(false);
   }
 
-  async function handlePdfUpload() {
-    if (pdfFiles.length === 0) return;
+  async function handleFileUpload() {
+    if (selectedFiles.length === 0) return;
     setUploading(true);
     setMessage('');
 
     try {
-      const result = await api.uploadFiles(pdfFiles, chunkPages);
+      const result = await api.uploadFiles(selectedFiles, chunkPages);
       if (!mounted.current) return;
 
       const okCount = result.uploaded.length;
+      const uploadedPdfCount = result.uploaded.filter(file => file.type === 'pdf').length;
+      const uploadedMarkdownCount = result.uploaded.filter(file => file.type === 'md' || file.type === 'markdown').length;
+      const otherUploadedCount = okCount - uploadedPdfCount - uploadedMarkdownCount;
       const failCount = result.failed.length;
+      const detailParts = [];
+      if (uploadedPdfCount > 0) {
+        detailParts.push(`${uploadedPdfCount} PDF${uploadedPdfCount === 1 ? '' : 's'} processed`);
+      }
+      if (uploadedMarkdownCount > 0) {
+        detailParts.push(`${uploadedMarkdownCount} Markdown file${uploadedMarkdownCount === 1 ? '' : 's'} ingested`);
+      }
+      if (otherUploadedCount > 0) {
+        detailParts.push(`${otherUploadedCount} file${otherUploadedCount === 1 ? '' : 's'} ingested`);
+      }
       if (failCount === 0) {
-        setMessage(`Uploaded ${okCount} PDF${okCount === 1 ? '' : 's'} successfully.`);
+        setMessage(detailParts.length > 0 ? detailParts.join(', ') + '.' : `Uploaded ${okCount} file${okCount === 1 ? '' : 's'} successfully.`);
       } else {
-        setMessage(`Uploaded ${okCount} file(s), ${failCount} failed.`);
+        const detail = detailParts.length > 0 ? `${detailParts.join(', ')}. ` : '';
+        setMessage(`${detail}${failCount} file${failCount === 1 ? '' : 's'} failed.`);
       }
 
-      setPdfFiles([]);
-      if (pdfInputRef.current) pdfInputRef.current.value = '';
+      setSelectedFiles([]);
+      if (uploadInputRef.current) uploadInputRef.current.value = '';
       await loadDocs();
     } catch {
       if (!mounted.current) return;
-      setMessage('Error: PDF upload failed.');
+      setMessage('Error: File upload failed.');
     }
 
     if (mounted.current) setUploading(false);
@@ -170,6 +249,9 @@ export function Ingest() {
   }
 
   const uncompiled = docs.filter(d => !d.compiled).length;
+  const hasPdfSelection = selectedFiles.some(isPdfFile);
+  const pdfCount = selectedFiles.filter(isPdfFile).length;
+  const markdownCount = selectedFiles.filter(isMarkdownFile).length;
 
   return (
     <div className="p-8 max-w-[900px] mx-auto">
@@ -194,47 +276,75 @@ export function Ingest() {
 
       <div className="bg-surface-container rounded-xl p-6 border border-outline-variant/20 mb-6 card-shadow">
         <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
-          <Icon name="picture_as_pdf" className="text-secondary text-[18px]" /> Upload PDF batch
+          <Icon name="upload_file" className="text-secondary text-[18px]" /> Upload Files
         </h3>
         <div className="flex flex-col gap-3">
+          <p className="text-sm text-on-surface-variant">
+            PDF files can be chunked by page count. Markdown files are ingested as-is, preserving headings, tables, and frontmatter when present.
+          </p>
           <input
-            ref={pdfInputRef}
+            ref={uploadInputRef}
             type="file"
-            accept=".pdf,application/pdf"
+            accept=".pdf,.md,.markdown,text/markdown,application/pdf"
             multiple
             onChange={e => {
-              const files = Array.from(e.target.files ?? []).filter(file => (
-                file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
-              ));
-              setPdfFiles(files);
+              const files = Array.from(e.target.files ?? []).filter(isSupportedUploadFile);
+              setSelectedFiles(files);
             }}
             className="block w-full text-sm text-on-surface"
           />
 
-          <div className="flex items-center gap-3">
-            <label className="text-sm text-on-surface-variant" htmlFor="chunk-pages-input">Pages per chunk</label>
-            <input
-              id="chunk-pages-input"
-              type="number"
-              min={0}
-              value={chunkPages}
-              onChange={e => setChunkPages(Number(e.target.value) || 0)}
-              className="w-28 bg-surface-high border border-outline-variant/40 rounded-lg px-3 py-2 text-sm text-on-surface"
-            />
-          </div>
+          {selectedFiles.length > 0 && (
+            <div className="flex flex-col gap-2">
+              <div className="text-xs text-on-surface-variant">
+                {pdfCount} PDF{pdfCount === 1 ? '' : 's'}, {markdownCount} Markdown file{markdownCount === 1 ? '' : 's'} selected
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {selectedFiles.map(file => {
+                  const meta = uploadFileMeta(file);
+                  return (
+                    <div
+                      key={`${file.name}-${file.size}-${file.lastModified}`}
+                      className="inline-flex max-w-full items-center gap-2 rounded-full border border-outline-variant/30 bg-surface-high px-3 py-1 text-xs text-on-surface"
+                    >
+                      <Icon name={meta.icon} className="text-[14px]" />
+                      <span className="max-w-[260px] truncate">{file.name}</span>
+                      <span className={`rounded-full px-2 py-0.5 font-medium ${meta.badgeClass}`}>
+                        {meta.label}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
-          {pdfFiles.length > 0 && (
+          {hasPdfSelection && (
+            <div className="flex items-center gap-3">
+              <label className="text-sm text-on-surface-variant" htmlFor="chunk-pages-input">Pages per chunk</label>
+              <input
+                id="chunk-pages-input"
+                type="number"
+                min={0}
+                value={chunkPages}
+                onChange={e => setChunkPages(Number(e.target.value) || 0)}
+                className="w-28 bg-surface-high border border-outline-variant/40 rounded-lg px-3 py-2 text-sm text-on-surface"
+              />
+            </div>
+          )}
+
+          {!hasPdfSelection && selectedFiles.length > 0 && (
             <div className="text-xs text-on-surface-variant">
-              {pdfFiles.length} file{pdfFiles.length === 1 ? '' : 's'} selected
+              No PDF selected. Markdown uploads do not use page chunking.
             </div>
           )}
 
           <button
-            onClick={handlePdfUpload}
-            disabled={uploading || pdfFiles.length === 0}
+            onClick={handleFileUpload}
+            disabled={uploading || selectedFiles.length === 0}
             className="self-start px-5 py-2.5 bg-secondary text-on-secondary rounded-lg text-sm font-medium hover:opacity-90 disabled:opacity-50"
           >
-            {uploading ? 'Uploading...' : 'Upload PDFs'}
+            {uploading ? 'Uploading...' : 'Upload Files'}
           </button>
         </div>
       </div>
@@ -307,7 +417,12 @@ export function Ingest() {
               {docs.map((d, i) => (
                 <tr key={i} className="border-b border-outline-variant/10 last:border-b-0 hover:bg-surface-high/50 transition-colors">
                   <td className="px-5 py-3 text-on-surface">{d.title}</td>
-                  <td className="px-5 py-3 text-on-surface-variant">{d.type}</td>
+                  <td className="px-5 py-3 text-on-surface-variant">
+                    <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ${rawDocMeta(d.type).className}`}>
+                      <Icon name={rawDocMeta(d.type).icon} className="text-[14px]" />
+                      {rawDocMeta(d.type).label}
+                    </span>
+                  </td>
                   <td className="px-5 py-3">
                     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs ${
                       d.compiled ? 'bg-tertiary-container/30 text-tertiary' : 'bg-surface-high text-on-surface-variant'

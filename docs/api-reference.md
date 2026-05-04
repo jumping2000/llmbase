@@ -54,9 +54,10 @@ When `LLMBASE_API_SECRET` is set, write endpoints require authentication.
 `POST /api/upload` accepts `multipart/form-data`.
 
 - send one or more `file` parts
-- optional `chunk_pages` form field controls PDF chunking
+- optional `chunk_pages` form field controls PDF chunking only
 - PDF files are expanded into one or more raw chunks
-- non-PDF files are ingested as uploaded source files
+- Markdown files are ingested as uploaded source files with their frontmatter preserved when present
+- other non-PDF files are ingested as uploaded source files
 
 ## Ask payload
 

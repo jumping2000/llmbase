@@ -158,9 +158,25 @@ export function Graph() {
       .attr('stroke-width', d => Math.min(d.weight * 0.5, 3))
       .attr('stroke-opacity', d => Math.min(0.15 + d.weight * 0.1, 0.5));
 
+    const dragBehavior = d3.drag<SVGCircleElement, Node>()
+      .on('start', (e, d) => {
+        if (!e.active) simulation.alphaTarget(0.3).restart();
+        d.fx = d.x;
+        d.fy = d.y;
+      })
+      .on('drag', (e, d) => {
+        d.fx = e.x;
+        d.fy = e.y;
+      })
+      .on('end', (e, d) => {
+        if (!e.active) simulation.alphaTarget(0);
+        d.fx = null;
+        d.fy = null;
+      });
+
     // Nodes
     const node = g.append('g')
-      .selectAll('circle')
+      .selectAll<SVGCircleElement, Node>('circle')
       .data(visibleNodes)
       .join('circle')
       .attr('r', d => d.size)
@@ -177,11 +193,7 @@ export function Graph() {
       .attr('stroke-opacity', 0.3)
       .style('cursor', 'pointer')
       .on('click', (_, d) => navigate(`/wiki/${d.id}`))
-      .call(d3.drag<SVGCircleElement, Node>()
-        .on('start', (e, d) => { if (!e.active) simulation.alphaTarget(0.3).restart(); d.fx = d.x; d.fy = d.y; })
-        .on('drag', (e, d) => { d.fx = e.x; d.fy = e.y; })
-        .on('end', (e, d) => { if (!e.active) simulation.alphaTarget(0); d.fx = null; d.fy = null; })
-      );
+      .call(dragBehavior);
 
     // Labels (only for nodes with enough connections, or when showLabels=true)
     const label = g.append('g')

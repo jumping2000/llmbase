@@ -137,7 +137,7 @@ jobs:
           exit-code: '0'  # Changed from '1' to allow builds with HIGH/CRITICAL
           severity: 'CRITICAL,HIGH'
           ignore-unfixed: true
-          output: 'trivy-report.txt'
+          output: 'trivy-fs-report.txt'
     # 3. SETUP DOCKER
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -175,6 +175,18 @@ jobs:
           cache-to: type=gha,mode=max
           build-args: |
             BUILD_DATE=${{ github.event.repository.updated_at }}
+
+      - name: Scan image for vulnerabilities
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'image'
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.prepare.outputs.version }}
+          format: 'table'
+          exit-code: '0'  # Changed from '1' to allow builds with HIGH/CRITICAL
+          severity: 'CRITICAL,HIGH'
+          ignore-unfixed: true
+          output: 'trivy-image-report.txt'
+
       # 4. GENERAZIONE SBOM (Basata sul filesystem/repo)
       - name: Generate SBOM
         uses: anchore/sbom-action@v0
@@ -187,7 +199,8 @@ jobs:
         if: github.event_name == 'release'
         with:
           files: |
-            trivy-report.txt
+            trivy-fs-report.txt
+            trivy-image-report.txt
             sbom.spdx.json
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -197,7 +210,8 @@ jobs:
         with:
           name: security-reports-${{ needs.prepare.outputs.version }}
           path: |
-            trivy-report.txt
+            trivy-fs-report.txt
+            trivy-image-report.txt
             sbom.spdx.json
       # 6. BUILD SUMMARY (CORRETTO)
       - name: Create build summary
@@ -215,6 +229,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Tags Pushed" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
           echo "${{ steps.meta.outputs.tags }}" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
 
@@ -263,7 +278,9 @@ jobs:
           --------------------------------------
           """
           with open("/tmp/email_body.txt", "w") as f: f.write(body)
-          with open(os.environ["GITHUB_OUTPUT"], "a") as f: f.write(f"subject={subject}\n")
+            with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              f.write(f"subject={subject}\n")
+              f.write(f"overall={overall}\n")
           PYEOF
 
       - name: Send Email
@@ -280,15 +297,20 @@ jobs:
           convert_markdown: false
 
       - name: Create notification summary
+        env:
+          STATUS_TEST: ${{ needs.test.result }}
+          STATUS_DOCKER: ${{ needs.build-docker.result }}
         run: |
           echo "## 📧 Email Notification Sent" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**[${{ steps.email.outputs.status_label }}] Status:** ${{ steps.status.outputs.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Status:** ${{ steps.email.outputs.overall }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Subject:** ${{ steps.email.outputs.subject }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Test Suite:** ${STATUS_TEST}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Docker Build:** ${STATUS_DOCKER}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Sent to:** ${{ secrets.NOTIFICATION_EMAIL }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "---" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "$(cat /tmp/status_table.txt)" >> $GITHUB_STEP_SUMMARY

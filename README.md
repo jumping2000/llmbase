@@ -46,7 +46,7 @@ llmbase search query "architecture"
 llmbase web
 ```
 
-The web UI `/ingest` page also supports multi-PDF upload with configurable page chunking.
+The web UI `/ingest` page supports PDF and Markdown uploads. Page chunking applies only to PDFs.
 
 ## Reverse Proxy Auth
 
