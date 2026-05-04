@@ -180,7 +180,7 @@ jobs:
         uses: aquasecurity/trivy-action@master
         with:
           scan-type: 'image'
-          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.prepare.outputs.version }}
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}
           format: 'table'
           exit-code: '0'  # Changed from '1' to allow builds with HIGH/CRITICAL
           severity: 'CRITICAL,HIGH'
@@ -223,7 +223,7 @@ jobs:
           echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
           echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
           echo "| 🏷️ Version | ${{ needs.prepare.outputs.version }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| 📦 Image | \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.prepare.outputs.version }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| 📦 Image | \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| 🏗️ Platforms | linux/amd64, linux/arm64 |" >> $GITHUB_STEP_SUMMARY
           echo "| 📅 Built | $(date -u +'%Y-%m-%d %H:%M:%S UTC') |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
