@@ -278,7 +278,7 @@ jobs:
           --------------------------------------
           """
           with open("/tmp/email_body.txt", "w") as f: f.write(body)
-            with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
               f.write(f"subject={subject}\n")
               f.write(f"overall={overall}\n")
           PYEOF
