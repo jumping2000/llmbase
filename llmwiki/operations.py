@@ -293,16 +293,50 @@ def _op_stats(base_dir: Path) -> dict:
     }
 
 
+def _op_llm_usage_summary(
+    base_dir: Path,
+    last: str | None = None,
+    from_ts: str | None = None,
+    to_ts: str | None = None,
+) -> dict:
+    from .llm_usage import summarize_usage
+    return summarize_usage(base_dir, from_ts=from_ts, to_ts=to_ts, last=last)
+
+
+def _op_llm_usage_recent(
+    base_dir: Path,
+    limit: int = 10,
+    last: str | None = None,
+    from_ts: str | None = None,
+    to_ts: str | None = None,
+) -> dict:
+    from .llm_usage import recent_requests
+    return recent_requests(base_dir, limit=limit, from_ts=from_ts, to_ts=to_ts, last=last)
+
+
 def _op_ingest(base_dir: Path, source: str | None = None, url: str | None = None) -> dict:
     """Ingest a URL or local file path. ``url`` is a legacy alias for ``source``."""
     from .ingest import ingest_url, ingest_file
     target = source or url
     if not target:
-        raise TypeError("kb_ingest requires 'source' (or legacy 'url')")
+        raise ValueError("kb_ingest requires 'source' (or legacy 'url')")
     if target.startswith(("http://", "https://")):
         path = ingest_url(target, base_dir)
     else:
         path = ingest_file(target, base_dir)
+    return {"path": str(path)}
+
+
+def _op_ingest_browser(base_dir: Path, source: str | None = None, url: str | None = None) -> dict:
+    """Ingest a URL via browser automation. ``url`` is a legacy alias for ``source``."""
+    from .ingest import ingest_url_browser
+
+    target = source or url
+    if not target:
+        raise ValueError("kb_ingest_browser requires 'source' (or legacy 'url')")
+    if not target.startswith(("http://", "https://")):
+        raise ValueError("Browser-assisted ingest only supports http/https URLs")
+    path = ingest_url_browser(target, base_dir)
     return {"path": str(path)}
 
 
@@ -507,6 +541,35 @@ _CANONICAL: list[Operation] = [
         category="read",
     ),
     Operation(
+        name="kb_llm_usage_summary",
+        description="Summarize recorded LLM token usage totals, retries/fallbacks, and breakdowns by model and feature.",
+        handler=_op_llm_usage_summary,
+        params={
+            "type": "object",
+            "properties": {
+                "last": {"type": "string"},
+                "from_ts": {"type": "string"},
+                "to_ts": {"type": "string"},
+            },
+        },
+        category="read",
+    ),
+    Operation(
+        name="kb_llm_usage_recent",
+        description="Return recent logical LLM requests grouped across retries and fallbacks.",
+        handler=_op_llm_usage_recent,
+        params={
+            "type": "object",
+            "properties": {
+                "limit": {"type": "integer", "default": 10, "minimum": 1},
+                "last": {"type": "string"},
+                "from_ts": {"type": "string"},
+                "to_ts": {"type": "string"},
+            },
+        },
+        category="read",
+    ),
+    Operation(
         name="kb_ingest",
         description="Ingest a URL or local file path into the raw corpus.",
         handler=_op_ingest,
@@ -514,6 +577,20 @@ _CANONICAL: list[Operation] = [
             "type": "object",
             "properties": {
                 "source": {"type": "string", "description": "URL or local file path"},
+                "url": {"type": "string", "description": "Legacy alias for source"},
+            },
+        },
+        writes=True,
+        category="write",
+    ),
+    Operation(
+        name="kb_ingest_browser",
+        description="Ingest a URL into the raw corpus using browser automation.",
+        handler=_op_ingest_browser,
+        params={
+            "type": "object",
+            "properties": {
+                "source": {"type": "string", "description": "URL to fetch via browser automation"},
                 "url": {"type": "string", "description": "Legacy alias for source"},
             },
         },

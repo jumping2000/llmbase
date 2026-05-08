@@ -5,10 +5,13 @@ import time
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
+from uuid import uuid4
 
 from dotenv import load_dotenv
 import httpx
 from openai import OpenAI
+
+from .llm_usage import append_usage_record
 
 logger = logging.getLogger("llmbase.llm")
 
@@ -245,6 +248,50 @@ def _redact_key(text: str, api_key: str | None) -> str:
     return text.replace(api_key, "[redacted]")
 
 
+def _log_usage_attempt(
+    *,
+    base_dir: Path | None,
+    request_id: str,
+    feature: str | None,
+    stage: str | None,
+    requested_model: str,
+    actual_model: str,
+    usage: dict | None,
+    finish_reason: str | None,
+    attempt_index: int,
+    attempts_total_so_far: int,
+    retry: bool,
+    fallback: bool,
+    success: bool,
+    error_type: str | None,
+    error_message: str | None,
+) -> None:
+    payload = {
+        "request_id": request_id,
+        "feature": feature or "unknown",
+        "stage": stage,
+        "requested_model": requested_model,
+        "actual_model": actual_model,
+        "prompt_tokens": usage.get("prompt_tokens") if isinstance(usage, dict) else None,
+        "completion_tokens": usage.get("completion_tokens") if isinstance(usage, dict) else None,
+        "reasoning_tokens": usage.get("reasoning_tokens") if isinstance(usage, dict) else None,
+        "total_tokens": usage.get("total_tokens") if isinstance(usage, dict) else None,
+        "finish_reason": finish_reason,
+        "truncated": finish_reason == "length",
+        "attempt_index": attempt_index,
+        "attempts_total_so_far": attempts_total_so_far,
+        "retry": retry,
+        "fallback": fallback,
+        "success": success,
+        "error_type": error_type,
+        "error_message": error_message,
+    }
+    try:
+        append_usage_record(base_dir, payload)
+    except Exception as exc:
+        logger.debug("Failed to append LLM usage record: %s", exc)
+
+
 def _call_llm(
     messages: list,
     model: str,
@@ -445,6 +492,9 @@ def chat_with_meta(
     model: str | None = None,
     max_tokens: int = 16384,
     api_key: str | None = None,
+    feature: str | None = None,
+    stage: str | None = None,
+    base_dir: Path | None = None,
 ) -> tuple[str, LLMMeta]:
     """Like :func:`chat` but also returns response metadata (v0.7.8).
 
@@ -480,6 +530,7 @@ def chat_with_meta(
     # Track the last observed response so the empty-exhaustion path
     # still carries meaningful meta.finish_reason / usage / model.
     attempts_total = 0
+    request_id = uuid4().hex
     last_meta_model = model
     last_finish_reason: str | None = None
     last_usage: dict = {}
@@ -488,6 +539,8 @@ def chat_with_meta(
         retries = _get_retries(primary=(i == 0))
         for attempt in range(retries):
             attempts_total += 1
+            retry = attempt > 0
+            fallback = current_model != model
             try:
                 content, finish_reason, usage = _call_llm(
                     messages, current_model, max_tokens, api_key=api_key
@@ -498,6 +551,23 @@ def chat_with_meta(
                 last_finish_reason = finish_reason
                 last_usage = usage
                 if content:
+                    _log_usage_attempt(
+                        base_dir=base_dir,
+                        request_id=request_id,
+                        feature=feature,
+                        stage=stage,
+                        requested_model=model,
+                        actual_model=current_model,
+                        usage=usage,
+                        finish_reason=finish_reason,
+                        attempt_index=attempt + 1,
+                        attempts_total_so_far=attempts_total,
+                        retry=retry,
+                        fallback=fallback,
+                        success=True,
+                        error_type=None,
+                        error_message=None,
+                    )
                     if i > 0:
                         logger.warning(
                             f"Primary model failed, used fallback: {current_model}"
@@ -510,12 +580,46 @@ def chat_with_meta(
                         attempts=attempts_total,
                     )
                     return content, meta
+                _log_usage_attempt(
+                    base_dir=base_dir,
+                    request_id=request_id,
+                    feature=feature,
+                    stage=stage,
+                    requested_model=model,
+                    actual_model=current_model,
+                    usage=usage,
+                    finish_reason=finish_reason,
+                    attempt_index=attempt + 1,
+                    attempts_total_so_far=attempts_total,
+                    retry=retry,
+                    fallback=fallback,
+                    success=False,
+                    error_type="empty_response",
+                    error_message=None,
+                )
                 # Empty result — retry or try next model
                 if attempt < retries - 1:
                     time.sleep(1)
                     continue
             except Exception as e:
                 err_msg = _redact_key(str(e), api_key)
+                _log_usage_attempt(
+                    base_dir=base_dir,
+                    request_id=request_id,
+                    feature=feature,
+                    stage=stage,
+                    requested_model=model,
+                    actual_model=current_model,
+                    usage=None,
+                    finish_reason=None,
+                    attempt_index=attempt + 1,
+                    attempts_total_so_far=attempts_total,
+                    retry=retry,
+                    fallback=fallback,
+                    success=False,
+                    error_type="exception",
+                    error_message=err_msg,
+                )
                 if attempt < retries - 1:
                     wait = 2 ** attempt
                     logger.debug(
@@ -553,6 +657,9 @@ def chat(
     model: str | None = None,
     max_tokens: int = 16384,
     api_key: str | None = None,
+    feature: str | None = None,
+    stage: str | None = None,
+    base_dir: Path | None = None,
 ) -> str:
     """Send a prompt with automatic model fallback on failure.
 
@@ -569,6 +676,9 @@ def chat(
         model=model,
         max_tokens=max_tokens,
         api_key=api_key,
+        feature=feature,
+        stage=stage,
+        base_dir=base_dir,
     )
     return text
 
@@ -705,6 +815,9 @@ def chat_with_context(
     model: str | None = None,
     max_tokens: int = 16384,
     api_key: str | None = None,
+    feature: str | None = None,
+    stage: str | None = None,
+    base_dir: Path | None = None,
 ) -> str:
     """Ask a question with file contents as context.
 
@@ -728,4 +841,13 @@ Based on the above context, please answer the following question:
 
 {safe_question}"""
 
-    return chat(prompt, system=system, model=model, max_tokens=max_tokens, api_key=api_key)
+    return chat(
+        prompt,
+        system=system,
+        model=model,
+        max_tokens=max_tokens,
+        api_key=api_key,
+        feature=feature,
+        stage=stage,
+        base_dir=base_dir,
+    )

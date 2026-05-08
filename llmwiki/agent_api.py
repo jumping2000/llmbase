@@ -182,12 +182,19 @@ def create_agent_server(base_dir: str | Path | None = None, port: int = 5556):
             result = ops.dispatch(op_name, kb.base_dir, args)
         except RuntimeError as e:
             return jsonify({"status": "busy", "error": str(e)}), 409
+        except ValueError as e:
+            return jsonify({"status": "error", "error": str(e)}), 400
         return jsonify({"status": "ok", **result})
 
     @app.route("/api/ingest", methods=["POST"])
     def api_ingest():
         data = request.json or {}
         return _legacy_dispatch("kb_ingest", {"source": data["source"]})
+
+    @app.route("/api/ingest/browser", methods=["POST"])
+    def api_ingest_browser():
+        data = request.json or {}
+        return _legacy_dispatch("kb_ingest_browser", {"source": data["source"]})
 
     @app.route("/api/compile", methods=["POST"])
     def api_compile():

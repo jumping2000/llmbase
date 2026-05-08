@@ -123,7 +123,14 @@ def generate_xici(base_dir: Path | None = None, lang: str = "en-it") -> dict:
             f"Remember: weave a narrative, don't list. Reveal the hidden structure."
         )
         try:
-            en_text = chat(prompt, system=XICI_SYSTEM_PROMPT, max_tokens=1024).strip()
+            en_text = chat(
+                prompt,
+                system=XICI_SYSTEM_PROMPT,
+                max_tokens=1024,
+                feature="xici",
+                stage="generate",
+                base_dir=base_dir,
+            ).strip()
         except Exception as e:
             logger.error(f"[xici] English generation failed: {e}")
             en_text = ""
@@ -169,7 +176,13 @@ def generate_xici(base_dir: Path | None = None, lang: str = "en-it") -> dict:
     translate_prompt = f"{instruction}\n\nOriginal English:\n\n{en_text}"
 
     try:
-        text = chat(translate_prompt, max_tokens=1024).strip()
+        text = chat(
+            translate_prompt,
+            max_tokens=1024,
+            feature="xici",
+            stage="translate",
+            base_dir=base_dir,
+        ).strip()
     except Exception as e:
         logger.error(f"[xici] Translation to {lang} failed: {e}")
         text = en_text

@@ -79,6 +79,91 @@ export interface CompileStatus {
   finished_at?: string;
 }
 
+export interface LlmUsageTotals {
+  prompt_tokens: number;
+  completion_tokens: number;
+  reasoning_tokens: number;
+  total_tokens: number;
+}
+
+export interface LlmUsageGroup extends LlmUsageTotals {
+  attempt_count: number;
+  success_count: number;
+  retry_count: number;
+  fallback_count: number;
+}
+
+export interface LlmUsageModelGroup extends LlmUsageGroup {
+  model: string;
+}
+
+export interface LlmUsageStageGroup extends LlmUsageGroup {
+  stage: string | null;
+}
+
+export interface LlmUsageFeatureGroup extends LlmUsageGroup {
+  feature: string;
+  by_stage: LlmUsageStageGroup[];
+}
+
+export interface LlmUsageRecentRequest {
+  request_id: string;
+  ts: string | null;
+  feature: string;
+  stage: string | null;
+  requested_model: string | null;
+  actual_models: string[];
+  attempt_count: number;
+  success: boolean;
+  retry_count: number;
+  fallback_count: number;
+  prompt_tokens: number;
+  completion_tokens: number;
+  reasoning_tokens: number;
+  total_tokens: number;
+  last_finish_reason: string | null;
+  last_error_type: string | null;
+  last_error_message: string | null;
+  truncated: boolean;
+}
+
+export type LlmUsageWindow = 'all' | '24h' | '7d' | '30d' | '365d' | 'custom';
+
+export interface LlmUsageSummary {
+  generated_at: string;
+  source_path: string;
+  applied_window: LlmUsageWindow;
+  from_ts: string | null;
+  to_ts: string | null;
+  record_count: number;
+  malformed_record_count: number;
+  missing_usage_count: number;
+  skipped_timestamp_count: number;
+  totals: LlmUsageTotals;
+  successful_totals: LlmUsageTotals;
+  retry_fallback_totals: LlmUsageTotals;
+  by_model: LlmUsageModelGroup[];
+  by_feature: LlmUsageFeatureGroup[];
+}
+
+export interface LlmUsageRecentResponse {
+  source_path: string;
+  applied_window: LlmUsageWindow;
+  from_ts: string | null;
+  to_ts: string | null;
+  skipped_timestamp_count: number;
+  requests: LlmUsageRecentRequest[];
+}
+
+function buildQuery(params: Record<string, string | number | undefined>): string {
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined) query.set(key, String(value));
+  }
+  const out = query.toString();
+  return out ? `?${out}` : '';
+}
+
 async function get<T>(url: string): Promise<T> {
   const res = await fetch(BASE + url);
   if (!res.ok) throw new Error(`API error: ${res.status}`);
@@ -99,7 +184,16 @@ async function post<T>(url: string, body?: unknown): Promise<T> {
     headers: { 'Content-Type': 'application/json' },
     body: body ? JSON.stringify(body) : undefined,
   });
-  if (!res.ok) throw new ApiError(res.status, `API error: ${res.status}`);
+  if (!res.ok) {
+    let message = `API error: ${res.status}`;
+    try {
+      const data = await res.json() as { error?: string; message?: string };
+      if (data.error || data.message) message = data.error || data.message || message;
+    } catch {
+      // Ignore body parse failures and keep the status-based message.
+    }
+    throw new ApiError(res.status, message);
+  }
   return res.json();
 }
 
@@ -182,6 +276,7 @@ export const api = {
   generateXiCi: (lang: string) => post<XiCi>('/api/xici/generate', { lang }),
   getSources: () => get<{ documents: RawDoc[] }>('/api/sources').then(d => d.documents),
   ingest: (source: string) => post<{ status: string; path: string }>('/api/ingest', { source }),
+  ingestBrowser: (source: string) => post<{ status: string; path: string }>('/api/ingest/browser', { source }),
   uploadFiles: (files: File[], chunkPages = 20) => {
     const form = new FormData();
     for (const file of files) form.append('file', file);
@@ -190,6 +285,10 @@ export const api = {
   },
   compile: () => post<{ status: string; message?: string; articles_created?: number }>('/api/compile', {}),
   compileStatus: () => get<CompileStatus>('/api/compile/status'),
+  getLlmUsageSummary: (window?: Exclude<LlmUsageWindow, 'custom'>) =>
+    get<LlmUsageSummary>(`/api/llm/usage/summary${buildQuery({ last: window && window !== 'all' ? window : undefined })}`),
+  getLlmUsageRecent: (limit = 1, window?: Exclude<LlmUsageWindow, 'custom'>) =>
+    get<LlmUsageRecentResponse>(`/api/llm/usage/recent${buildQuery({ limit, last: window && window !== 'all' ? window : undefined })}`),
   getWorkerStatus: () => get<{ busy: boolean }>('/api/worker/status'),
   lint: (deep = false) => post<{ results?: LintResults; report?: string }>('/api/lint', { deep }),
   lintFix: () => post<{ fixes?: string[]; fix_count?: number; status?: string; message?: string }>('/api/lint/fix', {}),

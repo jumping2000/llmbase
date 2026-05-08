@@ -16,6 +16,19 @@ from .config import load_config, ensure_dirs
 from .llm import strip_surrogates
 
 
+_WEB_FETCH_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/136.0.0.0 Safari/537.36"
+    ),
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Cache-Control": "no-cache",
+    "Pragma": "no-cache",
+}
+
+
 def _validate_url(url: str):
     """Block SSRF: reject private/internal network URLs."""
     import ipaddress, socket
@@ -55,9 +68,18 @@ def ingest_url(url: str, base_dir: Path | None = None) -> Path:
     ensure_dirs(cfg)
     raw_dir = Path(cfg["paths"]["raw"])
 
-    # Fetch page
-    resp = requests.get(url, timeout=30, headers={"User-Agent": "LLMBase/1.0"}, allow_redirects=False)
-    resp.raise_for_status()
+    # Fetch page using browser-like defaults. Some publishers reject
+    # generic bot UAs or require normal redirect handling.
+    try:
+        resp = requests.get(
+            url,
+            timeout=30,
+            headers=_WEB_FETCH_HEADERS,
+            allow_redirects=True,
+        )
+        resp.raise_for_status()
+    except requests.RequestException as exc:
+        raise ValueError(_format_fetch_error(url, exc)) from None
     soup = BeautifulSoup(resp.text, "html.parser")
 
     # Extract title
@@ -86,7 +108,7 @@ def ingest_url(url: str, base_dir: Path | None = None) -> Path:
             elif src.startswith("/"):
                 parsed = urlparse(url)
                 src = f"{parsed.scheme}://{parsed.netloc}{src}"
-            img_resp = requests.get(src, timeout=15)
+            img_resp = requests.get(src, timeout=15, headers=_WEB_FETCH_HEADERS, allow_redirects=True)
             img_resp.raise_for_status()
             ext = _guess_ext(src, img_resp.headers.get("content-type", ""))
             img_hash = hashlib.md5(src.encode()).hexdigest()[:8]
@@ -113,22 +135,85 @@ def ingest_url(url: str, base_dir: Path | None = None) -> Path:
     finally:
         sys.setrecursionlimit(old_limit)
 
-    # Sanitize lone surrogates from upstream HTML decode before they
-    # reach disk — otherwise they sit in raw/ until a downstream LLM
-    # call serialises them and crashes (see strip_surrogates docstring).
+    return _write_ingested_article(
+        doc_dir=doc_dir,
+        title=title,
+        content=content,
+        url=url,
+        article_type="web_article",
+        emit_source="web",
+    )
+
+
+def ingest_url_browser(url: str, base_dir: Path | None = None) -> Path:
+    """Fetch a web article via local browser automation and save as markdown."""
+    _validate_url(url)
+    from .browser import fetch_article, is_opencli_available
+
+    if not is_opencli_available():
+        raise ValueError("Browser-assisted ingest is unavailable: opencli is not installed.")
+
+    article = fetch_article(url)
+    if article.get("error"):
+        raise ValueError(f"Browser-assisted ingest failed: {article['error']}")
+
+    title = str(article.get("title") or urlparse(url).netloc).strip() or urlparse(url).netloc
+    content = str(article.get("content") or "").strip()
+    if not content:
+        raise ValueError("Browser-assisted ingest failed: extracted page content was empty.")
+
+    cfg = load_config(base_dir)
+    ensure_dirs(cfg)
+    raw_dir = Path(cfg["paths"]["raw"])
+    slug = _slugify(title)
+    doc_dir = raw_dir / slug
+    doc_dir.mkdir(parents=True, exist_ok=True)
+
+    return _write_ingested_article(
+        doc_dir=doc_dir,
+        title=title,
+        content=content,
+        url=url,
+        article_type="browser_article",
+        emit_source="browser",
+    )
+
+
+def _format_fetch_error(url: str, exc: requests.RequestException) -> str:
+    response = getattr(exc, "response", None)
+    status = getattr(response, "status_code", None)
+    parsed = urlparse(url)
+    target = parsed.netloc or url
+    if status is not None:
+        msg = f"Failed to fetch URL ({target}): HTTP {status}"
+        if status in (401, 403):
+            msg += ". The remote site blocked automated access."
+        return msg
+    return f"Failed to fetch URL ({target}): {exc}"
+
+
+def _write_ingested_article(
+    *,
+    doc_dir: Path,
+    title: str,
+    content: str,
+    url: str,
+    article_type: str,
+    emit_source: str,
+) -> Path:
+    # Sanitize lone surrogates from upstream content before they reach disk.
     post = frontmatter.Post(strip_surrogates(content))
     post.metadata["title"] = strip_surrogates(title)
     post.metadata["source"] = url
     post.metadata["ingested_at"] = datetime.now(timezone.utc).isoformat()
-    post.metadata["type"] = "web_article"
+    post.metadata["type"] = article_type
     post.metadata["compiled"] = False
 
     doc_path = doc_dir / "index.md"
     doc_path.write_text(frontmatter.dumps(post), encoding="utf-8")
 
     from .hooks import emit
-    emit("ingested", source="web", url=url, title=title, path=str(doc_path))
-
+    emit("ingested", source=emit_source, url=url, title=title, path=str(doc_path))
     return doc_path
 
 

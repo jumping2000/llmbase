@@ -71,7 +71,13 @@ def normalize_tags(base_dir: Path | None = None) -> list[str]:
     )
 
     try:
-        response = chat(prompt, max_tokens=2048)
+        response = chat(
+            prompt,
+            max_tokens=2048,
+            feature="lint",
+            stage="normalize-tags",
+            base_dir=base_dir,
+        )
         # Parse JSON from response
         text = response.strip()
         if text.startswith("```"):
@@ -146,7 +152,13 @@ def fix_dirty_tags(base_dir: Path | None = None) -> list[str]:
             title = post.metadata.get("title", slug)
             prompt = f"List 2-4 relevant tags for this article (comma-separated, lowercase, short keywords only):\n\n# {title}\n\n{post.content[:2000]}"
             try:
-                response = chat(prompt, max_tokens=128)
+                response = chat(
+                    prompt,
+                    max_tokens=128,
+                    feature="lint",
+                    stage="dirty-tags",
+                    base_dir=base_dir,
+                )
                 new_tags = [t.strip().lower() for t in response.split(",") if t.strip() and len(t.strip()) <= 40]
                 clean = list(set(clean + new_tags))
             except Exception:
@@ -380,7 +392,14 @@ def fix_broken_links(base_dir: Path | None = None, max_stubs: int = 10) -> list[
                 f"## English\n\n(content)\n\n"
                 f"## Italiano\n\n(contenuto)"
             )
-            response = chat(prompt, system=STUB_SYSTEM_PROMPT, max_tokens=2048)
+            response = chat(
+                prompt,
+                system=STUB_SYSTEM_PROMPT,
+                max_tokens=2048,
+                feature="lint",
+                stage="stubs",
+                base_dir=base_dir,
+            )
 
             if "CANNOT_GENERATE" not in response and len(response.strip()) > 100:
                 # Parse the LLM response
@@ -483,13 +502,25 @@ def auto_fix(base_dir: Path | None = None) -> list[str]:
 
         if not post.metadata.get("summary") and post.content.strip():
             prompt = f"Write a one-line summary for this article:\n\n# {post.metadata.get('title', md_file.stem)}\n\n{post.content[:2000]}"
-            summary = chat(prompt, max_tokens=256)
+            summary = chat(
+                prompt,
+                max_tokens=256,
+                feature="lint",
+                stage="summarize",
+                base_dir=base_dir,
+            )
             post.metadata["summary"] = summary.strip().strip('"')
             needs_fix = True
 
         if not post.metadata.get("tags") and post.content.strip():
             prompt = f"List 2-4 relevant tags for this article (comma-separated, lowercase):\n\n# {post.metadata.get('title', md_file.stem)}\n\n{post.content[:2000]}"
-            tags = chat(prompt, max_tokens=128)
+            tags = chat(
+                prompt,
+                max_tokens=128,
+                feature="lint",
+                stage="categorize",
+                base_dir=base_dir,
+            )
             post.metadata["tags"] = [t.strip().lower() for t in tags.split(",")]
             needs_fix = True
 

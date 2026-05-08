@@ -236,7 +236,14 @@ def compile_new(base_dir: Path | None = None, batch_size: int | None = None) -> 
             article_format=COMPILE_ARTICLE_FORMAT,
         )
 
-        response = chat(prompt, system=SYSTEM_PROMPT, max_tokens=cfg["llm"]["max_tokens"])
+        response = chat(
+            prompt,
+            system=SYSTEM_PROMPT,
+            max_tokens=cfg["llm"]["max_tokens"],
+            feature="compile",
+            stage="answer",
+            base_dir=base_dir,
+        )
 
         # Build source reference from raw doc metadata
         raw_type = post.metadata.get("type", "unknown")

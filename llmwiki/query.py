@@ -115,6 +115,9 @@ def query(
         model=model,
         max_tokens=cfg["llm"]["max_tokens"],
         api_key=api_key,
+        feature="ask",
+        stage="answer",
+        base_dir=base_dir,
     )
 
     # File back into wiki if requested
@@ -205,7 +208,15 @@ And this question: {strip_surrogates(question)}
 
 Which articles (by title) are most relevant? List up to 10, one per line, just the titles."""
 
-    relevant_titles = chat(search_prompt, model=model, max_tokens=1024, api_key=api_key)
+    relevant_titles = chat(
+        search_prompt,
+        model=model,
+        max_tokens=1024,
+        api_key=api_key,
+        feature="ask",
+        stage="selector",
+        base_dir=base_dir,
+    )
 
     # Step 2: Load those articles
     concepts_dir = Path(cfg["paths"]["concepts"])
@@ -237,6 +248,9 @@ Which articles (by title) are most relevant? List up to 10, one per line, just t
         model=model,
         max_tokens=cfg["llm"]["max_tokens"],
         api_key=api_key,
+        feature="ask",
+        stage="answer",
+        base_dir=base_dir,
     )
 
     output_path = _file_output(question, answer, "markdown", cfg) if file_back else None
@@ -408,6 +422,9 @@ If rejecting, reply with:
         prompt,
         system=PROMOTE_SYSTEM_PROMPT,
         max_tokens=cfg["llm"]["max_tokens"],
+        feature="ask",
+        stage="promote",
+        base_dir=base_dir,
     )
 
     try:

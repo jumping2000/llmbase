@@ -147,9 +147,9 @@ def generate_taxonomy(base_dir: Path | None = None) -> dict:
             logger.info("[taxonomy] Using custom TAXONOMY_GENERATOR")
             tree = TAXONOMY_GENERATOR(articles, cfg)
         elif len(articles) <= 100:
-            tree = _generate_single_pass(articles, cfg)
+            tree = _generate_single_pass(articles, cfg, base_dir=base_dir)
         else:
-            tree = _generate_two_phase(articles, cfg)
+            tree = _generate_two_phase(articles, cfg, base_dir=base_dir)
 
         if tree:
             tree = _ensure_complete_assignment(tree, articles)
@@ -179,7 +179,7 @@ def generate_taxonomy(base_dir: Path | None = None) -> dict:
     return result
 
 
-def _generate_single_pass(articles: list[dict], cfg: dict) -> list[dict] | None:
+def _generate_single_pass(articles: list[dict], cfg: dict, base_dir: Path | None = None) -> list[dict] | None:
     """Small KB: send all articles to LLM in one prompt."""
     article_lines = []
     for a in articles:
@@ -189,11 +189,18 @@ def _generate_single_pass(articles: list[dict], cfg: dict) -> list[dict] | None:
     prompt = TAXONOMY_PROMPT_TEMPLATE.format(count=len(articles), articles=articles_text)
     # Use 2x max_tokens for taxonomy — thinking models need extra room
     tax_tokens = min(cfg["llm"]["max_tokens"] * 2, 16384)
-    response = chat(prompt, system=TAXONOMY_SYSTEM_PROMPT, max_tokens=tax_tokens)
+    response = chat(
+        prompt,
+        system=TAXONOMY_SYSTEM_PROMPT,
+        max_tokens=tax_tokens,
+        feature="taxonomy",
+        stage="single-pass",
+        base_dir=base_dir,
+    )
     return _parse_taxonomy_response(response)
 
 
-def _generate_two_phase(articles: list[dict], cfg: dict) -> list[dict] | None:
+def _generate_two_phase(articles: list[dict], cfg: dict, base_dir: Path | None = None) -> list[dict] | None:
     """Large KB (100+ articles): two-phase taxonomy to avoid token overflow.
 
     Phase 1: LLM sees ALL tags (not just top 40) + article title samples
@@ -263,7 +270,14 @@ Output ONLY the JSON array."""
 
     logger.info(f"[taxonomy] Phase 1: generating category structure from {len(tag_counter)} tags...")
     tax_tokens = min(cfg["llm"]["max_tokens"] * 2, 16384)
-    response = chat(phase1_prompt, system=TAXONOMY_SYSTEM_PROMPT, max_tokens=tax_tokens)
+    response = chat(
+        phase1_prompt,
+        system=TAXONOMY_SYSTEM_PROMPT,
+        max_tokens=tax_tokens,
+        feature="taxonomy",
+        stage="two-phase",
+        base_dir=base_dir,
+    )
     category_tree = _parse_taxonomy_response(response)
 
     if not category_tree:

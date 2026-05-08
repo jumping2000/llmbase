@@ -85,6 +85,9 @@ export function Ingest() {
   const [compiling, setCompiling] = useState(false);
   const [chunkPages, setChunkPages] = useState(20);
   const [message, setMessage] = useState('');
+  const [ingestErrorDetail, setIngestErrorDetail] = useState('');
+  const [blockedUrl, setBlockedUrl] = useState('');
+  const [browserRetrying, setBrowserRetrying] = useState(false);
   const [preview, setPreview] = useState<{ title: string; content: string; metadata: Record<string, string> } | null>(null);
   const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollFailures = useRef(0);
@@ -170,20 +173,55 @@ export function Ingest() {
   }
 
   async function handleIngest() {
-    if (!url.trim()) return;
+    const target = url.trim();
+    if (!target) return;
     setIngesting(true);
     setMessage('');
+    setIngestErrorDetail('');
+    setBlockedUrl('');
     try {
-      await api.ingest(url);
+      await api.ingest(target);
       if (!mounted.current) return;
       setMessage('Document ingested successfully!');
+      setIngestErrorDetail('');
+      setBlockedUrl('');
       setUrl('');
       await loadDocs();
-    } catch {
+    } catch (err) {
       if (!mounted.current) return;
-      setMessage('Error: Failed to ingest document.');
+      const detail = err instanceof ApiError ? err.message : 'Failed to ingest document.';
+      const blocked = err instanceof ApiError && err.status === 400 && /blocked automated access/i.test(detail);
+      setIngestErrorDetail(detail);
+      setBlockedUrl(blocked ? target : '');
+      if (blocked) {
+        setMessage('Error: This site blocked direct server-side fetch.');
+      } else {
+        setMessage(detail.startsWith('Error:') ? detail : `Error: ${detail}`);
+      }
     }
     if (mounted.current) setIngesting(false);
+  }
+
+  async function handleBrowserRetry() {
+    const target = blockedUrl || url.trim();
+    if (!target) return;
+    setBrowserRetrying(true);
+    setMessage('');
+    try {
+      await api.ingestBrowser(target);
+      if (!mounted.current) return;
+      setMessage('Document ingested via browser fetch!');
+      setIngestErrorDetail('');
+      setBlockedUrl('');
+      setUrl('');
+      await loadDocs();
+    } catch (err) {
+      if (!mounted.current) return;
+      const detail = err instanceof ApiError ? err.message : 'Browser-assisted ingest failed.';
+      setIngestErrorDetail(detail);
+      setMessage(detail.startsWith('Error:') ? detail : `Error: ${detail}`);
+    }
+    if (mounted.current) setBrowserRetrying(false);
   }
 
   async function handleFileUpload() {
@@ -382,7 +420,25 @@ export function Ingest() {
 
       {message && (
         <div className={`rounded-lg px-4 py-3 mb-6 text-sm ${message.startsWith('Error') ? 'bg-error-container/20 text-error' : 'bg-tertiary-container/20 text-tertiary'}`}>
-          {message}
+          <div>{message}</div>
+          {ingestErrorDetail && ingestErrorDetail !== message.replace(/^Error:\s*/, '') && (
+            <div className="mt-1 text-xs opacity-90 break-words">{ingestErrorDetail}</div>
+          )}
+          {blockedUrl && (
+            <div className="mt-3 flex flex-wrap items-center gap-3">
+              <button
+                onClick={handleBrowserRetry}
+                disabled={browserRetrying}
+                className="inline-flex items-center gap-2 rounded-lg border border-current/20 px-3 py-1.5 text-xs font-medium hover:bg-surface-high/40 disabled:opacity-50"
+              >
+                <Icon name={browserRetrying ? 'hourglass_empty' : 'language'} className="text-[14px]" />
+                {browserRetrying ? 'Browser fetching...' : 'Try browser fetch'}
+              </button>
+              <span className="text-xs opacity-90">
+                This requires browser automation support on the llmbase host.
+              </span>
+            </div>
+          )}
         </div>
       )}
 

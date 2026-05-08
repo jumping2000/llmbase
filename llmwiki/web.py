@@ -344,6 +344,36 @@ def create_web_app(base_dir: Path | None = None):
             "health_score": health_score,
         })
 
+    @app.route("/api/llm/usage/summary")
+    @require_auth
+    def api_llm_usage_summary():
+        from . import operations as _ops
+        payload = {
+            "last": request.args.get("last") or None,
+            "from_ts": request.args.get("from") or None,
+            "to_ts": request.args.get("to") or None,
+        }
+        try:
+            return jsonify(_ops.dispatch("kb_llm_usage_summary", base, payload))
+        except ValueError as exc:
+            return jsonify({"error": str(exc)}), 400
+
+    @app.route("/api/llm/usage/recent")
+    @require_auth
+    def api_llm_usage_recent():
+        from . import operations as _ops
+        limit = request.args.get("limit", default=10, type=int) or 10
+        payload = {
+            "limit": max(1, limit),
+            "last": request.args.get("last") or None,
+            "from_ts": request.args.get("from") or None,
+            "to_ts": request.args.get("to") or None,
+        }
+        try:
+            return jsonify(_ops.dispatch("kb_llm_usage_recent", base, payload))
+        except ValueError as exc:
+            return jsonify({"error": str(exc)}), 400
+
     @app.route("/api/taxonomy")
     def api_taxonomy():
         """Get hierarchical category taxonomy. ?lang=en|it|en-it"""
@@ -1062,6 +1092,21 @@ def create_web_app(base_dir: Path | None = None):
             result = _ops.dispatch("kb_ingest", base, {"source": data.get("source", "")})
         except RuntimeError as e:
             return jsonify({"status": "busy", "error": str(e)}), 409
+        except ValueError as e:
+            return jsonify({"status": "error", "error": str(e)}), 400
+        return jsonify({"status": "ok", **result})
+
+    @app.route("/api/ingest/browser", methods=["POST"])
+    @require_auth
+    def api_ingest_browser():
+        from . import operations as _ops
+        data = request.json or {}
+        try:
+            result = _ops.dispatch("kb_ingest_browser", base, {"source": data.get("source", "")})
+        except RuntimeError as e:
+            return jsonify({"status": "busy", "error": str(e)}), 409
+        except ValueError as e:
+            return jsonify({"status": "error", "error": str(e)}), 400
         return jsonify({"status": "ok", **result})
 
     @app.route("/api/upload", methods=["POST"])

@@ -111,7 +111,14 @@ Please check for and report:
 
 Format your response as a structured markdown report."""
 
-    return chat(prompt, system=SYSTEM_PROMPT, max_tokens=cfg["llm"]["max_tokens"])
+    return chat(
+        prompt,
+        system=SYSTEM_PROMPT,
+        max_tokens=cfg["llm"]["max_tokens"],
+        feature="lint",
+        stage="deep",
+        base_dir=base_dir,
+    )
 
 
 
