@@ -1,6 +1,7 @@
 """Tests for v0.6.6 additions: model override (A) + surrogate sanitize (C)."""
 
 import json
+from types import SimpleNamespace
 
 from unittest.mock import patch
 
@@ -453,13 +454,14 @@ def test_worker_status_requires_auth_when_secret_set(tmp_kb, monkeypatch):
     assert r.status_code == 200
 
 
-def test_worker_status_reflects_lock_state(tmp_kb):
+def test_worker_status_reflects_lock_state(tmp_kb, monkeypatch):
     """GET /api/worker/status must report the shared job_lock's liveness.
 
     Issue #7: the Ingest page uses this to recover in-flight compile state
     after a route change. Correctness guarantee: busy=True iff the lock is
     held by some other caller.
     """
+    monkeypatch.delenv("LLMBASE_API_SECRET", raising=False)
     from llmwiki.worker import job_lock
     c = _client(tmp_kb)
 
@@ -478,6 +480,84 @@ def test_worker_status_reflects_lock_state(tmp_kb):
 
     r = c.get("/api/worker/status")
     assert r.get_json() == {"busy": False}
+
+
+def test_api_compile_status_is_idle_before_any_run(tmp_kb, monkeypatch):
+    monkeypatch.delenv("LLMBASE_API_SECRET", raising=False)
+    c = _client(tmp_kb)
+
+    r = c.get("/api/compile/status")
+
+    assert r.status_code == 200
+    assert r.get_json() == {"status": "idle"}
+
+
+def test_api_compile_status_moves_from_running_to_completed(tmp_kb, monkeypatch):
+    monkeypatch.delenv("LLMBASE_API_SECRET", raising=False)
+    from llmwiki import operations as _ops
+    from llmwiki.worker import job_lock
+
+    thread_target = {}
+
+    class _DeferredThread:
+        def __init__(self, target=None, name=None, daemon=None):
+            self._target = target
+
+        def start(self):
+            thread_target["target"] = self._target
+
+    captured = {}
+
+    def fake_handler(base_dir, full=False):
+        captured["full"] = full
+        captured["locked_during_run"] = job_lock.locked()
+        return {"articles_created": 2, "articles": ["a.md", "b.md"]}
+
+    monkeypatch.setattr("threading.Thread", _DeferredThread)
+    monkeypatch.setattr(_ops, "get", lambda name: SimpleNamespace(handler=fake_handler) if name == "kb_compile" else None)
+
+    c = _client(tmp_kb)
+    r = c.post("/api/compile", json={"full": True})
+
+    assert r.status_code == 202
+    assert r.get_json()["status"] == "started"
+    assert job_lock.locked()
+
+    status = c.get("/api/compile/status")
+    assert status.status_code == 200
+    assert status.get_json()["status"] == "running"
+    assert status.get_json()["full"] is True
+
+    thread_target["target"]()
+
+    assert captured == {"full": True, "locked_during_run": True}
+    assert not job_lock.locked()
+
+    status_path = tmp_kb / "wiki" / "_meta" / "last_compile.json"
+    assert status_path.exists()
+    data = json.loads(status_path.read_text(encoding="utf-8"))
+    assert data["status"] == "completed"
+    assert data["articles_created"] == 2
+    assert data["full"] is True
+
+    status = c.get("/api/compile/status")
+    assert status.get_json()["status"] == "completed"
+    assert status.get_json()["articles_created"] == 2
+
+
+def test_api_compile_returns_409_when_lock_is_busy(tmp_kb, monkeypatch):
+    monkeypatch.delenv("LLMBASE_API_SECRET", raising=False)
+    from llmwiki.worker import job_lock
+
+    c = _client(tmp_kb)
+    assert job_lock.acquire(blocking=False)
+    try:
+        r = c.post("/api/compile", json={})
+    finally:
+        job_lock.release()
+
+    assert r.status_code == 409
+    assert r.get_json()["status"] == "busy"
 
 
 def test_http_timeout_env_invalid_falls_back(monkeypatch):

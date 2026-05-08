@@ -68,6 +68,17 @@ export interface LintResults {
   total_issues: number;
 }
 
+export interface CompileStatus {
+  status: 'idle' | 'running' | 'completed' | 'failed' | 'unknown';
+  message?: string;
+  error?: string;
+  articles_created?: number;
+  articles?: string[];
+  full?: boolean;
+  started_at?: string;
+  finished_at?: string;
+}
+
 async function get<T>(url: string): Promise<T> {
   const res = await fetch(BASE + url);
   if (!res.ok) throw new Error(`API error: ${res.status}`);
@@ -177,7 +188,8 @@ export const api = {
     form.append('chunk_pages', String(chunkPages));
     return postForm<UploadBatchResult>('/api/upload', form);
   },
-  compile: () => post<{ status: string; articles_created: number }>('/api/compile', {}),
+  compile: () => post<{ status: string; message?: string; articles_created?: number }>('/api/compile', {}),
+  compileStatus: () => get<CompileStatus>('/api/compile/status'),
   getWorkerStatus: () => get<{ busy: boolean }>('/api/worker/status'),
   lint: (deep = false) => post<{ results?: LintResults; report?: string }>('/api/lint', { deep }),
   lintFix: () => post<{ fixes?: string[]; fix_count?: number; status?: string; message?: string }>('/api/lint/fix', {}),

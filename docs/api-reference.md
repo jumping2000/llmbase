@@ -18,6 +18,7 @@ The web server exposes a JSON HTTP API alongside the frontend.
 - `GET /api/tones`
 - `GET /api/sources`
 - `GET /api/sources/<slug>`
+- `GET /api/compile/status`
 - `GET /api/export/article/<slug>`
 - `GET /api/export/tag/<tag>`
 - `GET /api/export/graph/<slug>?depth=<n>`
@@ -41,6 +42,18 @@ The web server exposes a JSON HTTP API alongside the frontend.
 - `DELETE /api/articles/<slug>`
 
 When `LLMBASE_API_SECRET` is set, write endpoints require authentication.
+
+`POST /api/compile` runs in the background and returns `202 Accepted` when the job starts.
+Poll `GET /api/compile/status` for explicit `running`, `completed`, or `failed` state.
+
+`GET /api/compile/status` returns the latest persisted compile state:
+
+- idle: `{ "status": "idle" }`
+- running: `{ "status": "running", "full": false, "started_at": "..." }`
+- completed: `{ "status": "completed", "articles_created": 3, "articles": [...], "started_at": "...", "finished_at": "..." }`
+- failed: `{ "status": "failed", "error": "...", "started_at": "...", "finished_at": "..." }`
+
+Like `GET /api/worker/status`, this endpoint is auth-gated when `LLMBASE_API_SECRET` is set because it exposes write-job state.
 
 ## Authentication
 

@@ -1206,15 +1206,115 @@ def create_web_app(base_dir: Path | None = None):
         busy = job_lock.locked()
         return jsonify({"busy": busy})
 
+    def _compile_status_path() -> Path:
+        cfg = load_config(base)
+        meta_dir = Path(cfg["paths"]["meta"])
+        meta_dir.mkdir(parents=True, exist_ok=True)
+        return meta_dir / "last_compile.json"
+
+    def _read_compile_status() -> dict:
+        path = _compile_status_path()
+        if not path.exists():
+            return {"status": "idle"}
+        try:
+            return json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            return {
+                "status": "unknown",
+                "error": "compile status unreadable",
+            }
+
+    @app.route("/api/compile/status")
+    @require_auth
+    def api_compile_status():
+        return jsonify(_read_compile_status())
+
     @app.route("/api/compile", methods=["POST"])
     @require_auth
     def api_compile():
+        import logging
+        import threading
+        from datetime import datetime, timezone
         from . import operations as _ops
+        from .worker import job_lock
+
+        data = request.json or {}
+        full = bool(data.get("full", False))
+
+        if not job_lock.acquire(blocking=False):
+            return jsonify({"status": "busy", "error": "another write operation is running"}), 409
+
+        def persist_result(payload: dict) -> None:
+            _compile_status_path().write_text(
+                json.dumps(payload, indent=2, ensure_ascii=False),
+                encoding="utf-8",
+            )
+
+        started_at = datetime.now(timezone.utc).isoformat()
+        persist_result({
+            "status": "running",
+            "full": full,
+            "started_at": started_at,
+        })
+
+        def run_compile() -> None:
+            logger = logging.getLogger("llmbase.compile")
+            try:
+                op = _ops.get("kb_compile")
+                if op is None:
+                    raise KeyError("unknown operation: kb_compile")
+                logger.info("[compile] Starting background compile (full=%s)", full)
+                result = op.handler(base, full=full)
+                persist_result({
+                    "status": "completed",
+                    "full": full,
+                    "articles_created": result.get("articles_created", 0),
+                    "articles": result.get("articles", []),
+                    "started_at": started_at,
+                    "finished_at": datetime.now(timezone.utc).isoformat(),
+                })
+                logger.info(
+                    "[compile] Background compile finished (%s article(s))",
+                    result.get("articles_created", 0),
+                )
+            except BaseException as exc:
+                logger.exception("[compile] Background compile failed")
+                try:
+                    persist_result({
+                        "status": "failed",
+                        "full": full,
+                        "error": str(exc),
+                        "started_at": started_at,
+                        "finished_at": datetime.now(timezone.utc).isoformat(),
+                    })
+                except Exception:
+                    logger.exception("[compile] Failed to persist compile status")
+            finally:
+                try:
+                    job_lock.release()
+                except RuntimeError:
+                    pass
+
         try:
-            result = _ops.dispatch("kb_compile", base, {})
-        except RuntimeError as e:
-            return jsonify({"status": "busy", "error": str(e)}), 409
-        return jsonify({"status": "ok", "articles_created": result["articles_created"]})
+            threading.Thread(target=run_compile, name="llmbase-compile", daemon=True).start()
+        except Exception as exc:
+            persist_result({
+                "status": "failed",
+                "full": full,
+                "error": str(exc),
+                "started_at": started_at,
+                "finished_at": datetime.now(timezone.utc).isoformat(),
+            })
+            try:
+                job_lock.release()
+            except RuntimeError:
+                pass
+            return jsonify({"status": "error", "message": str(exc)}), 500
+
+        return jsonify({
+            "status": "started",
+            "message": "Compile running in background. Poll /api/compile/status for running/completed/failed state.",
+        }), 202
 
     @app.route("/api/lint", methods=["POST"])
     def api_lint():

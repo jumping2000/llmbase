@@ -4,7 +4,9 @@ import { Icon } from './Icon';
 import { useTheme } from '../lib/theme';
 import { useLang, type Lang, LANG_OPTIONS, localizeTitle } from '../lib/lang';
 import { fetchBranding, getBranding, type Branding } from '../lib/branding';
-import { api, type Article, type TaxonomyCategory } from '../lib/api';
+import { ApiError, api, type Article, type CompileStatus, type TaxonomyCategory } from '../lib/api';
+
+const COMPILE_POLL_MS = 3000;
 
 /** Recursive sidebar category node — supports arbitrary depth */
 function CategoryNode({ cat, depth, expandedCats, toggleCat, navigate, lang }: {
@@ -78,7 +80,48 @@ export function Layout() {
   const [searchQuery, setSearchQuery] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [langOpen, setLangOpen] = useState(false);
+  const [compileStatus, setCompileStatus] = useState<CompileStatus>({ status: 'idle' });
   const langRef = useRef<HTMLDivElement>(null);
+  const compilePollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const compileStatusRef = useRef<CompileStatus>({ status: 'idle' });
+
+  const syncContent = () => {
+    api.getArticles().then(setArticles).catch(() => {});
+    api.getTaxonomy(lang).then(setTaxonomy).catch(() => {});
+  };
+
+  const applyCompileStatus = (next: CompileStatus) => {
+    const prev = compileStatusRef.current;
+    compileStatusRef.current = next;
+    setCompileStatus(next);
+    if (prev.status === 'running' && next.status === 'completed') {
+      syncContent();
+    }
+  };
+
+  const stopCompilePolling = () => {
+    if (compilePollRef.current) {
+      clearInterval(compilePollRef.current);
+      compilePollRef.current = null;
+    }
+  };
+
+  const refreshCompileStatus = async () => {
+    try {
+      const status = await api.compileStatus();
+      applyCompileStatus(status);
+      if (status.status !== 'running') stopCompilePolling();
+    } catch {
+      stopCompilePolling();
+    }
+  };
+
+  const startCompilePolling = () => {
+    stopCompilePolling();
+    compilePollRef.current = setInterval(() => {
+      void refreshCompileStatus();
+    }, COMPILE_POLL_MS);
+  };
 
   useEffect(() => {
     fetchBranding().then(b => {
@@ -86,12 +129,22 @@ export function Layout() {
       document.title = b.name || 'LLMBase';
     });
     api.getArticles().then(setArticles).catch(() => {});
+    void refreshCompileStatus();
+    return () => stopCompilePolling();
   }, []);
 
   // Reload taxonomy when language changes
   useEffect(() => {
     api.getTaxonomy(lang).then(setTaxonomy).catch(() => {});
   }, [lang]);
+
+  useEffect(() => {
+    if (compileStatus.status === 'running') {
+      startCompilePolling();
+      return;
+    }
+    stopCompilePolling();
+  }, [compileStatus.status]);
 
   const toggleCat = (id: string) => {
     setExpandedCats(prev => {
@@ -111,6 +164,46 @@ export function Layout() {
   }, []);
 
   const currentLangOption = LANG_OPTIONS.find(o => o.value === lang) || LANG_OPTIONS[0];
+  const compileBadge = (() => {
+    if (compileStatus.status === 'idle') return null;
+    if (compileStatus.status === 'running') {
+      return {
+        icon: 'hourglass_top',
+        text: lang === 'it' || lang === 'en-it' ? 'Compilazione in corso' : 'Compile running',
+        tone: 'border-primary/30 bg-primary-container/30 text-primary',
+        pulse: true,
+        title: compileStatus.started_at,
+      };
+    }
+    if (compileStatus.status === 'completed') {
+      const count = compileStatus.articles_created ?? 0;
+      return {
+        icon: 'check_circle',
+        text: lang === 'it' || lang === 'en-it'
+          ? `Compilato: ${count}`
+          : `Compiled: ${count}`,
+        tone: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
+        pulse: false,
+        title: compileStatus.finished_at,
+      };
+    }
+    if (compileStatus.status === 'failed') {
+      return {
+        icon: 'error',
+        text: lang === 'it' || lang === 'en-it' ? 'Compile fallito' : 'Compile failed',
+        tone: 'border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-300',
+        pulse: false,
+        title: compileStatus.error,
+      };
+    }
+    return {
+      icon: 'help',
+      text: lang === 'it' || lang === 'en-it' ? 'Stato compile sconosciuto' : 'Compile state unknown',
+      tone: 'border-outline-variant/40 bg-surface-high text-on-surface-variant',
+      pulse: false,
+      title: compileStatus.error,
+    };
+  })();
 
   return (
     <div className="flex h-screen overflow-hidden bg-bg">
@@ -220,7 +313,31 @@ export function Layout() {
             <Icon name={theme === 'dark' ? 'light_mode' : 'dark_mode'} className="text-[20px]" />
           </button>
 
-          <button onClick={() => { api.compile().then(() => api.getArticles().then(setArticles)); }}
+          {compileBadge && (
+            <div
+              className={`flex items-center gap-2 px-2.5 md:px-3 py-2 rounded-full border text-xs font-medium ${compileBadge.tone}`}
+              title={compileBadge.title ?? undefined}>
+              <Icon name={compileBadge.icon} className={`text-[16px] ${compileBadge.pulse ? 'animate-pulse' : ''}`} />
+              <span className="hidden md:inline">{compileBadge.text}</span>
+            </div>
+          )}
+
+          <button onClick={() => {
+            api.compile()
+              .then((res) => {
+                if (res.status === 'ok') return api.getArticles().then(setArticles);
+                if (res.status === 'started') {
+                  applyCompileStatus({ status: 'running', message: res.message });
+                  startCompilePolling();
+                }
+                return undefined;
+              })
+              .catch((err: unknown) => {
+                if (err instanceof ApiError && err.status === 409) {
+                  void refreshCompileStatus();
+                }
+              });
+          }}
             className="flex items-center gap-2 px-4 py-2 bg-primary text-on-primary rounded-lg text-sm font-medium hover:opacity-90 transition-opacity">
             <Icon name="auto_awesome" className="text-[18px]" />
             {lang === 'it' || lang === 'en-it' ? 'Compila' : 'Compile'}

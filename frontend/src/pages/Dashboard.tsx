@@ -1,10 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Icon } from '../components/Icon';
 import { Shimmer } from '../components/Loading';
 import { Markdown } from '../components/Markdown';
 import { useLang } from '../lib/lang';
-import { api, type Stats, type XiCi } from '../lib/api';
+import { api, type CompileStatus, type Stats, type XiCi } from '../lib/api';
+
+const COMPILE_POLL_MS = 3000;
 
 export function Dashboard() {
   const navigate = useNavigate();
@@ -13,14 +15,35 @@ export function Dashboard() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [xici, setXiCi] = useState<XiCi | null>(null);
   const [generating, setGenerating] = useState(false);
+  const [compileStatus, setCompileStatus] = useState<CompileStatus>({ status: 'idle' });
+  const compilePrevStatus = useRef<CompileStatus['status']>('idle');
 
   useEffect(() => {
     api.getStats().then(setStats).catch(() => {});
   }, []);
 
   useEffect(() => {
+    api.compileStatus().then(setCompileStatus).catch(() => {});
+  }, []);
+
+  useEffect(() => {
     api.getXiCi(lang).then(setXiCi).catch(() => {});
   }, [lang]);
+
+  useEffect(() => {
+    if (compilePrevStatus.current === 'running' && compileStatus.status === 'completed') {
+      api.getStats().then(setStats).catch(() => {});
+    }
+    compilePrevStatus.current = compileStatus.status;
+  }, [compileStatus.status]);
+
+  useEffect(() => {
+    if (compileStatus.status !== 'running') return;
+    const timer = setInterval(() => {
+      api.compileStatus().then(setCompileStatus).catch(() => {});
+    }, COMPILE_POLL_MS);
+    return () => clearInterval(timer);
+  }, [compileStatus.status]);
 
   async function regenerate() {
     setGenerating(true);
@@ -40,6 +63,50 @@ export function Dashboard() {
     if (hrs < 24) return `${hrs}h ago`;
     return `${Math.floor(hrs / 24)}d ago`;
   };
+
+  const compileCard = (() => {
+    if (compileStatus.status === 'running') {
+      return {
+        icon: 'hourglass_top',
+        title: it ? 'Compilazione in corso' : 'Compile running',
+        detail: compileStatus.started_at ? timeAgo(compileStatus.started_at) : '',
+        tone: 'text-primary bg-primary/10 border-primary/20',
+        body: it
+          ? 'Il job sta aggiornando la knowledge base in background.'
+          : 'The job is updating the knowledge base in the background.',
+      };
+    }
+    if (compileStatus.status === 'completed') {
+      const count = compileStatus.articles_created ?? 0;
+      return {
+        icon: 'check_circle',
+        title: it ? 'Ultimo compile completato' : 'Last compile completed',
+        detail: compileStatus.finished_at ? timeAgo(compileStatus.finished_at) : '',
+        tone: 'text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 border-emerald-500/20',
+        body: it
+          ? `${count} nuovi articoli creati nell'ultimo run.`
+          : `${count} new articles created in the last run.`,
+      };
+    }
+    if (compileStatus.status === 'failed') {
+      return {
+        icon: 'error',
+        title: it ? 'Ultimo compile fallito' : 'Last compile failed',
+        detail: compileStatus.finished_at ? timeAgo(compileStatus.finished_at) : '',
+        tone: 'text-rose-700 dark:text-rose-300 bg-rose-500/10 border-rose-500/20',
+        body: compileStatus.error || (it ? 'Errore sconosciuto.' : 'Unknown error.'),
+      };
+    }
+    return {
+      icon: 'schedule',
+      title: it ? 'Nessun job in esecuzione' : 'No active background jobs',
+      detail: '',
+      tone: 'text-on-surface-variant bg-surface-high border-outline-variant/20',
+      body: it
+        ? 'La pipeline e inattiva. Avvia un compile dalla barra superiore o dalla pagina ingest.'
+        : 'The pipeline is idle. Start a compile from the top bar or the ingest page.',
+    };
+  })();
 
   return (
     <div className="p-8 max-w-[1100px] mx-auto">
@@ -122,10 +189,8 @@ export function Dashboard() {
         ))}
       </div>
 
-      {/* Quick Actions + Agent API */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
-        {/* Actions */}
-        <div className="flex flex-wrap gap-3">
+      {/* Quick Actions */}
+      <div className="flex flex-wrap gap-3 mb-8">
           <button onClick={() => navigate('/qa')} className="flex items-center gap-2 px-5 py-3 bg-primary/10 border border-primary/20 rounded-xl text-sm hover:bg-primary/20 transition-colors">
             <Icon name="forum" className="text-primary text-[18px]" /> {it ? 'Fai una domanda' : 'Ask a Question'}
           </button>
@@ -135,9 +200,40 @@ export function Dashboard() {
           <button onClick={() => navigate('/health')} className="flex items-center gap-2 px-5 py-3 bg-surface-container border border-outline-variant/30 rounded-xl text-sm hover:border-tertiary/50 transition-colors">
             <Icon name="health_and_safety" className="text-tertiary text-[18px]" /> {it ? 'Controllo salute' : 'Health Check'}
           </button>
+      </div>
+
+      {/* Background Jobs + Agent API */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
+        <div className="bg-surface-container rounded-xl p-4 border border-outline-variant/20">
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <div className="flex items-center gap-2">
+              <Icon name="motion_photos_auto" className="text-primary text-[16px]" />
+              <span className="text-xs uppercase tracking-widest text-on-surface-variant">
+                {it ? 'Background Jobs' : 'Background Jobs'}
+              </span>
+            </div>
+            {compileCard.detail && (
+              <span className="text-[11px] text-outline">{compileCard.detail}</span>
+            )}
+          </div>
+
+          <div className={`rounded-xl border px-4 py-3 ${compileCard.tone}`}>
+            <div className="flex items-center gap-2 mb-2">
+              <Icon name={compileCard.icon} className={`text-[18px] ${compileStatus.status === 'running' ? 'animate-pulse' : ''}`} />
+              <span className="text-sm font-medium">{compileCard.title}</span>
+            </div>
+            <p className="text-sm leading-relaxed opacity-90 break-words">{compileCard.body}</p>
+            {compileStatus.status === 'failed' && (
+              <button
+                onClick={() => navigate('/ingest')}
+                className="mt-3 inline-flex items-center gap-1 text-xs font-medium hover:underline">
+                <Icon name="open_in_new" className="text-[14px]" />
+                {it ? 'Apri Ingest' : 'Open Ingest'}
+              </button>
+            )}
+          </div>
         </div>
 
-        {/* Agent API Status */}
         <div className="bg-surface-container rounded-xl p-4 border border-outline-variant/20">
           <div className="flex items-center gap-2 mb-2">
             <Icon name="api" className="text-primary text-[16px]" />

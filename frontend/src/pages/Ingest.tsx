@@ -96,14 +96,12 @@ export function Ingest() {
   useEffect(() => {
     mounted.current = true;
     loadDocs();
-    // Recover in-flight state across route changes / reloads (issue #7):
-    // if the worker lock is held when we mount, show "compiling" and
-    // start polling until it releases.
+    // Recover in-flight state across route changes / reloads.
     (async () => {
       try {
-        const { busy } = await api.getWorkerStatus();
+        const status = await api.compileStatus();
         if (!mounted.current) return;
-        if (busy) {
+        if (status.status === 'running') {
           setCompiling(true);
           setMessage('A compile is already running in the background…');
           startPolling();
@@ -130,15 +128,28 @@ export function Ingest() {
     pollFailures.current = 0;
     pollTimer.current = setInterval(async () => {
       try {
-        const { busy } = await api.getWorkerStatus();
+        const status = await api.compileStatus();
         if (!mounted.current) return;
         pollFailures.current = 0;
-        if (!busy) {
+        if (status.status === 'running') {
+          return;
+        }
+        if (status.status === 'failed') {
           stopPolling();
           setCompiling(false);
-          setMessage('Compile finished. Refreshed document list.');
-          await loadDocs();
+          setMessage(`Compile failed: ${status.error ?? 'unknown error'}`);
+          return;
         }
+        if (status.status === 'completed') {
+          stopPolling();
+          setCompiling(false);
+          setMessage(`Compile finished. ${status.articles_created ?? 0} new articles created.`);
+          await loadDocs();
+          return;
+        }
+        stopPolling();
+        setCompiling(false);
+        setMessage('Compile status is idle.');
       } catch {
         if (!mounted.current) return;
         pollFailures.current += 1;
@@ -223,9 +234,14 @@ export function Ingest() {
     try {
       const res = await api.compile();
       if (!mounted.current) return;
-      setMessage(`Compiled! ${res.articles_created} new articles created.`);
-      await loadDocs();
-      if (mounted.current) setCompiling(false);
+      if (res.status === 'ok') {
+        setMessage(`Compiled! ${res.articles_created ?? 0} new articles created.`);
+        await loadDocs();
+        if (mounted.current) setCompiling(false);
+        return;
+      }
+      setMessage(res.message ?? 'Compile running in background…');
+      startPolling();
     } catch (err) {
       if (!mounted.current) return;
       if (err instanceof ApiError && err.status === 409) {
