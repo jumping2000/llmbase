@@ -1,10 +1,10 @@
-# Customization
+# Personalizzazione
 
-LLMBase is customizable, but the default project contract is English and Italian.
+LLMBase e personalizzabile, ma il contratto di progetto predefinito resta inglese e italiano.
 
-## Article structure
+## Struttura articoli
 
-Override article section headers:
+Sovrascrivi gli header di sezione degli articoli:
 
 ```python
 import llmwiki.compile as compile_mod
@@ -15,9 +15,9 @@ compile_mod.SECTION_HEADERS = [
 ]
 ```
 
-## Ask tones
+## Toni di risposta
 
-Add a custom tone:
+Aggiungi un tono personalizzato:
 
 ```python
 import llmwiki.query as query_mod
@@ -25,9 +25,9 @@ import llmwiki.query as query_mod
 query_mod.TONE_INSTRUCTIONS["formal_it"] = "Rispondi in italiano formale e preciso."
 ```
 
-## Search tokenization
+## Tokenizzazione della ricerca
 
-Replace the default tokenizer:
+Sostituisci il tokenizer predefinito:
 
 ```python
 import re
@@ -39,9 +39,9 @@ def my_tokenizer(text: str) -> list[str]:
 search_mod.SEARCH_TOKENIZER = my_tokenizer
 ```
 
-## Taxonomy labels
+## Etichette della tassonomia
 
-Switch taxonomy label languages:
+Cambia le lingue delle etichette di tassonomia:
 
 ```python
 import llmwiki.taxonomy as tax_mod
@@ -49,9 +49,9 @@ import llmwiki.taxonomy as tax_mod
 tax_mod.TAXONOMY_LABEL_KEYS = ["it"]
 ```
 
-## Taxonomy generation
+## Generazione della tassonomia
 
-Replace the built-in taxonomy generator entirely:
+Sostituisci completamente il generatore integrato:
 
 ```python
 import llmwiki.taxonomy as tax_mod
@@ -70,9 +70,9 @@ def my_taxonomy_generator(articles, cfg):
 tax_mod.TAXONOMY_GENERATOR = my_taxonomy_generator
 ```
 
-## Web extension points
+## Punti di estensione web
 
-Register extra routes before app creation:
+Registra route aggiuntive prima della creazione dell'app:
 
 ```python
 import llmwiki.web as web_mod
@@ -83,7 +83,7 @@ def my_handler():
 web_mod.EXTRA_ROUTES.append(("/api/custom", my_handler, {"methods": ["GET"]}))
 ```
 
-Add request lifecycle hooks before app creation:
+Aggiungi hook del ciclo di vita delle richieste prima della creazione dell'app:
 
 ```python
 import llmwiki.web as web_mod
@@ -98,9 +98,9 @@ web_mod.BEFORE_REQUEST_HOOKS.append(before_request_hook)
 web_mod.AFTER_REQUEST_HOOKS.append(after_request_hook)
 ```
 
-## Custom operations
+## Operazioni personalizzate
 
-Expose new behavior to CLI, HTTP, and MCP through the shared registry:
+Esponi nuovo comportamento a CLI, HTTP e MCP tramite il registro condiviso:
 
 ```python
 from llmwiki.operations import Operation, register

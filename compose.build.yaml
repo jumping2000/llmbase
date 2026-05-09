@@ -11,8 +11,9 @@
 #   ├── raw/                        ← dati grezzi (non committare!)
 #   └── wiki/                       ← dati conioscenza (non committare!)
 #
-# Avvio:   docker compose up -d
-# Logs:    docker compose logs -f llmbase
+# Avvio consigliato:   docker compose -f compose.build.yaml up -d --build
+#                      docker compose -f compose.yaml up -d
+# Logs:                docker compose -f compose.build.yaml logs -f llmbase nginx llmbase-worker
 # =============================================================================
 services:
   nginx:

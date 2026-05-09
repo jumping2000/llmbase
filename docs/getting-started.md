@@ -3,12 +3,16 @@
 ## Install dependencies
 
 ```bash
-pip install -r requirements.txt
+pip install -e .
 ```
 
-Optional extras commonly needed in development:
-- `flask` for the web UI
-- `requests` for URL ingest
+If you want the optional MCP server dependency as well:
+
+```bash
+pip install -e ".[mcp]"
+```
+
+`pip install -r requirements.txt` is still useful when you want repo-local dependency parity, but the `llmbase` CLI entry point is installed by `pip install -e .`.
 
 ## Create or choose a KB directory
 

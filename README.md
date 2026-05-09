@@ -64,11 +64,14 @@ On Windows/PowerShell you can generate the same file with:
 .\nginx\generate-htpasswd.ps1 -Username admin -Password change-me
 ```
 
-Set `LLMBASE_API_SECRET` in `.env`, then start the stack as usual:
+Set `LLMBASE_API_SECRET` in `.env`, then start the stack in detached mode:
 
 ```bash
-docker compose up -d
+docker compose -f compose.build.yaml up -d --build
 ```
+
+If you run `docker compose up` in the foreground, stopping that process also stops the stack.
+In that case Docker may report `nginx exited with code 0`, which is a normal graceful shutdown rather than a proxy failure.
 
 The compose topology now starts three services: `nginx`, `llmbase`, and `llmbase-worker`.
 The dedicated worker container keeps background jobs out of the Gunicorn web processes.
