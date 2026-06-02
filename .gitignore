@@ -23,3 +23,6 @@ static/dist/
 
 # Reverse-proxy credentials (generated locally)
 nginx/.htpasswd
+
+# Superpowers
+/docs/superpowers/
