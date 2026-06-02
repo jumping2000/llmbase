@@ -14,7 +14,7 @@ RUN pip install --no-cache-dir -r requirements.txt gunicorn
 
 # Copy backend
 COPY llmwiki/ ./llmwiki/
-COPY config.yaml pyproject.toml llmbase.py wsgi.py ./
+COPY pyproject.toml llmbase.py wsgi.py ./
 RUN pip install --no-cache-dir -e .
 
 # Copy built frontend

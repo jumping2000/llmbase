@@ -1,6 +1,6 @@
 # Personalizzazione
 
-LLMBase e personalizzabile, ma il contratto di progetto predefinito resta inglese e italiano.
+LLMBase è personalizzabile, ma il contratto di progetto predefinito resta inglese e italiano.
 
 ## Struttura articoli
 

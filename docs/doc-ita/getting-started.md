@@ -12,7 +12,7 @@ Se vuoi anche la dipendenza opzionale del server MCP:
 pip install -e ".[mcp]"
 ```
 
-`pip install -r requirements.txt` resta utile quando vuoi la parita locale delle dipendenze del repository, ma il comando `llmbase` viene installato da `pip install -e .`.
+`pip install -r requirements.txt` resta utile quando vuoi la parità locale delle dipendenze del repository, ma il comando `llmbase` viene installato da `pip install -e .`.
 
 ## Crea o scegli una directory KB
 
@@ -24,7 +24,7 @@ LLMBase archivia i dati di lavoro in:
 
 ## Configurazione minima
 
-Il `config.yaml` fornito e un punto di partenza valido. Il default importante del worker e:
+Il `config.yaml` fornito è un punto di partenza valido. Il default importante del worker è:
 
 ```yaml
 worker:

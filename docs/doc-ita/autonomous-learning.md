@@ -1,13 +1,13 @@
 # Apprendimento autonomo
 
-Il worker puo far avanzare la base di conoscenza senza supervisione manuale, ma la fonte integrata predefinita e volutamente semplice.
+Il worker può far avanzare la base di conoscenza senza supervisione manuale, ma la fonte integrata predefinita è volutamente semplice.
 
 ## Comportamento predefinito
 
 - `worker.learn_source` ha come default `seed_urls`
 - la fonte integrata legge `wiki/_meta/seed-urls.json`
 - progresso di ingest e stato dei retry sono salvati in `wiki/_meta/worker-seeds-state.json`
-- le fonti remote incorporate non vengono piu distribuite
+- le fonti remote incorporate non vengono più distribuite
 
 ## Ciclo tipico
 
@@ -25,7 +25,7 @@ worker:
 ```
 
 Nel deployment Docker Compose il worker gira nel servizio dedicato `llmbase-worker` invece che dentro il processo web Gunicorn.
-Quando `worker.enabled` e `false`, quel servizio resta inattivo e fa polling della configurazione invece di riavviarsi in loop.
+Quando `worker.enabled` è `false`, quel servizio resta inattivo e fa polling della configurazione invece di riavviarsi in loop.
 
 Esempio di file seed:
 
@@ -41,4 +41,4 @@ Esempio di file seed:
 ## Estendere le fonti di apprendimento
 
 Se ti serve apprendimento autonomo da un sistema upstream personalizzato, registra una custom learn source in Python e indirizza il worker verso quella fonte.
-Il repository non assume piu alcuna fonte esterna incorporata.
+Il repository non assume più alcuna fonte esterna incorporata.

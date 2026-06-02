@@ -19,4 +19,4 @@ sources:
 
 ## Deduplicazione
 
-Quando piu documenti raw contribuiscono lo stesso record di fonte, l'elenco delle fonti viene unito invece di essere duplicato.
+Quando più documenti raw contribuiscono lo stesso record di fonte, l'elenco delle fonti viene unito invece di essere duplicato.

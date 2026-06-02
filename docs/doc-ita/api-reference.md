@@ -50,8 +50,8 @@ Il server web espone un'API HTTP JSON insieme al frontend.
 - `POST /api/trails/<trail_id>/delete`
 - `DELETE /api/articles/<slug>`
 
-Quando `LLMBASE_API_SECRET` e impostato, gli endpoint di scrittura richiedono autenticazione.
-Alcuni endpoint operazionali di lettura sono anch'essi protetti perche espongono stato dei job o attivita interne:
+Quando `LLMBASE_API_SECRET` è impostato, gli endpoint di scrittura richiedono autenticazione.
+Alcuni endpoint operazionali di lettura sono anch'essi protetti perché espongono stato dei job o attività interne:
 
 - `GET /api/compile/status`
 - `GET /api/llm/usage/summary`
@@ -59,7 +59,7 @@ Alcuni endpoint operazionali di lettura sono anch'essi protetti perche espongono
 - `GET /api/trails`
 - `GET /api/worker/status`
 
-`GET /api/healthz` e una sonda di liveness veloce.
+`GET /api/healthz` è una sonda di liveness veloce.
 `GET /api/health` restituisce l'ultimo report di salute persistito da `wiki/_meta/health.json`.
 
 `POST /api/compile` parte in background e restituisce `202 Accepted` quando il job inizia.
@@ -68,28 +68,28 @@ Fai polling su `GET /api/compile/status` per ottenere uno stato esplicito `runni
 `POST /api/ingest` usa fetching HTTP diretto lato server per gli URL.
 Se un sito remoto blocca l'accesso automatizzato, l'endpoint restituisce `400` con un errore user-facing invece di un generico `500`.
 
-`POST /api/ingest/browser` e un fallback esplicito assistito dal browser per i siti bloccati.
+`POST /api/ingest/browser` è un fallback esplicito assistito dal browser per i siti bloccati.
 Richiede il supporto dell'automazione browser (`opencli`) sull'host llmbase e ingerisce il risultato come `type = browser_article`.
 
 `GET /api/worker/status` restituisce `{ "busy": true|false }` in base al lock condiviso dei write-job.
 
-`GET /api/entities` restituisce le entita estratte in cache.
-`POST /api/entities/extract` attiva subito l'estrazione delle entita; e utile solo quando `entities.enabled: true` in `config.yaml`.
+`GET /api/entities` restituisce le entità estratte in cache.
+`POST /api/entities/extract` attiva subito l'estrazione delle entità; è utile solo quando `entities.enabled: true` in `config.yaml`.
 
 `GET /api/wiki/export` esporta l'intera wiki compilata come JSON per backup o sincronizzazione downstream.
 
 `GET /api/trails` elenca i trail di ricerca salvati e `POST /api/trails` aggiunge un passo o crea un trail.
 
-`GET /api/compile/status` restituisce lo stato di compilazione persistito piu recente:
+`GET /api/compile/status` restituisce lo stato di compilazione persistito più recente:
 
 - idle: `{ "status": "idle" }`
 - running: `{ "status": "running", "full": false, "started_at": "..." }`
 - completed: `{ "status": "completed", "articles_created": 3, "articles": [...], "started_at": "...", "finished_at": "..." }`
 - failed: `{ "status": "failed", "error": "...", "started_at": "...", "finished_at": "..." }`
 
-Come `GET /api/worker/status`, questo endpoint e auth-gated quando `LLMBASE_API_SECRET` e impostato perche espone stato di scrittura.
+Come `GET /api/worker/status`, questo endpoint è auth-gated quando `LLMBASE_API_SECRET` è impostato perché espone stato di scrittura.
 
-`GET /api/llm/usage/summary` restituisce la contabilita aggregata dei token dal log append-only in `wiki/_meta/llm-usage.jsonl`.
+`GET /api/llm/usage/summary` restituisce la contabilità aggregata dei token dal log append-only in `wiki/_meta/llm-usage.jsonl`.
 Ogni riga di quel file rappresenta un tentativo reale del provider, inclusi retry, fallback, risposte vuote e fallimenti duri.
 
 Parametri di query opzionali:
@@ -98,7 +98,7 @@ Parametri di query opzionali:
 - `from=<ISO8601>`
 - `to=<ISO8601>`
 
-Quando `last` e presente, ha precedenza su `from` e `to`. Il filtro temporale viene valutato in UTC. I record con timestamp mancanti o invalidi vengono esclusi dalle finestre filtrate e conteggiati in `skipped_timestamp_count`.
+Quando `last` è presente, ha precedenza su `from` e `to`. Il filtro temporale viene valutato in UTC. I record con timestamp mancanti o invalidi vengono esclusi dalle finestre filtrate e conteggiati in `skipped_timestamp_count`.
 
 Forma del riepilogo:
 
@@ -173,10 +173,10 @@ Forma del riepilogo:
 }
 ```
 
-Questo endpoint e auth-gated quando `LLMBASE_API_SECRET` e impostato perche espone dati operazionali di utilizzo.
+Questo endpoint è auth-gated quando `LLMBASE_API_SECRET` è impostato perché espone dati operazionali di utilizzo.
 
-`GET /api/llm/usage/recent?limit=<n>` restituisce le richieste LLM logiche piu recenti ricostruite dallo stesso log append-only.
-Ogni richiesta logica raggruppa tutti i tentativi del provider che condividono lo stesso `request_id`, cosi il consumo di token di retry e fallback viene sommato a livello di richiesta.
+`GET /api/llm/usage/recent?limit=<n>` restituisce le richieste LLM logiche più recenti ricostruite dallo stesso log append-only.
+Ogni richiesta logica raggruppa tutti i tentativi del provider che condividono lo stesso `request_id`, così il consumo di token di retry e fallback viene sommato a livello di richiesta.
 
 Accetta gli stessi parametri temporali opzionali del summary endpoint: `last`, `from` e `to`.
 
@@ -214,22 +214,22 @@ Forma di esempio:
 }
 ```
 
-Anche questo endpoint e auth-gated quando `LLMBASE_API_SECRET` e impostato.
+Anche questo endpoint è auth-gated quando `LLMBASE_API_SECRET` è impostato.
 
 ## Autenticazione
 
 - I deployment diretti dell'app possono inviare `Authorization: Bearer <LLMBASE_API_SECRET>` agli endpoint autenticati.
 - Nel deployment Nginx integrato, l'header pubblico `Authorization` viene usato da Basic Auth al confine del proxy.
-- Le richieste browser UI continuano a funzionare perche il frontend riceve il cookie derivato `llmbase_auth` dalla risposta SPA.
+- Le richieste browser UI continuano a funzionare perché il frontend riceve il cookie derivato `llmbase_auth` dalla risposta SPA.
 - I client API diretti dietro Nginx dovrebbero inviare `X-LLMBASE-Authorization: Bearer <LLMBASE_API_SECRET>` quando hanno bisogno dell'autenticazione applicativa llmbase; il proxy inoltra quel valore upstream come `Authorization`.
 
 ## Payload di upload
 
 `POST /api/upload` accetta `multipart/form-data`.
 
-- invia una o piu parti `file`
+- invia una o più parti `file`
 - il campo form opzionale `chunk_pages` controlla solo il chunking dei PDF
-- i file PDF vengono espansi in uno o piu chunk raw
+- i file PDF vengono espansi in uno o più chunk raw
 - i file Markdown vengono ingeriti come file sorgente caricati, preservando il frontmatter quando presente
 - gli altri file non-PDF vengono ingeriti come file sorgente caricati
 
@@ -256,4 +256,4 @@ Toni supportati:
 
 ## Plugin di riferimento
 
-`GET /api/refs/plugins` restituisce i plugin di riferimento attualmente registrati. Il progetto non distribuisce piu plugin corpus-specific incorporati; i progetti downstream possono registrare i propri.
+`GET /api/refs/plugins` restituisce i plugin di riferimento attualmente registrati. Il progetto non distribuisce più plugin corpus-specific incorporati; i progetti downstream possono registrare i propri.

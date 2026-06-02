@@ -6,6 +6,7 @@
 #   .
 #   ├── docker-compose.yml
 #   ├── .env                        ← credenziali (non committare!)
+#   ├── config.yaml                 ← configurazione runtime llmbase
 #   ├── Dockerfile                  ← llmbase (build locale)
 #   ├── nginx/                      ← configurazione nginx (non committare!)
 #   ├── raw/                        ← dati grezzi (non committare!)
@@ -47,6 +48,7 @@ services:
     networks:
       - llmbase-net
     volumes:
+      - ./config.yaml:/app/config.yaml:ro
       - ./raw:/app/raw
       - ./wiki:/app/wiki
     healthcheck:
@@ -66,6 +68,7 @@ services:
     networks:
       - llmbase-net
     volumes:
+      - ./config.yaml:/app/config.yaml:ro
       - ./raw:/app/raw
       - ./wiki:/app/wiki
 

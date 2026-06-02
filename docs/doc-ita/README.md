@@ -1,7 +1,7 @@
 # Documentazione LLMBase
 
 Questa cartella contiene la documentazione tecnica di LLMBase in italiano.
-I file mantengono gli stessi nomi della documentazione inglese sotto `docs/`, cosi il mapping resta diretto.
+I file mantengono gli stessi nomi della documentazione inglese sotto `docs/`, così il mapping resta diretto.
 
 ## Contenuto
 

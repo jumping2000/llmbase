@@ -28,9 +28,9 @@ L'auto-guarigione in LLMBase combina controlli lint, correzioni automatiche, cle
 ## Gestione dei duplicati
 
 Il rilevamento dei duplicati si basa su sovrapposizioni come:
-- similarita dello slug
+- similarità dello slug
 - sovrapposizione dei tag
-- similarita del contenuto
+- similarità del contenuto
 
 ## Report di salute
 

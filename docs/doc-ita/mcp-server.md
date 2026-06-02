@@ -1,6 +1,6 @@
 # Server MCP
 
-LLMBase puo essere eseguito come server Model Context Protocol.
+LLMBase può essere eseguito come server Model Context Protocol.
 
 ## Avvio
 
@@ -14,14 +14,14 @@ pip install -e ".[mcp]"
 llmbase mcp
 ```
 
-## Fonte di verita del contratto
+## Fonte di verità del contratto
 
-Il server MCP e generato da `llmwiki/operations.py`.
-Se un'operazione e registrata li, puo essere esposta in modo coerente su CLI, HTTP e MCP.
+Il server MCP è generato da `llmwiki/operations.py`.
+Se un'operazione è registrata lì, può essere esposta in modo coerente su CLI, HTTP e MCP.
 
 ## Operazioni importanti
 
-L'elenco seguente e illustrativo, non esaustivo. La superficie reale degli strumenti MCP viene generata direttamente da `llmwiki/operations.py`.
+L'elenco seguente è illustrativo, non esaustivo. La superficie reale degli strumenti MCP viene generata direttamente da `llmwiki/operations.py`.
 
 - `kb_search`
 - `kb_search_raw`
