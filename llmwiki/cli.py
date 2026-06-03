@@ -539,14 +539,23 @@ def web(ctx, port):
 
 
 @cli.command()
+@click.option("--transport", type=click.Choice(["stdio", "streamable-http"]), default=None, help="MCP transport to use")
+@click.option("--http-port", type=int, default=None, help="HTTP port for streamable-http transport")
+@click.option("--http-url", type=str, default=None, help="Optional full MCP HTTP URL override")
 @click.pass_context
-def mcp(ctx):
-    """Start the MCP (Model Context Protocol) server for AI client integration."""
-    import asyncio
-    from .mcp_server import main as mcp_main
-    console.print("[green]Starting LLMBase MCP server (stdio)...[/green]")
+def mcp(ctx, transport, http_port, http_url):
+    """Start the MCP (Model Context Protocol) server for AI client integration.
+
+    Transport can be controlled via CLI flags or environment variables
+    (CLI takes precedence).
+    """
+    from .mcp_config import resolve_mcp_settings
+    from . import mcp_server
+
+    settings = resolve_mcp_settings(transport=transport, http_port=http_port, http_url=http_url)
+    console.print(f"[green]Starting LLMBase MCP server ({settings.transport})...[/green]")
     console.print("[dim]Register in your AI client settings to connect.[/dim]")
-    asyncio.run(mcp_main())
+    mcp_server.run_mcp(ctx.obj.get("base_dir", Path('.')).resolve(), settings)
 
 
 @cli.group()

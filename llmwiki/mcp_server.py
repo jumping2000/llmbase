@@ -33,6 +33,7 @@ import uvicorn
 from starlette.applications import Starlette
 from starlette.routing import Mount, Route
 from starlette.responses import JSONResponse
+from .mcp_config import McpSettings
 
 from . import operations as ops
 
@@ -149,3 +150,30 @@ def run_streamable_http_server(base_dir: Path, port: int = 8100) -> None:
     """Run the streamable-http ASGI app using uvicorn on localhost."""
     app = create_streamable_http_app(base_dir)
     uvicorn.run(app, host="127.0.0.1", port=port, log_level="info")
+
+
+async def _stdio_run(base_dir: Path) -> None:
+    """Coroutine to run the stdio MCP server for a given base_dir."""
+    server = create_server(base_dir)
+    async with stdio_server() as (read_stream, write_stream):
+        await server.run(read_stream, write_stream, server.create_initialization_options())
+
+
+def run_mcp(base_dir: Path, settings: McpSettings | None = None) -> None:
+    """Run the MCP transport selected by `settings` (or env/defaults if None).
+
+    If `settings.transport == 'stdio'` the stdio server is started. If
+    `streamable-http` the ASGI app is served via uvicorn on localhost.
+    """
+    if settings is None:
+        # Lazy import to avoid circular imports in CLI tests.
+        from .mcp_config import resolve_mcp_settings
+
+        settings = resolve_mcp_settings()
+
+    if settings.transport == "stdio":
+        asyncio.run(_stdio_run(base_dir))
+    elif settings.transport == "streamable-http":
+        run_streamable_http_server(base_dir, settings.http_port)
+    else:
+        raise ValueError(f"Unsupported MCP transport: {settings.transport}")
