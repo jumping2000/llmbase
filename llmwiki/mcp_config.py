@@ -62,6 +62,16 @@ def resolve_mcp_settings(
     transport = str(transport)
     _validate_transport(transport)
 
+    api_key = api_key if api_key is not None else os.environ.get("MCP_API_KEY")
+
+    if transport == "stdio":
+        return McpSettings(
+            transport=transport,
+            http_port=8100 if http_port is None else http_port,
+            http_url=http_url,
+            api_key=api_key,
+        )
+
     # HTTP port
     if http_port is None:
         port_val = os.environ.get("MCP_HTTP_PORT")
@@ -78,10 +88,6 @@ def resolve_mcp_settings(
     if http_url is None:
         http_url = os.environ.get("MCP_HTTP_URL")
     http_url = _validate_http_url(http_url)
-
-    # API key
-    if api_key is None:
-        api_key = os.environ.get("MCP_API_KEY")
 
     return McpSettings(
         transport=transport,

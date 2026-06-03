@@ -50,6 +50,8 @@ MCP_API_KEY=change-me
 
 Public clients connect to the existing host on `/mcp` and must send `X-API-Key`.
 
+If you change `MCP_HTTP_PORT` in Compose, set `MCP_HTTP_URL` to the matching upstream URL so Nginx keeps forwarding to the correct internal port.
+
 ## Contract source of truth
 
 The MCP server is generated from `llmwiki/operations.py`. If an operation is registered there, it can be surfaced consistently across CLI, HTTP, and MCP.

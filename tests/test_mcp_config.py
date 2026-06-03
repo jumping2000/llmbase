@@ -83,6 +83,7 @@ def test_invalid_transport_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_invalid_http_url_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
     _reset_mcp_env(monkeypatch)
+    monkeypatch.setenv("MCP_TRANSPORT", "streamable-http")
     monkeypatch.setenv("MCP_HTTP_URL", "localhost:8100/mcp")
 
     from llmwiki import mcp_config
@@ -91,3 +92,17 @@ def test_invalid_http_url_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
 
     with pytest.raises(ValueError, match="MCP_HTTP_URL"):
         mcp_config.resolve_mcp_settings()
+
+
+def test_stdio_ignores_invalid_http_settings(monkeypatch: pytest.MonkeyPatch) -> None:
+    _reset_mcp_env(monkeypatch)
+    monkeypatch.setenv("MCP_TRANSPORT", "stdio")
+    monkeypatch.setenv("MCP_HTTP_PORT", "not-a-port")
+    monkeypatch.setenv("MCP_HTTP_URL", "localhost:8100/mcp")
+
+    from llmwiki import mcp_config
+
+    monkeypatch.setattr(mcp_config, "_load_env", lambda: None)
+    settings = mcp_config.resolve_mcp_settings()
+
+    assert settings.transport == "stdio"

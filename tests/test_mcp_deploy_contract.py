@@ -9,14 +9,9 @@ ROOT = Path(__file__).resolve().parents[1]
 def test_docker_compose_has_mcp_service():
     compose = yaml.safe_load((ROOT / "docker-compose.yml").read_text(encoding="utf-8"))
     assert "llmbase-mcp" in compose["services"]
-    assert compose["services"]["llmbase-mcp"]["command"] == [
-        "llmbase",
-        "mcp",
-        "--transport",
-        "streamable-http",
-        "--http-port",
-        "8100",
-    ]
+    assert compose["services"]["llmbase-mcp"]["command"] == ["llmbase", "mcp"]
+    assert compose["services"]["llmbase-mcp"]["environment"]["MCP_TRANSPORT"] == "streamable-http"
+    assert compose["services"]["llmbase-mcp"]["environment"]["MCP_HTTP_PORT"] == "${MCP_HTTP_PORT:-8100}"
 
 
 def test_compose_build_has_mcp_service():

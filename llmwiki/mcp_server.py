@@ -153,7 +153,7 @@ if __name__ == "__main__":
 def run_streamable_http_server(base_dir: Path, port: int = 8100) -> None:
     """Run the streamable-http ASGI app using uvicorn on localhost."""
     app = create_streamable_http_app(base_dir)
-    uvicorn.run(app, host="127.0.0.1", port=port, log_level="info")
+    uvicorn.run(app, host="0.0.0.0", port=port, log_level="info")
 
 
 async def _stdio_run(base_dir: Path) -> None:

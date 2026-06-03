@@ -37,6 +37,6 @@ def test_run_streamable_http_server_uses_requested_port(tmp_kb, monkeypatch):
 
     run_streamable_http_server(tmp_kb, 8123)
 
-    assert captured["host"] == "127.0.0.1"
+    assert captured["host"] == "0.0.0.0"
     assert captured["port"] == 8123
     assert captured["log_level"] == "info"

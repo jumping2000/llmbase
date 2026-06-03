@@ -80,8 +80,11 @@ services:
   llmbase-mcp:
     build: .
     restart: unless-stopped
-    command: ["llmbase", "mcp", "--transport", "streamable-http", "--http-port", "8100"]
+    command: ["llmbase", "mcp"]
     env_file: .env
+    environment:
+      MCP_TRANSPORT: streamable-http
+      MCP_HTTP_PORT: ${MCP_HTTP_PORT:-8100}
     expose:
       - "8100"
     security_opt:
