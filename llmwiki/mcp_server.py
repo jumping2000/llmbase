@@ -24,15 +24,17 @@ import asyncio
 import json
 import logging
 import sys
+from contextlib import asynccontextmanager
 from pathlib import Path
 
+import anyio
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
+from mcp.server.streamable_http import StreamableHTTPServerTransport
 from mcp.types import Tool, TextContent
 import uvicorn
 from starlette.applications import Starlette
-from starlette.routing import Mount, Route
-from starlette.responses import JSONResponse
+from starlette.routing import Mount
 from .mcp_config import McpSettings
 
 from . import operations as ops
@@ -100,50 +102,52 @@ def create_server(base_dir: Path) -> Server:
 
 
 def create_streamable_http_app(base_dir: Path) -> Starlette:
-    """Create a Starlette ASGI app that mounts the MCP streamable HTTP app at /mcp."""
+    """Create a Starlette app that serves the MCP streamable HTTP transport at /mcp."""
     server = create_server(base_dir)
-    # The MCP SDK exposes an ASGI app for streamable-http; mount it under /mcp
-    asgi_app = None
-    # Preferred: instance method
-    if hasattr(server, "streamable_http_app"):
-        asgi_app = server.streamable_http_app()
-    else:
-        # Fallback: some SDK versions provide a factory at the module level
-        try:
-            from mcp.server import streamable_http_app as _factory
+    transport = StreamableHTTPServerTransport(mcp_session_id=None)
 
-            asgi_app = _factory(server)
-        except Exception:
-            asgi_app = None
+    @asynccontextmanager
+    async def lifespan(app: Starlette):
+        async with transport.connect() as (read_stream, write_stream):
+            async with anyio.create_task_group() as task_group:
+                task_group.start_soon(
+                    server.run,
+                    read_stream,
+                    write_stream,
+                    server.create_initialization_options(),
+                )
+                yield
+                task_group.cancel_scope.cancel()
 
-    if asgi_app is not None:
-        app = Starlette(routes=[Mount("/mcp", app=asgi_app)])
-        return app
+    async def asgi_app(scope, receive, send):
+        await transport.handle_request(scope, receive, send)
 
-    # Last-resort fallback for SDKs without a streamable helper: expose a
-    # minimal JSON endpoint at /mcp so the transport wiring can be validated
-    async def _ok(request):
-        return JSONResponse({"ok": True})
-
-    app = Starlette(routes=[Route("/mcp", _ok, methods=["GET"])])
-    return app
+    return Starlette(routes=[Mount("/mcp", app=asgi_app)], lifespan=lifespan)
 
 
-async def main():
+def main():
     parser = argparse.ArgumentParser(description="LLMBase MCP Server")
     parser.add_argument("--base-dir", type=str, default=".", help="Knowledge base directory")
+    parser.add_argument("--transport", choices=["stdio", "streamable-http"], default=None)
+    parser.add_argument("--http-port", type=int, default=None)
+    parser.add_argument("--http-url", type=str, default=None)
     args = parser.parse_args()
 
     base_dir = Path(args.base_dir).resolve()
     logger.info(f"Starting LLMBase MCP server (base: {base_dir})")
 
-    server = create_server(base_dir)
-    async with stdio_server() as (read_stream, write_stream):
-        await server.run(read_stream, write_stream, server.create_initialization_options())
+    from .mcp_config import resolve_mcp_settings
+
+    settings = resolve_mcp_settings(
+        transport=args.transport,
+        http_port=args.http_port,
+        http_url=args.http_url,
+    )
+    run_mcp(base_dir, settings)
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
 
 
 def run_streamable_http_server(base_dir: Path, port: int = 8100) -> None:

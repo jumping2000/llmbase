@@ -1,18 +1,54 @@
 # Server MCP
 
-LLMBase può essere eseguito come server Model Context Protocol.
+LLMBase può essere eseguito come server Model Context Protocol su `stdio` oppure `streamable-http`.
 
-## Avvio
+## Installazione delle dipendenze runtime
 
-Installa prima la dipendenza MCP opzionale:
+Il runtime pacchettizzato ora include anche le dipendenze MCP HTTP. Per un'installazione editable va bene anche:
 
 ```bash
-pip install -e ".[mcp]"
+pip install -e .
 ```
+
+## Avvio in stdio
 
 ```bash
 llmbase mcp
 ```
+
+`stdio` resta il transport predefinito.
+
+## Avvio in streamable-http
+
+```bash
+llmbase mcp --transport streamable-http --http-port 8100
+```
+
+Impostazioni supportate:
+
+- `MCP_TRANSPORT`: `stdio` oppure `streamable-http`
+- `MCP_HTTP_PORT`: porta locale di ascolto in modalità HTTP
+- `MCP_HTTP_URL`: URL upstream completo opzionale usato dal layer di proxy
+- `MCP_API_KEY`: segreto condiviso validato dal proxy Nginx su `/mcp`
+
+I flag CLI hanno precedenza sul `.env`, e il `.env` ha precedenza sui default interni.
+
+## Deploy con Docker Compose
+
+Lo stack Compose incluso avvia un servizio dedicato `llmbase-mcp` ed espone MCP tramite Nginx su `/mcp`.
+
+Nginx valida sempre `X-API-Key` contro `MCP_API_KEY` prima di inoltrare al servizio MCP upstream.
+
+Valori tipici nel `.env`:
+
+```dotenv
+MCP_TRANSPORT=streamable-http
+MCP_HTTP_PORT=8100
+MCP_HTTP_URL=http://llmbase-mcp:8100/mcp
+MCP_API_KEY=change-me
+```
+
+I client pubblici si collegano all'host esistente su `/mcp` e devono inviare `X-API-Key`.
 
 ## Fonte di verità del contratto
 

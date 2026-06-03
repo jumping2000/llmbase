@@ -30,8 +30,8 @@ http {
 
         # MCP proxy: validate X-API-Key against the configured secret at startup
         location /mcp {
-            # Upstream can be overridden with MCP_HTTP_URL (rendered at container start)
-            set $mcp_upstream ${MCP_HTTP_URL:-http://llmbase-mcp:8100};
+            # Upstream is rendered at container start via envsubst.
+            set $mcp_upstream ${MCP_HTTP_URL};
 
             # Simple header-based auth enforced at the proxy.
             if ($http_x_api_key = "") {
