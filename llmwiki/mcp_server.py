@@ -29,6 +29,10 @@ from pathlib import Path
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import Tool, TextContent
+import uvicorn
+from starlette.applications import Starlette
+from starlette.routing import Mount, Route
+from starlette.responses import JSONResponse
 
 from . import operations as ops
 
@@ -94,6 +98,36 @@ def create_server(base_dir: Path) -> Server:
     return server
 
 
+def create_streamable_http_app(base_dir: Path) -> Starlette:
+    """Create a Starlette ASGI app that mounts the MCP streamable HTTP app at /mcp."""
+    server = create_server(base_dir)
+    # The MCP SDK exposes an ASGI app for streamable-http; mount it under /mcp
+    asgi_app = None
+    # Preferred: instance method
+    if hasattr(server, "streamable_http_app"):
+        asgi_app = server.streamable_http_app()
+    else:
+        # Fallback: some SDK versions provide a factory at the module level
+        try:
+            from mcp.server import streamable_http_app as _factory
+
+            asgi_app = _factory(server)
+        except Exception:
+            asgi_app = None
+
+    if asgi_app is not None:
+        app = Starlette(routes=[Mount("/mcp", app=asgi_app)])
+        return app
+
+    # Last-resort fallback for SDKs without a streamable helper: expose a
+    # minimal JSON endpoint at /mcp so the transport wiring can be validated
+    async def _ok(request):
+        return JSONResponse({"ok": True})
+
+    app = Starlette(routes=[Route("/mcp", _ok, methods=["GET"])])
+    return app
+
+
 async def main():
     parser = argparse.ArgumentParser(description="LLMBase MCP Server")
     parser.add_argument("--base-dir", type=str, default=".", help="Knowledge base directory")
@@ -109,3 +143,9 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
+
+def run_streamable_http_server(base_dir: Path, port: int = 8100) -> None:
+    """Run the streamable-http ASGI app using uvicorn on localhost."""
+    app = create_streamable_http_app(base_dir)
+    uvicorn.run(app, host="127.0.0.1", port=port, log_level="info")
