@@ -32,6 +32,27 @@ def test_run_streamable_http_server_uses_requested_port(tmp_kb, monkeypatch):
         captured["log_level"] = log_level
 
     monkeypatch.setattr("uvicorn.run", fake_run)
+    monkeypatch.setattr("llmwiki.mcp_server._default_http_bind_host", lambda: "127.0.0.1")
+
+    from llmwiki.mcp_server import run_streamable_http_server
+
+    run_streamable_http_server(tmp_kb, 8123)
+
+    assert captured["host"] == "127.0.0.1"
+    assert captured["port"] == 8123
+    assert captured["log_level"] == "info"
+
+
+def test_run_streamable_http_server_binds_all_interfaces_in_container(tmp_kb, monkeypatch):
+    pytest.importorskip("mcp")
+    captured = {}
+
+    def fake_run(app, host, port, log_level):
+        captured["host"] = host
+        captured["port"] = port
+
+    monkeypatch.setattr("uvicorn.run", fake_run)
+    monkeypatch.setattr("llmwiki.mcp_server._default_http_bind_host", lambda: "0.0.0.0")
 
     from llmwiki.mcp_server import run_streamable_http_server
 
@@ -39,4 +60,3 @@ def test_run_streamable_http_server_uses_requested_port(tmp_kb, monkeypatch):
 
     assert captured["host"] == "0.0.0.0"
     assert captured["port"] == 8123
-    assert captured["log_level"] == "info"

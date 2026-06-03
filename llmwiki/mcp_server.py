@@ -125,6 +125,11 @@ def create_streamable_http_app(base_dir: Path) -> Starlette:
     return Starlette(routes=[Mount("/mcp", app=asgi_app)], lifespan=lifespan)
 
 
+def _default_http_bind_host() -> str:
+    """Bind to loopback by default, but open the container network when needed."""
+    return "0.0.0.0" if Path("/.dockerenv").exists() else "127.0.0.1"
+
+
 def main():
     parser = argparse.ArgumentParser(description="LLMBase MCP Server")
     parser.add_argument("--base-dir", type=str, default=".", help="Knowledge base directory")
@@ -151,9 +156,9 @@ if __name__ == "__main__":
 
 
 def run_streamable_http_server(base_dir: Path, port: int = 8100) -> None:
-    """Run the streamable-http ASGI app using uvicorn on localhost."""
+    """Run the streamable-http ASGI app using uvicorn."""
     app = create_streamable_http_app(base_dir)
-    uvicorn.run(app, host="0.0.0.0", port=port, log_level="info")
+    uvicorn.run(app, host=_default_http_bind_host(), port=port, log_level="info")
 
 
 async def _stdio_run(base_dir: Path) -> None:
