@@ -31,8 +31,9 @@ services:
     networks:
       - llmbase-net
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/default.conf.template:/etc/nginx/default.conf.template:ro
       - ./nginx/.htpasswd:/etc/nginx/auth/.htpasswd:ro
+    command: /bin/sh -c "envsubst '$MCP_API_KEY $MCP_HTTP_URL' < /etc/nginx/default.conf.template > /etc/nginx/nginx.conf && nginx -g 'daemon off;'"
 
   llmbase:
     image: ghcr.io/jumping2000/llmbase:latest
@@ -63,6 +64,22 @@ services:
     restart: unless-stopped
     command: ["python", "-m", "llmwiki.worker_main"]
     env_file: .env
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - llmbase-net
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
+      - ./raw:/app/raw
+      - ./wiki:/app/wiki
+
+  llmbase-mcp:
+    image: ghcr.io/jumping2000/llmbase:latest
+    restart: unless-stopped
+    command: ["llmbase", "mcp"]
+    env_file: .env
+    expose:
+      - "8100"
     security_opt:
       - no-new-privileges:true
     networks:
