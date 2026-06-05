@@ -5,12 +5,20 @@ from types import SimpleNamespace
 
 from unittest.mock import patch
 
+import sys
 import pytest
 
 from llmwiki.llm import strip_surrogates
 
 pytest.importorskip("flask")
 pytest.importorskip("requests")
+
+
+@pytest.fixture(autouse=True)
+def _clear_ambient_secret(monkeypatch):
+    """Prevent stale LLMBASE_API_SECRET / PORT from leaking into tests."""
+    monkeypatch.delenv("LLMBASE_API_SECRET", raising=False)
+    monkeypatch.delenv("PORT", raising=False)
 
 
 # ─── C: surrogate sanitize ────────────────────────────────────────
@@ -383,6 +391,7 @@ def test_sanitize_slug_strips_url_punctuation():
     assert sanitize_slug("a:b#c&d") == "a-b-c-d"
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="? in filename is invalid on Windows")
 def test_heal_urly_slugs_renames_dirty_files(tmp_kb):
     """heal_urly_slugs must relocate concepts whose stem carries URL chars."""
     import frontmatter

@@ -71,8 +71,13 @@ def test_anchor_path_distinguishes_same_title_under_different_parents():
 def test_anchor_independent_of_sibling_position():
     """Reordering siblings must not shift any sibling's anchor."""
     a = make_anchor(3, ["Introduzione", "Conclusione"])
-    # Same chain, regardless of how many siblings exist before it in flat parse.
-    assert make_anchor(3, ["緒論", "結論"]) == a
+    # Same ancestor chain repeated — position-invariant by construction.
+    assert make_anchor(3, ["Introduzione", "Conclusione"]) == a
+    # CJK chain is a *different* chain, so it must differ (no implicit translation).
+    b = make_anchor(3, ["緒論", "結論"])
+    assert b != a  # different slugs → different anchors
+    # But repeating the CJK chain is stable.
+    assert make_anchor(3, ["緒論", "結論"]) == b
 
 
 def test_anchor_empty_title_falls_back():

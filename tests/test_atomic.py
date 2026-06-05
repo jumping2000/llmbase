@@ -36,7 +36,7 @@ def test_atomic_write_unicode(tmp_path):
     data = {"name": "孔子", "role": "哲学家"}
     atomic_write_json(path, data)
 
-    loaded = json.loads(path.read_text())
+    loaded = json.loads(path.read_text(encoding="utf-8"))
     assert loaded["name"] == "孔子"
 
 

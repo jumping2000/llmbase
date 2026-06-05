@@ -27,6 +27,12 @@ STOPWORDS: set[str] = {
 }
 _WORD_RE = re.compile(r"\w+", re.UNICODE)
 
+# CJK Unified Ideographs + common extensions (no external deps needed).
+_CJK_RE = re.compile(
+    r"[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff"
+    r"\u3040-\u309f\u30a0-\u30ff]"  # Hiragana + Katakana
+)
+
 
 def search(query: str, top_k: int = 10, base_dir: Path | None = None) -> list[dict]:
     """Search the wiki using TF-IDF-like scoring."""
@@ -291,6 +297,10 @@ def create_search_app(base_dir: Path | None = None):
 def _tokenize(text: str) -> list[str]:
     """Tokenize words using Unicode-aware word boundaries.
 
+    CJK text (Chinese/Japanese/Korean) is split into character bigrams so
+    that compound terms like "涅槃" can be matched even when they appear
+    inside a longer run without spaces (e.g. "偶尔提及涅槃一次").
+
     Downstream may override by setting module-level SEARCH_TOKENIZER to a callable.
     """
     if SEARCH_TOKENIZER is not None:
@@ -300,7 +310,14 @@ def _tokenize(text: str) -> list[str]:
     text_lower = text.lower()
 
     for w in _WORD_RE.findall(text_lower):
-        if w not in STOPWORDS and len(w) > 1:
+        if _CJK_RE.search(w):
+            # CJK run → emit bigrams (and unigrams for single-char words).
+            if len(w) == 1:
+                tokens.append(w)
+            else:
+                for i in range(len(w) - 1):
+                    tokens.append(w[i:i + 2])
+        elif w not in STOPWORDS and len(w) > 1:
             tokens.append(w)
 
     return tokens

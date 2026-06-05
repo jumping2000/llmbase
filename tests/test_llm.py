@@ -1,5 +1,9 @@
 """Tests for LLM utilities (extract_json, etc.)."""
 
+import sys
+
+import pytest
+
 from llmwiki.llm import extract_json
 
 
@@ -190,6 +194,7 @@ def test_load_env_explicit_override_empty_file_ok(tmp_path, monkeypatch):
     assert found == explicit.resolve()
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="XDG config path differs on Windows")
 def test_load_env_xdg_fallback(tmp_path, monkeypatch):
     """No CWD/.env but ~/.config/llmbase/.env exists → that wins."""
     _reset_llm_env(monkeypatch)

@@ -86,7 +86,7 @@ def test_chat_default_api_key_is_none():
 def test_chat_with_context_forwards_api_key():
     captured = {}
 
-    def fake_chat(prompt, system="", model=None, max_tokens=16384, api_key=None):
+    def fake_chat(prompt, system="", model=None, max_tokens=16384, api_key=None, **kwargs):
         captured["api_key"] = api_key
         return "ok"
 
@@ -104,7 +104,7 @@ def test_chat_with_context_forwards_api_key():
 def test_query_passes_api_key_through(tmp_kb):
     captured = {}
 
-    def fake_cwc(question, context_files, system="", model=None, max_tokens=16384, api_key=None):
+    def fake_cwc(question, context_files, system="", model=None, max_tokens=16384, api_key=None, **kwargs):
         captured["api_key"] = api_key
         return "ans"
 
@@ -126,11 +126,11 @@ def test_query_with_search_passes_api_key_to_selector_and_answer(tmp_kb):
     selector_keys = []
     answer_keys = []
 
-    def fake_chat(prompt, system="", model=None, max_tokens=16384, api_key=None):
+    def fake_chat(prompt, system="", model=None, max_tokens=16384, api_key=None, **kwargs):
         selector_keys.append(api_key)
         return "X"
 
-    def fake_cwc(question, context_files, system="", model=None, max_tokens=16384, api_key=None):
+    def fake_cwc(question, context_files, system="", model=None, max_tokens=16384, api_key=None, **kwargs):
         answer_keys.append(api_key)
         return "ans"
 

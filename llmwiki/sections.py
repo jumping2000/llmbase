@@ -39,6 +39,7 @@ _INVISIBLE_RE = re.compile(
 _PUNCT_RE = re.compile(
     r"[()\[\]:,.?!!"
     r"\u2014\u2013\u2015\u2026"  # — – ― …
+    r"\u300c\u300d\uff08\uff09"  # 「」（）
     r"\-_/\\.\s]+"
 )
 
