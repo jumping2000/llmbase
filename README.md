@@ -21,10 +21,6 @@ The repository currently targets English and Italian output across compilation, 
 pip install -r requirements.txt
 ```
 
-Optional runtime dependencies:
-- `flask` for the web UI and HTTP API
-- `requests` for URL ingest
-
 Frontend:
 
 ```bash
@@ -73,8 +69,9 @@ docker compose -f compose.build.yaml up -d --build
 If you run `docker compose up` in the foreground, stopping that process also stops the stack.
 In that case Docker may report `nginx exited with code 0`, which is a normal graceful shutdown rather than a proxy failure.
 
-The compose topology now starts three services: `nginx`, `llmbase`, and `llmbase-worker`.
+The compose topology starts four services: `nginx`, `llmbase`, `llmbase-worker`, and `llmbase-mcp`.
 The dedicated worker container keeps background jobs out of the Gunicorn web processes.
+The MCP service exposes the knowledge base to AI clients over the Model Context Protocol.
 
 If the secret contains `$`, escape it as `$$` in `.env` when using Docker Compose, otherwise Compose will try to interpolate it before the value reaches the container.
 
@@ -106,8 +103,17 @@ Ask and search:
 
 Maintenance:
 - `llmbase lint check`
+- `llmbase lint deep`
 - `llmbase lint fix`
+- `llmbase lint normalize-tags`
+- `llmbase lint clean`
+- `llmbase lint dedup`
 - `llmbase lint heal`
+
+Export:
+- `llmbase export article <slug>`
+- `llmbase export tag <tag>`
+- `llmbase export graph <slug> [--depth N]`
 
 Services:
 - `llmbase web`
