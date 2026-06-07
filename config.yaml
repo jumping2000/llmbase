@@ -34,8 +34,8 @@ lint:
 worker:
   enabled: true
   learn_interval_hours: 12
-  compile_interval_hours: 4
-  taxonomy_interval_hours: 24
+  compile_interval_hours: 8
+  taxonomy_interval_hours: 20
   health_check_interval_hours: 24
   learn_batch_size: 10
   # Reads seeds from wiki/_meta/seed-urls.json and tracks progress in

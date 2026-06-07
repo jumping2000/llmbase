@@ -36,12 +36,11 @@ services:
     networks:
       - llmbase-net
     volumes:
-      - ./nginx/default.conf.template:/etc/nginx/default.conf.template:ro
-      - ./nginx/.htpasswd:/etc/nginx/auth/.htpasswd:ro
-    command: /bin/sh -c "export MCP_HTTP_URL=$${MCP_HTTP_URL:-http://llmbase-mcp:$${MCP_HTTP_PORT:-8100}/mcp}; envsubst '$$MCP_API_KEY $$MCP_HTTP_URL' < /etc/nginx/default.conf.template > /etc/nginx/nginx.conf && nginx -g 'daemon off;'"
+      - ./nginx:/etc/nginx/custom:ro
+    command: /bin/sh -c "export MCP_HTTP_URL=$${MCP_HTTP_URL:-http://llmbase-mcp:$${MCP_HTTP_PORT:-8100}/mcp}; envsubst '$$MCP_API_KEY $$MCP_HTTP_URL' < /etc/nginx/custom/default.conf > /etc/nginx/nginx.conf && nginx -g 'daemon off;'"
 
   llmbase:
-    image: ghcr.io/jumping2000/llmbase:latest
+    image: ghcr.io/jumping2000/llmbase:0.8.9
     restart: unless-stopped
     expose:
       - "5555"
@@ -65,7 +64,7 @@ services:
       start_period: 20s
 
   llmbase-worker:
-    image: ghcr.io/jumping2000/llmbase:latest
+    image: ghcr.io/jumping2000/llmbase:0.8.9
     restart: unless-stopped
     command: ["python", "-m", "llmwiki.worker_main"]
     env_file: .env
@@ -79,7 +78,7 @@ services:
       - ./wiki:/app/wiki
 
   llmbase-mcp:
-    image: ghcr.io/jumping2000/llmbase:latest
+    image: ghcr.io/jumping2000/llmbase:0.8.9
     restart: unless-stopped
     command: ["llmbase", "mcp"]
     env_file: .env

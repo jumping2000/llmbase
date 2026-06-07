@@ -6,6 +6,70 @@ LLMBase is an LLM-assisted knowledge base that turns raw documents into a struct
 
 The repository currently targets English and Italian output across compilation, search, export, taxonomy, and guided-introduction flows.
 
+## Architecture
+
+```
++---------------------+  +---------------------+  +---------------------+
+|  Web UI (Frontend)  |  |  CLI (Click)        |  |  MCP Client         |
+|  llmbase web        |  |  llmbase ...        |  |  (stdio / HTTP)     |
++---------+-----------+  +---------+-----------+  +---------+-----------+
+          |                        | direct calls           |
+          v                        |                        |
++---------+-----------+            |                        |
+|  Nginx              |            |                        |
+|  Reverse Proxy      |            |                        |
+|  :80 (container)    |            |                        |
+|  :5555 (host)       |            |                        |
+|  /      -> :5555    |            |                        |
+|  /mcp   -> :8100    |            |                        |
++---------+-----------+            |                        |
+          |                        |                        |
+          v                        v                        v
++---------------------+  +---------------------+  +---------------------+
+|  Flask Web API      |  |  CLI handlers       |  |  MCP Server         |
+|  :5555 (Gunicorn)   |  |  (direct module     |  |  :8100              |
+|  Full REST API      |  |   calls)            |  |  stdio / HTTP       |
+|  (UI + CRUD + Lint) |  |                     |  |                     |
++----------+----------+  +----------+----------+  +----------+-----------+
+           |                        |                        |
+           | partial                | direct                 | full
+           v                        v                        v
++--------------------------------------------------------------------+
+|  Modules & Operations Registry                                     |
+|  operations.py  <- MCP + Agent API converge here                   |
+|  Direct module calls  <- Web API + CLI use these                   |
+|  (ingest, compile, search, query, lint, export, entities, xici)    |
++--------------------------------------------------------------------+
+           |
++------------+-----------+-----------+
+|            |           |           |
+v            v           v           v
++----------+ +----------+ +----------+ +----------+
+|  Ingest  | |  Compile | |  Search  | |  Query   |
+|  URL     | |  new     | |  (full-  | |  (LLM    |
+|  File    | |  all     | |   text)  | |   Q&A)   |
+|  PDF     | |  index   | |          | |          |
+|  Dir     | |          | |          | |          |
+|  Browse  | |          | |          | |          |
++----+-----+ +----+-----+ +----+-----+ +----+-----+
+     |            |            |            |
+     v            v            v            v
++--------------------------------------------------------------------+
+|  Storage                                                           |
+|  wiki/ (articles) | wiki/_meta/ (index, taxonomy, aliases,         |
+|                   |   backlinks, seed-urls, llm-usage, trails)     |
++--------------------------------------------------------------------+
+```
+
+> **Note:** The CLI calls modules directly — it does not go through Gunicorn or the HTTP layer.
+> `operations.py` is the convergence point for MCP and Agent API; Web API and CLI call modules directly.
+> The Worker (`llmbase-worker`) and MCP (`llmbase-mcp`) are separate Docker services (see `compose.build.yaml`).
+>
+> **Connection modes:**
+> - **partial** — Web API: some routes use `operations.py` (`/api/ask`, `/api/ingest`), others call modules directly (`/api/search`, `/api/lint`, `/api/taxonomy`).
+> - **direct** — CLI: imports and calls module functions directly (e.g. `ingest_url()`, `compile_new()`, `search()`), no HTTP involved.
+> - **full** — MCP Server: every tool call goes through `ops.dispatch()`, `operations.py` is the only entry point.
+
 ## What it does
 
 1. Ingest raw material from URLs, local files, PDFs, or directories.
