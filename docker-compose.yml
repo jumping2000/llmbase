@@ -24,7 +24,6 @@ services:
     depends_on:
       llmbase:
         condition: service_healthy
-    env_file: .env
     ports:
       - 5555:80
     security_opt:
@@ -32,11 +31,11 @@ services:
     networks:
       - llmbase-net
     volumes:
-      - ./nginx:/etc/nginx/custom:ro
-    command: /bin/sh -c "envsubst '$$MCP_API_KEY' < /etc/nginx/custom/default.conf > /etc/nginx/nginx.conf && nginx -g 'daemon off;'"
+      - ./nginx/default.conf:/etc/nginx/nginx.conf:ro
+    command: nginx -g 'daemon off;'
 
   llmbase:
-    image: ghcr.io/jumping2000/llmbase:0.8.9
+    image: ghcr.io/jumping2000/llmbase:latest
     restart: unless-stopped
     expose:
       - "5555"
@@ -60,7 +59,7 @@ services:
       start_period: 20s
 
   llmbase-worker:
-    image: ghcr.io/jumping2000/llmbase:0.8.9
+    image: ghcr.io/jumping2000/llmbase:latest
     restart: unless-stopped
     command: ["python", "-m", "llmwiki.worker_main"]
     env_file: .env
