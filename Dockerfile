@@ -10,11 +10,11 @@ WORKDIR /app
 
 # Install Python dependencies
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt gunicorn
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy backend
 COPY llmwiki/ ./llmwiki/
-COPY pyproject.toml llmbase.py wsgi.py ./
+COPY pyproject.toml llmbase.py wsgi.py asgi.py ./
 RUN pip install --no-cache-dir -e .
 
 # Copy built frontend
@@ -26,5 +26,5 @@ RUN mkdir -p raw wiki/_meta wiki/concepts wiki/outputs
 # Expose port
 EXPOSE 5555
 
-# Use gunicorn for production
-CMD ["gunicorn", "--bind", "0.0.0.0:5555", "--workers", "2", "--timeout", "300", "wsgi:app"]
+# Use uvicorn for unified ASGI (Flask + MCP)
+CMD ["uvicorn", "--host", "0.0.0.0", "--port", "5555", "--workers", "2", "--timeout-keep-alive", "300", "asgi:app"]

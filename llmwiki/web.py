@@ -8,7 +8,7 @@ from functools import wraps
 from pathlib import Path
 
 import frontmatter
-from flask import Flask, current_app, request, jsonify, send_from_directory
+from flask import Flask, current_app, jsonify, request, send_from_directory
 
 
 def _kb_etag(meta_dir: Path, extra: str = "") -> tuple[str | None, str | None]:
@@ -50,7 +50,9 @@ def _cache_control_value(max_age: int) -> str:
     return f"public, max-age={max_age}" if max_age and max_age > 0 else "no-cache"
 
 
-def _apply_kb_cache_headers(resp, etag: str | None, last_mod: str | None, *, max_age: int = 0):
+def _apply_kb_cache_headers(
+    resp, etag: str | None, last_mod: str | None, *, max_age: int = 0
+):
     if etag:
         resp.headers["ETag"] = etag
         if last_mod:
@@ -62,6 +64,7 @@ def _apply_kb_cache_headers(resp, etag: str | None, last_mod: str | None, *, max
 def _not_modified(etag: str, last_mod: str | None, *, max_age: int = 0):
     """Return a 304 carrying the validators (RFC 7232 §4.1)."""
     from flask import make_response
+
     resp = make_response("", 304)
     resp.headers["ETag"] = etag
     if last_mod:
@@ -73,6 +76,7 @@ def _not_modified(etag: str, last_mod: str | None, *, max_age: int = 0):
 def _lite_cache_max_age() -> int:
     """Read LLMBASE_LITE_CACHE_MAX_AGE; clamp to ≥0; bad values fall back to 0 (no-cache)."""
     import os
+
     raw = os.environ.get("LLMBASE_LITE_CACHE_MAX_AGE", "0")
     try:
         n = int(raw)
@@ -110,12 +114,13 @@ def _normalize_tags(value) -> list[str]:
         return [str(t) for t in value]
     return [str(value)]
 
-from .config import load_config, ensure_dirs
-from .search import search
-from .query import query, query_with_search
-from .ingest import ingest_url, list_raw
-from .compile import compile_new, rebuild_index
+
+from .compile import rebuild_index
+from .config import load_config
+from .ingest import list_raw
 from .lint import lint
+from .query import query
+from .search import search
 
 
 def derive_session_token(secret: str) -> str:
@@ -130,6 +135,7 @@ def derive_session_token(secret: str) -> str:
     if not secret:
         return ""
     import hashlib
+
     return hashlib.sha256(f"session:{secret}".encode()).hexdigest()[:48]
 
 
@@ -185,7 +191,7 @@ def _parse_bearer(raw: str) -> str:
     """
     if not raw.startswith("Bearer "):
         return ""
-    return raw[len("Bearer "):].strip()
+    return raw[len("Bearer ") :].strip()
 
 
 def require_auth(f):
@@ -205,6 +211,7 @@ def require_auth(f):
         def my_handler():
             ...
     """
+
     @wraps(f)
     def decorated(*args, **kwargs):
         llm_cfg = current_app.config.get("llmbase", {})
@@ -214,10 +221,12 @@ def require_auth(f):
             return f(*args, **kwargs)
         auth = _parse_bearer(request.headers.get("Authorization", ""))
         cookie = request.cookies.get("llmbase_auth", "")
-        if (auth and hmac.compare_digest(auth, api_secret)) or \
-                hmac.compare_digest(cookie, session_token):
+        if (auth and hmac.compare_digest(auth, api_secret)) or hmac.compare_digest(
+            cookie, session_token
+        ):
             return f(*args, **kwargs)
         return jsonify({"status": "error", "message": "Unauthorized"}), 401
+
     return decorated
 
 
@@ -241,8 +250,10 @@ def create_web_app(base_dir: Path | None = None):
             static_dir.relative_to(base.resolve())
         except ValueError:
             import logging as _log
+
             _log.getLogger("llmbase.web").warning(
-                f"web.static_dir '{static_dir}' is outside project root, ignoring")
+                f"web.static_dir '{static_dir}' is outside project root, ignoring"
+            )
             static_dir = base / "static" / "dist"
     else:
         static_dir = base / "static" / "dist"
@@ -254,10 +265,14 @@ def create_web_app(base_dir: Path | None = None):
     API_SECRET = os.getenv("LLMBASE_API_SECRET", "")
     if not API_SECRET and os.getenv("PORT"):
         import secrets
+
         API_SECRET = secrets.token_urlsafe(32)
         os.environ["LLMBASE_API_SECRET"] = API_SECRET
         import logging
-        logging.getLogger("llmbase.auth").info(f"Auto-generated API secret: {API_SECRET[:8]}...")
+
+        logging.getLogger("llmbase.auth").info(
+            f"Auto-generated API secret: {API_SECRET[:8]}..."
+        )
 
     # Generate a session token derived from the secret (never expose the secret itself)
     SESSION_TOKEN = derive_session_token(API_SECRET)
@@ -289,15 +304,19 @@ def create_web_app(base_dir: Path | None = None):
     def api_branding():
         cfg = load_config(base)
         branding = cfg.get("branding", {})
-        return jsonify({
-            "name": branding.get("name", "LLMBase"),
-            "nameShort": branding.get("name_short", "L"),
-            "tagline": branding.get("tagline", "Knowledge Base"),
-            "poweredBy": {
-                "label": branding.get("powered_by_label", "Powered by LLMBase"),
-                "url": branding.get("powered_by_url", "https://github.com/Hosuke/llmbase"),
-            },
-        })
+        return jsonify(
+            {
+                "name": branding.get("name", "LLMBase"),
+                "nameShort": branding.get("name_short", "L"),
+                "tagline": branding.get("tagline", "Knowledge Base"),
+                "poweredBy": {
+                    "label": branding.get("powered_by_label", "Powered by LLMBase"),
+                    "url": branding.get(
+                        "powered_by_url", "https://github.com/Hosuke/llmbase"
+                    ),
+                },
+            }
+        )
 
     @app.route("/api/stats")
     def api_stats():
@@ -307,8 +326,12 @@ def create_web_app(base_dir: Path | None = None):
         outputs_dir = Path(cfg["paths"]["outputs"])
 
         raw_count = len(list(raw_dir.glob("*"))) if raw_dir.exists() else 0
-        article_count = len(list(concepts_dir.glob("*.md"))) if concepts_dir.exists() else 0
-        output_count = len(list(outputs_dir.glob("*.md"))) if outputs_dir.exists() else 0
+        article_count = (
+            len(list(concepts_dir.glob("*.md"))) if concepts_dir.exists() else 0
+        )
+        output_count = (
+            len(list(outputs_dir.glob("*.md"))) if outputs_dir.exists() else 0
+        )
 
         total_words = 0
         if concepts_dir.exists():
@@ -317,9 +340,10 @@ def create_web_app(base_dir: Path | None = None):
 
         # Count wiki-links
         import re
+
         link_count = 0
         if concepts_dir.exists():
-            link_re = re.compile(r'\[\[[^\]]+\]\]')
+            link_re = re.compile(r"\[\[[^\]]+\]\]")
             for f in concepts_dir.glob("*.md"):
                 link_count += len(link_re.findall(f.read_text()))
 
@@ -335,19 +359,22 @@ def create_web_app(base_dir: Path | None = None):
         except Exception:
             health_score = 0
 
-        return jsonify({
-            "raw_count": raw_count,
-            "article_count": article_count,
-            "output_count": output_count,
-            "total_words": total_words,
-            "link_count": link_count,
-            "health_score": health_score,
-        })
+        return jsonify(
+            {
+                "raw_count": raw_count,
+                "article_count": article_count,
+                "output_count": output_count,
+                "total_words": total_words,
+                "link_count": link_count,
+                "health_score": health_score,
+            }
+        )
 
     @app.route("/api/llm/usage/summary")
     @require_auth
     def api_llm_usage_summary():
         from . import operations as _ops
+
         payload = {
             "last": request.args.get("last") or None,
             "from_ts": request.args.get("from") or None,
@@ -362,6 +389,7 @@ def create_web_app(base_dir: Path | None = None):
     @require_auth
     def api_llm_usage_recent():
         from . import operations as _ops
+
         limit = request.args.get("limit", default=10, type=int) or 10
         payload = {
             "limit": max(1, limit),
@@ -378,6 +406,7 @@ def create_web_app(base_dir: Path | None = None):
     def api_taxonomy():
         """Get hierarchical category taxonomy. ?lang=en|it|en-it"""
         from .taxonomy import build_taxonomy
+
         cfg = load_config(base)
         meta_dir = Path(cfg["paths"]["meta"])
         lang = request.args.get("lang", "en-it")
@@ -427,13 +456,19 @@ def create_web_app(base_dir: Path | None = None):
         configured = cfg.get("collections", {})
         result = []
         for tag in sorted(collections.keys()):
-            label = configured.get(tag, {}).get("label", tag.title()) if isinstance(configured.get(tag), dict) else tag.title()
-            result.append({
-                "id": tag,
-                "label": label,
-                "count": len(collections[tag]),
-                "articles": collections[tag],
-            })
+            label = (
+                configured.get(tag, {}).get("label", tag.title())
+                if isinstance(configured.get(tag), dict)
+                else tag.title()
+            )
+            result.append(
+                {
+                    "id": tag,
+                    "label": label,
+                    "count": len(collections[tag]),
+                    "articles": collections[tag],
+                }
+            )
 
         return jsonify({"collections": result})
 
@@ -459,7 +494,9 @@ def create_web_app(base_dir: Path | None = None):
             except (TypeError, ValueError):
                 return jsonify({"status": "error", "message": "limit must be int"}), 400
             if limit < 1 or limit > 1000:
-                return jsonify({"status": "error", "message": "limit must be 1..1000"}), 400
+                return jsonify(
+                    {"status": "error", "message": "limit must be 1..1000"}
+                ), 400
 
         # ETag derived from concepts/*.md directly (not index.json) — articles
         # are served from disk, so direct edits between rebuilds must invalidate
@@ -493,12 +530,14 @@ def create_web_app(base_dir: Path | None = None):
             arts = []
             for md_file in all_md:
                 post = frontmatter.load(str(md_file))
-                arts.append({
-                    "slug": md_file.stem,
-                    "title": post.metadata.get("title", md_file.stem),
-                    "summary": post.metadata.get("summary", ""),
-                    "tags": post.metadata.get("tags", []),
-                })
+                arts.append(
+                    {
+                        "slug": md_file.stem,
+                        "title": post.metadata.get("title", md_file.stem),
+                        "summary": post.metadata.get("summary", ""),
+                        "tags": post.metadata.get("tags", []),
+                    }
+                )
             resp = jsonify({"articles": arts})
             return _apply_kb_cache_headers(resp, etag, last_mod)
 
@@ -518,7 +557,8 @@ def create_web_app(base_dir: Path | None = None):
                     continue
             if q:
                 blob = (
-                    str(post.metadata.get("title", "")) + " "
+                    str(post.metadata.get("title", ""))
+                    + " "
                     + str(post.metadata.get("summary", ""))
                 ).lower()
                 if q.lower() not in blob:
@@ -545,13 +585,15 @@ def create_web_app(base_dir: Path | None = None):
 
         next_cursor = collected[-1][0].stem if has_more else None
 
-        resp = jsonify({
-            "articles": articles,
-            "total": total,
-            "count": len(articles),
-            "next_cursor": next_cursor,
-            "filters": {"tag": tag, "q": q},
-        })
+        resp = jsonify(
+            {
+                "articles": articles,
+                "total": total,
+                "count": len(articles),
+                "next_cursor": next_cursor,
+                "filters": {"tag": tag, "q": q},
+            }
+        )
         return _apply_kb_cache_headers(resp, etag, last_mod)
 
     @app.route("/api/articles/lite")
@@ -615,6 +657,7 @@ def create_web_app(base_dir: Path | None = None):
     def api_article_sections(slug):
         from .resolve import load_aliases, resolve_link
         from .sections import parse_sections
+
         cfg = load_config(base)
         concepts_dir = Path(cfg["paths"]["concepts"])
         meta_dir = Path(cfg["paths"]["meta"])
@@ -630,18 +673,23 @@ def create_web_app(base_dir: Path | None = None):
                     return jsonify({"status": "error", "message": "Invalid slug"}), 400
                 slug = resolved
         if article_path is None or not article_path.exists():
-            return jsonify({"status": "error", "message": f"Article not found: {slug}"}), 404
+            return jsonify(
+                {"status": "error", "message": f"Article not found: {slug}"}
+            ), 404
         post = frontmatter.load(str(article_path))
-        return jsonify({
-            "status": "ok",
-            "slug": slug,
-            "title": post.metadata.get("title", slug),
-            "sections": parse_sections(post.content),
-        })
+        return jsonify(
+            {
+                "status": "ok",
+                "slug": slug,
+                "title": post.metadata.get("title", slug),
+                "sections": parse_sections(post.content),
+            }
+        )
 
     @app.route("/api/articles/<path:slug>")
     def api_article(slug):
         from .resolve import load_aliases, resolve_link
+
         cfg = load_config(base)
         concepts_dir = Path(cfg["paths"]["concepts"])
         meta_dir = Path(cfg["paths"]["meta"])
@@ -657,7 +705,9 @@ def create_web_app(base_dir: Path | None = None):
                     return jsonify({"status": "error", "message": "Invalid slug"}), 400
                 slug = resolved
         if article_path is None or not article_path.exists():
-            return jsonify({"status": "error", "message": f"Article not found: {slug}"}), 404
+            return jsonify(
+                {"status": "error", "message": f"Article not found: {slug}"}
+            ), 404
         post = frontmatter.load(str(article_path))
         # Sanitize source URLs (only allow http/https)
         sources = post.metadata.get("sources", [])
@@ -668,16 +718,18 @@ def create_web_app(base_dir: Path | None = None):
                 src = {**src, "url": ""}
             safe_sources.append(src)
 
-        return jsonify({
-            "status": "ok",
-            "slug": slug,
-            "title": post.metadata.get("title", slug),
-            "summary": post.metadata.get("summary", ""),
-            "tags": post.metadata.get("tags", []),
-            "sources": safe_sources,
-            "content": post.content,
-            "backlinks": _get_backlinks(cfg, slug),
-        })
+        return jsonify(
+            {
+                "status": "ok",
+                "slug": slug,
+                "title": post.metadata.get("title", slug),
+                "summary": post.metadata.get("summary", ""),
+                "tags": post.metadata.get("tags", []),
+                "sources": safe_sources,
+                "content": post.content,
+                "backlinks": _get_backlinks(cfg, slug),
+            }
+        )
 
     def _get_backlinks(cfg, slug):
         """Get articles that link to this slug, with titles."""
@@ -705,6 +757,7 @@ def create_web_app(base_dir: Path | None = None):
     @app.route("/api/aliases")
     def api_aliases():
         from .resolve import load_aliases
+
         cfg = load_config(base)
         aliases = load_aliases(Path(cfg["paths"]["meta"]))
         return jsonify({"aliases": aliases})
@@ -714,6 +767,7 @@ def create_web_app(base_dir: Path | None = None):
     @app.route("/api/export/article/<path:slug>")
     def api_export_article(slug):
         from .export import export_article
+
         result = export_article(slug, base)
         if not result:
             return jsonify({"status": "error", "message": "Not found"}), 404
@@ -722,21 +776,26 @@ def create_web_app(base_dir: Path | None = None):
     @app.route("/api/export/tag/<tag>")
     def api_export_tag(tag):
         from .export import export_by_tag
+
         return jsonify(export_by_tag(tag, base))
 
     @app.route("/api/export/graph/<path:slug>")
     def api_export_graph(slug):
         from .export import export_graph
+
         try:
             depth = max(0, min(int(request.args.get("depth", 2)), 5))
         except (ValueError, TypeError):
-            return jsonify({"status": "error", "message": "depth must be integer 0-5"}), 400
+            return jsonify(
+                {"status": "error", "message": "depth must be integer 0-5"}
+            ), 400
         return jsonify(export_graph(slug, depth, base))
 
     @app.route("/api/entities")
     def api_entities():
         """Return extracted entities (people, events, places)."""
         from .entities import get_entities
+
         return jsonify(get_entities(base))
 
     @app.route("/api/entities/extract", methods=["POST"])
@@ -744,6 +803,7 @@ def create_web_app(base_dir: Path | None = None):
     def api_extract_entities():
         """Trigger entity extraction."""
         from .entities import extract_entities
+
         result = extract_entities(base)
         return jsonify(result)
 
@@ -751,6 +811,7 @@ def create_web_app(base_dir: Path | None = None):
     def api_ref_plugins():
         """List available reference source plugins."""
         from .refs import list_plugins
+
         return jsonify({"plugins": list_plugins()})
 
     # ─── Research Trails ──────────────────────────────────────
@@ -767,6 +828,7 @@ def create_web_app(base_dir: Path | None = None):
 
     def _save_trails(data):
         from .atomic import atomic_write_json
+
         cfg = load_config(base)
         path = Path(cfg["paths"]["meta"]) / "trails.json"
         atomic_write_json(path, data)
@@ -778,6 +840,7 @@ def create_web_app(base_dir: Path | None = None):
         return jsonify(_load_trails())
 
     import threading as _threading
+
     _trail_lock = _threading.Lock()
 
     @app.route("/api/trails", methods=["POST"])
@@ -786,6 +849,7 @@ def create_web_app(base_dir: Path | None = None):
         """Add a step to a trail (or create a new trail)."""
         import uuid
         from datetime import datetime, timezone
+
         data = request.get_json(silent=True) or {}
         step = data.get("step")
         if step and not isinstance(step, dict):
@@ -806,7 +870,9 @@ def create_web_app(base_dir: Path | None = None):
                     trail["steps"].append(step)
                     trail["updated"] = now
                 else:
-                    return jsonify({"status": "error", "message": "Trail not found"}), 404
+                    return jsonify(
+                        {"status": "error", "message": "Trail not found"}
+                    ), 404
             else:
                 # Create new trail
                 trail = {
@@ -828,7 +894,9 @@ def create_web_app(base_dir: Path | None = None):
         """Delete a research trail."""
         with _trail_lock:
             trails_data = _load_trails()
-            trails_data["trails"] = [t for t in trails_data.get("trails", []) if t["id"] != trail_id]
+            trails_data["trails"] = [
+                t for t in trails_data.get("trails", []) if t["id"] != trail_id
+            ]
             _save_trails(trails_data)
         return jsonify({"status": "ok"})
 
@@ -836,6 +904,7 @@ def create_web_app(base_dir: Path | None = None):
     def api_xici():
         """Get the cached Xi Ci (guided introduction). ?lang=en|it|en-it"""
         from .xici import get_xici
+
         lang = request.args.get("lang", "en-it")
         return jsonify(get_xici(base, lang))
 
@@ -844,6 +913,7 @@ def create_web_app(base_dir: Path | None = None):
     def api_xici_generate():
         """Regenerate Xi Ci for a given language."""
         from .xici import generate_xici
+
         data = request.json or {}
         lang = data.get("lang", "en-it")
         result = generate_xici(base, lang)
@@ -865,10 +935,10 @@ def create_web_app(base_dir: Path | None = None):
     # so ``api_key`` / ``apiKey`` / ``API-KEY`` / ``x-llm-key`` are all
     # caught by the same canonical-name check below.
     _API_KEY_BODY_FRAGMENTS = (
-        "apikey",        # api_key, apiKey, api-key, API_KEY, …
-        "xllmkey",       # x-llm-key, x_llm_key, X-LLM-Key
+        "apikey",  # api_key, apiKey, api-key, API_KEY, …
+        "xllmkey",  # x-llm-key, x_llm_key, X-LLM-Key
         "openaiapikey",  # openai_api_key, OpenAI-API-Key
-        "llmkey",        # llm_key, llmKey
+        "llmkey",  # llm_key, llmKey
     )
 
     def _looks_like_api_key_field(name: str) -> bool:
@@ -907,13 +977,15 @@ def create_web_app(base_dir: Path | None = None):
         # Codex review flagged top-level-only as a bypass.
         bad_field = _find_api_key_field(data)
         if bad_field is not None:
-            return jsonify({
-                "status": "error",
-                "message": (
-                    f"'{bad_field}' is not accepted in the request body; "
-                    "use the X-LLM-Key header instead"
-                ),
-            }), 400
+            return jsonify(
+                {
+                    "status": "error",
+                    "message": (
+                        f"'{bad_field}' is not accepted in the request body; "
+                        "use the X-LLM-Key header instead"
+                    ),
+                }
+            ), 400
         q = data.get("question", "")
         deep = data.get("deep", False)
         file_back = data.get("file_back", True)
@@ -925,7 +997,9 @@ def create_web_app(base_dir: Path | None = None):
         model: str | None = None
         if raw_model is not None:
             if not isinstance(raw_model, str):
-                return jsonify({"status": "error", "message": "model must be a string"}), 400
+                return jsonify(
+                    {"status": "error", "message": "model must be a string"}
+                ), 400
             raw_model = raw_model.strip()
             if len(raw_model) > 200:
                 return jsonify({"status": "error", "message": "model too long"}), 400
@@ -940,7 +1014,9 @@ def create_web_app(base_dir: Path | None = None):
         if raw_api_key:
             raw_api_key = raw_api_key.strip()
             if len(raw_api_key) > 500:
-                return jsonify({"status": "error", "message": "X-LLM-Key too long"}), 400
+                return jsonify(
+                    {"status": "error", "message": "X-LLM-Key too long"}
+                ), 400
             api_key = raw_api_key or None
         # Model override is a cost-impacting lever on public deployments —
         # untrusted callers could pin the most expensive model available to
@@ -953,10 +1029,12 @@ def create_web_app(base_dir: Path | None = None):
             if allowlist_raw:
                 allowed = {m.strip() for m in allowlist_raw.split(",") if m.strip()}
                 if model not in allowed:
-                    return jsonify({
-                        "status": "error",
-                        "message": f"model '{model}' not in LLMBASE_MODEL_ALLOWLIST",
-                    }), 400
+                    return jsonify(
+                        {
+                            "status": "error",
+                            "message": f"model '{model}' not in LLMBASE_MODEL_ALLOWLIST",
+                        }
+                    ), 400
         auth_header = _parse_bearer(request.headers.get("Authorization", ""))
         auth_cookie = request.cookies.get("llmbase_auth", "")
         # Two auth levels: the SPA-convenience cookie (minted for anyone who
@@ -973,17 +1051,25 @@ def create_web_app(base_dir: Path | None = None):
             (bool(auth_header) and hmac.compare_digest(auth_header, API_SECRET))
             or hmac.compare_digest(auth_cookie, SESSION_TOKEN)
         )
-        authed_strong = bool(API_SECRET) and bool(auth_header) and hmac.compare_digest(auth_header, API_SECRET)
+        authed_strong = (
+            bool(API_SECRET)
+            and bool(auth_header)
+            and hmac.compare_digest(auth_header, API_SECRET)
+        )
         if promote and API_SECRET and not authed_cookie:
-            return jsonify({
-                "status": "error",
-                "message": "promote=true requires authentication",
-            }), 401
+            return jsonify(
+                {
+                    "status": "error",
+                    "message": "promote=true requires authentication",
+                }
+            ), 401
         if model is not None and API_SECRET and not authed_strong:
-            return jsonify({
-                "status": "error",
-                "message": "model override requires Authorization: Bearer <API_SECRET>",
-            }), 401
+            return jsonify(
+                {
+                    "status": "error",
+                    "message": "model override requires Authorization: Bearer <API_SECRET>",
+                }
+            ), 401
         # X-LLM-Key is a cost + identity lever (caller-funded LLM bills,
         # potential per-tenant personas). On public deployments
         # (LLMBASE_API_SECRET set) require the raw API secret via
@@ -991,14 +1077,17 @@ def create_web_app(base_dir: Path | None = None):
         # (no API_SECRET) the header is honoured without auth, matching
         # /api/ingest's policy.
         if api_key is not None and API_SECRET and not authed_strong:
-            return jsonify({
-                "status": "error",
-                "message": "X-LLM-Key requires Authorization: Bearer <API_SECRET>",
-            }), 401
+            return jsonify(
+                {
+                    "status": "error",
+                    "message": "X-LLM-Key requires Authorization: Bearer <API_SECRET>",
+                }
+            ), 401
         if deep:
             # Route through operations.dispatch so promote=True acquires the
             # shared job_lock (same behavior as MCP / CLI / agent-HTTP).
             from . import operations as _ops
+
             ask_args = {
                 "question": q,
                 "tone": tone,
@@ -1042,6 +1131,7 @@ def create_web_app(base_dir: Path | None = None):
     def api_tones():
         """List available response tone modes."""
         from .query import TONE_INSTRUCTIONS
+
         tones = [
             {"id": "default", "label": "Default", "icon": "chat"},
             {"id": "caveman", "label": "Caveman", "icon": "pets"},
@@ -1070,26 +1160,35 @@ def create_web_app(base_dir: Path | None = None):
         _HARD_CEILING = 500_000
         raw_max = cfg.get("sources", {}).get("max_content_chars", 50000)
         try:
-            max_chars = min(max(0, int(raw_max)), _HARD_CEILING) if raw_max is not None else _HARD_CEILING
+            max_chars = (
+                min(max(0, int(raw_max)), _HARD_CEILING)
+                if raw_max is not None
+                else _HARD_CEILING
+            )
         except (TypeError, ValueError):
             max_chars = 50000
         content = post.content[:max_chars]
-        return jsonify({
-            "slug": slug,
-            "title": post.metadata.get("title", slug),
-            "type": post.metadata.get("type", "unknown"),
-            "compiled": post.metadata.get("compiled", False),
-            "content": content,
-            "metadata": {k: str(v) for k, v in post.metadata.items()},
-        })
+        return jsonify(
+            {
+                "slug": slug,
+                "title": post.metadata.get("title", slug),
+                "type": post.metadata.get("type", "unknown"),
+                "compiled": post.metadata.get("compiled", False),
+                "content": content,
+                "metadata": {k: str(v) for k, v in post.metadata.items()},
+            }
+        )
 
     @app.route("/api/ingest", methods=["POST"])
     @require_auth
     def api_ingest():
         from . import operations as _ops
+
         data = request.json or {}
         try:
-            result = _ops.dispatch("kb_ingest", base, {"source": data.get("source", "")})
+            result = _ops.dispatch(
+                "kb_ingest", base, {"source": data.get("source", "")}
+            )
         except RuntimeError as e:
             return jsonify({"status": "busy", "error": str(e)}), 409
         except ValueError as e:
@@ -1100,9 +1199,12 @@ def create_web_app(base_dir: Path | None = None):
     @require_auth
     def api_ingest_browser():
         from . import operations as _ops
+
         data = request.json or {}
         try:
-            result = _ops.dispatch("kb_ingest_browser", base, {"source": data.get("source", "")})
+            result = _ops.dispatch(
+                "kb_ingest_browser", base, {"source": data.get("source", "")}
+            )
         except RuntimeError as e:
             return jsonify({"status": "busy", "error": str(e)}), 409
         except ValueError as e:
@@ -1127,6 +1229,7 @@ def create_web_app(base_dir: Path | None = None):
         raw_dir.mkdir(parents=True, exist_ok=True)
 
         import tempfile
+
         uploaded = []
         failed = []
 
@@ -1139,7 +1242,9 @@ def create_web_app(base_dir: Path | None = None):
             ext = Path(f.filename).suffix.lower()
 
             try:
-                with tempfile.NamedTemporaryFile(delete=False, suffix=ext, dir=str(raw_dir)) as tmp:
+                with tempfile.NamedTemporaryFile(
+                    delete=False, suffix=ext, dir=str(raw_dir)
+                ) as tmp:
                     f.save(tmp)
                     tmp_path = tmp.name
 
@@ -1152,33 +1257,39 @@ def create_web_app(base_dir: Path | None = None):
                         base_dir=base,
                         original_name=f.filename,
                     )
-                    uploaded.append({
-                        "filename": f.filename,
-                        "type": "pdf",
-                        "chunks": len(paths),
-                        "paths": [str(p) for p in paths],
-                    })
+                    uploaded.append(
+                        {
+                            "filename": f.filename,
+                            "type": "pdf",
+                            "chunks": len(paths),
+                            "paths": [str(p) for p in paths],
+                        }
+                    )
                 else:
                     from .ingest import ingest_file
 
                     path = ingest_file(tmp_path, base, original_name=f.filename)
-                    uploaded.append({
-                        "filename": f.filename,
-                        "type": ext.lstrip(".") or "file",
-                        "path": str(path),
-                    })
+                    uploaded.append(
+                        {
+                            "filename": f.filename,
+                            "type": ext.lstrip(".") or "file",
+                            "path": str(path),
+                        }
+                    )
             except Exception as e:
                 failed.append({"filename": f.filename, "error": str(e)})
             finally:
                 if tmp_path:
                     Path(tmp_path).unlink(missing_ok=True)
 
-        return jsonify({
-            "status": "ok" if not failed else "partial",
-            "uploaded": uploaded,
-            "failed": failed,
-            "total_files": len(files),
-        })
+        return jsonify(
+            {
+                "status": "ok" if not failed else "partial",
+                "uploaded": uploaded,
+                "failed": failed,
+                "total_files": len(files),
+            }
+        )
 
     @app.route("/api/articles/<slug>", methods=["DELETE"])
     @require_auth
@@ -1224,14 +1335,20 @@ def create_web_app(base_dir: Path | None = None):
         """Upload a new taxonomy.json. Automatically locked to prevent worker overwrite."""
         data = request.json
         if not data or "categories" not in data:
-            return jsonify({"status": "error", "message": "Provide {categories: [...]}"})
+            return jsonify(
+                {"status": "error", "message": "Provide {categories: [...]}"}
+            )
         data["locked"] = True  # Prevent worker from overwriting
         cfg = load_config(base)
         meta_dir = Path(cfg["paths"]["meta"])
         meta_dir.mkdir(parents=True, exist_ok=True)
         path = meta_dir / "taxonomy.json"
-        path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
-        return jsonify({"status": "ok", "categories": len(data["categories"]), "locked": True})
+        path.write_text(
+            json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8"
+        )
+        return jsonify(
+            {"status": "ok", "categories": len(data["categories"]), "locked": True}
+        )
 
     @app.route("/api/worker/status")
     @require_auth
@@ -1248,6 +1365,7 @@ def create_web_app(base_dir: Path | None = None):
         without ``API_SECRET`` the decorator is a no-op (dev mode).
         """
         from .worker import job_lock
+
         busy = job_lock.locked()
         return jsonify({"busy": busy})
 
@@ -1280,6 +1398,7 @@ def create_web_app(base_dir: Path | None = None):
         import logging
         import threading
         from datetime import datetime, timezone
+
         from . import operations as _ops
         from .worker import job_lock
 
@@ -1287,7 +1406,9 @@ def create_web_app(base_dir: Path | None = None):
         full = bool(data.get("full", False))
 
         if not job_lock.acquire(blocking=False):
-            return jsonify({"status": "busy", "error": "another write operation is running"}), 409
+            return jsonify(
+                {"status": "busy", "error": "another write operation is running"}
+            ), 409
 
         def persist_result(payload: dict) -> None:
             _compile_status_path().write_text(
@@ -1296,11 +1417,13 @@ def create_web_app(base_dir: Path | None = None):
             )
 
         started_at = datetime.now(timezone.utc).isoformat()
-        persist_result({
-            "status": "running",
-            "full": full,
-            "started_at": started_at,
-        })
+        persist_result(
+            {
+                "status": "running",
+                "full": full,
+                "started_at": started_at,
+            }
+        )
 
         def run_compile() -> None:
             logger = logging.getLogger("llmbase.compile")
@@ -1310,14 +1433,16 @@ def create_web_app(base_dir: Path | None = None):
                     raise KeyError("unknown operation: kb_compile")
                 logger.info("[compile] Starting background compile (full=%s)", full)
                 result = op.handler(base, full=full)
-                persist_result({
-                    "status": "completed",
-                    "full": full,
-                    "articles_created": result.get("articles_created", 0),
-                    "articles": result.get("articles", []),
-                    "started_at": started_at,
-                    "finished_at": datetime.now(timezone.utc).isoformat(),
-                })
+                persist_result(
+                    {
+                        "status": "completed",
+                        "full": full,
+                        "articles_created": result.get("articles_created", 0),
+                        "articles": result.get("articles", []),
+                        "started_at": started_at,
+                        "finished_at": datetime.now(timezone.utc).isoformat(),
+                    }
+                )
                 logger.info(
                     "[compile] Background compile finished (%s article(s))",
                     result.get("articles_created", 0),
@@ -1325,13 +1450,15 @@ def create_web_app(base_dir: Path | None = None):
             except BaseException as exc:
                 logger.exception("[compile] Background compile failed")
                 try:
-                    persist_result({
-                        "status": "failed",
-                        "full": full,
-                        "error": str(exc),
-                        "started_at": started_at,
-                        "finished_at": datetime.now(timezone.utc).isoformat(),
-                    })
+                    persist_result(
+                        {
+                            "status": "failed",
+                            "full": full,
+                            "error": str(exc),
+                            "started_at": started_at,
+                            "finished_at": datetime.now(timezone.utc).isoformat(),
+                        }
+                    )
                 except Exception:
                     logger.exception("[compile] Failed to persist compile status")
             finally:
@@ -1341,31 +1468,38 @@ def create_web_app(base_dir: Path | None = None):
                     pass
 
         try:
-            threading.Thread(target=run_compile, name="llmbase-compile", daemon=True).start()
+            threading.Thread(
+                target=run_compile, name="llmbase-compile", daemon=True
+            ).start()
         except Exception as exc:
-            persist_result({
-                "status": "failed",
-                "full": full,
-                "error": str(exc),
-                "started_at": started_at,
-                "finished_at": datetime.now(timezone.utc).isoformat(),
-            })
+            persist_result(
+                {
+                    "status": "failed",
+                    "full": full,
+                    "error": str(exc),
+                    "started_at": started_at,
+                    "finished_at": datetime.now(timezone.utc).isoformat(),
+                }
+            )
             try:
                 job_lock.release()
             except RuntimeError:
                 pass
             return jsonify({"status": "error", "message": str(exc)}), 500
 
-        return jsonify({
-            "status": "started",
-            "message": "Compile running in background. Poll /api/compile/status for running/completed/failed state.",
-        }), 202
+        return jsonify(
+            {
+                "status": "started",
+                "message": "Compile running in background. Poll /api/compile/status for running/completed/failed state.",
+            }
+        ), 202
 
     @app.route("/api/lint", methods=["POST"])
     def api_lint():
         data = request.json or {}
         if data.get("deep"):
             from .lint import lint_deep
+
             report = lint_deep(base)
             return jsonify({"report": report})
         else:
@@ -1377,11 +1511,15 @@ def create_web_app(base_dir: Path | None = None):
     def api_lint_fix():
         """Run the full auto-fix pipeline in background thread."""
         import threading
+
         from .lint import auto_fix
 
         def run_fix():
-            import json, logging
+            import json
+            import logging
+
             from .worker import job_lock
+
             logger = logging.getLogger("llmbase.lint")
             if not job_lock.acquire(blocking=False):
                 logger.warning("[lint/fix] Another job is running, skipping")
@@ -1394,7 +1532,11 @@ def create_web_app(base_dir: Path | None = None):
                 cfg = load_config(base)
                 meta_dir = Path(cfg["paths"]["meta"])
                 meta_dir.mkdir(parents=True, exist_ok=True)
-                result = {"fixes": fixes, "fix_count": len(fixes), "status": "completed"}
+                result = {
+                    "fixes": fixes,
+                    "fix_count": len(fixes),
+                    "status": "completed",
+                }
                 (meta_dir / "last_fix.json").write_text(
                     json.dumps(result, indent=2, ensure_ascii=False), encoding="utf-8"
                 )
@@ -1404,7 +1546,12 @@ def create_web_app(base_dir: Path | None = None):
                 job_lock.release()
 
         threading.Thread(target=run_fix, daemon=True).start()
-        return jsonify({"status": "started", "message": "Auto-fix pipeline running in background. Check /api/health for results."})
+        return jsonify(
+            {
+                "status": "started",
+                "message": "Auto-fix pipeline running in background. Check /api/health for results.",
+            }
+        )
 
     @app.route("/api/health")
     def api_health():
@@ -1436,6 +1583,7 @@ def create_web_app(base_dir: Path | None = None):
     @require_auth
     def api_rebuild_index():
         from . import operations as _ops
+
         try:
             result = _ops.dispatch("kb_rebuild_index", base, {})
         except RuntimeError as e:
@@ -1461,10 +1609,16 @@ def create_web_app(base_dir: Path | None = None):
             return send_from_directory(str(static_dir), path)
         # Set auth cookie with derived session token (never expose the raw secret)
         from flask import make_response
+
         resp = make_response(send_from_directory(str(static_dir), "index.html"))
         if SESSION_TOKEN:
-            resp.set_cookie("llmbase_auth", SESSION_TOKEN,
-                            httponly=True, samesite="Strict", secure=False)
+            resp.set_cookie(
+                "llmbase_auth",
+                SESSION_TOKEN,
+                httponly=True,
+                samesite="Strict",
+                secure=False,
+            )
         return resp
 
     # ─── Extension points ────────────────────────────────────────
@@ -1481,3 +1635,51 @@ def create_web_app(base_dir: Path | None = None):
         app.after_request(hook)
 
     return app
+
+
+def create_asgi_app(base_dir: Path | None = None):
+    """Create the unified ASGI application.
+
+    Wraps the Flask web app via WSGIMiddleware on ``/`` and mounts
+    the MCP streamable HTTP endpoint on ``/mcp``. Both share a single
+    Uvicorn process.
+
+    Returns a Starlette application ready for ``uvicorn asgi:app``.
+    """
+    import contextlib
+    import os
+
+    from starlette.applications import Starlette
+    from starlette.middleware.wsgi import WSGIMiddleware
+    from starlette.routing import Mount
+
+    base = Path(base_dir) if base_dir else Path.cwd()
+
+    # Flask app — unchanged
+    flask_app = create_web_app(base)
+
+    # MCP session manager
+    from .mcp_server import create_mcp_session_manager
+
+    mcp_manager = create_mcp_session_manager(base)
+
+    # Wrap MCP handler with auth if MCP_API_KEY is set
+    api_key = os.environ.get("MCP_API_KEY", "")
+    mcp_handler = mcp_manager.handle_request
+    if api_key:
+        from .mcp_auth import MCPAuthMiddleware
+
+        mcp_handler = MCPAuthMiddleware(mcp_handler, api_key)
+
+    @contextlib.asynccontextmanager
+    async def lifespan(app: Starlette):
+        async with mcp_manager.run():
+            yield
+
+    return Starlette(
+        lifespan=lifespan,
+        routes=[
+            Mount("/", app=WSGIMiddleware(flask_app)),
+            Mount("/mcp", app=mcp_handler),
+        ],
+    )

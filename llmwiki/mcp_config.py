@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 import os
+from dataclasses import dataclass
 from typing import Optional
 from urllib.parse import urlparse
 
@@ -19,7 +19,9 @@ class McpSettings:
 def _validate_transport(value: str) -> str:
     allowed = {"stdio", "streamable-http"}
     if value not in allowed:
-        raise ValueError(f"Invalid MCP_TRANSPORT: {value!r}; expected one of {sorted(allowed)}")
+        raise ValueError(
+            f"Invalid MCP_TRANSPORT: {value!r}; expected one of {sorted(allowed)}"
+        )
     return value
 
 
@@ -61,6 +63,16 @@ def resolve_mcp_settings(
         transport = os.environ.get("MCP_TRANSPORT", "stdio")
     transport = str(transport)
     _validate_transport(transport)
+
+    if transport == "streamable-http":
+        import warnings
+
+        warnings.warn(
+            "MCP_TRANSPORT=streamable-http standalone mode is deprecated. "
+            "Use the unified ASGI app instead: uvicorn asgi:app",
+            DeprecationWarning,
+            stacklevel=2,
+        )
 
     api_key = api_key if api_key is not None else os.environ.get("MCP_API_KEY")
 
