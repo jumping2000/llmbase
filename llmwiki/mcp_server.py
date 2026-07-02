@@ -28,16 +28,16 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 import anyio
+import uvicorn
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.server.streamable_http import StreamableHTTPServerTransport
-from mcp.types import Tool, TextContent
-import uvicorn
+from mcp.types import TextContent, Tool
 from starlette.applications import Starlette
 from starlette.routing import Mount
-from .mcp_config import McpSettings
 
 from . import operations as ops
+from .mcp_config import McpSettings
 
 logging.basicConfig(level=logging.INFO, stream=sys.stderr)
 logger = logging.getLogger("llmbase.mcp")
@@ -89,7 +89,9 @@ def create_server(base_dir: Path) -> Server:
         if ops.get(name) is None:
             raise ValueError(f"Unknown tool: {name}")
         try:
-            result = await asyncio.to_thread(ops.dispatch, name, base_dir, arguments or {})
+            result = await asyncio.to_thread(
+                ops.dispatch, name, base_dir, arguments or {}
+            )
             return [TextContent(type="text", text=_format(result))]
         except RuntimeError as e:
             # Lock contention — render as normal text instead of surfacing as error
@@ -125,6 +127,32 @@ def create_streamable_http_app(base_dir: Path) -> Starlette:
     return Starlette(routes=[Mount("/mcp", app=asgi_app)], lifespan=lifespan)
 
 
+def create_mcp_session_manager(base_dir: Path):
+    """Create a StreamableHTTPSessionManager for the unified MCP endpoint.
+
+    Returns a session manager configured for:
+    - JSON responses (``json_response=True``, no SSE on POST)
+    - Multi-session with ``Mcp-Session-Id`` tracking
+    - 1-hour idle session timeout
+
+    The caller MUST wrap the manager's ``run()`` context manager in the
+    Starlette lifespan. Example::
+
+        manager = create_mcp_session_manager(base_dir)
+        async with manager.run():
+            yield  # Starlette lifespan
+    """
+    from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
+
+    server = create_server(base_dir)
+    return StreamableHTTPSessionManager(
+        app=server,
+        json_response=True,
+        stateless=False,
+        session_idle_timeout=3600,
+    )
+
+
 def _default_http_bind_host() -> str:
     """Bind to loopback by default, but open the container network when needed."""
     return "0.0.0.0" if Path("/.dockerenv").exists() else "127.0.0.1"
@@ -132,8 +160,12 @@ def _default_http_bind_host() -> str:
 
 def main():
     parser = argparse.ArgumentParser(description="LLMBase MCP Server")
-    parser.add_argument("--base-dir", type=str, default=".", help="Knowledge base directory")
-    parser.add_argument("--transport", choices=["stdio", "streamable-http"], default=None)
+    parser.add_argument(
+        "--base-dir", type=str, default=".", help="Knowledge base directory"
+    )
+    parser.add_argument(
+        "--transport", choices=["stdio", "streamable-http"], default=None
+    )
     parser.add_argument("--http-port", type=int, default=None)
     parser.add_argument("--http-url", type=str, default=None)
     args = parser.parse_args()
@@ -165,7 +197,9 @@ async def _stdio_run(base_dir: Path) -> None:
     """Coroutine to run the stdio MCP server for a given base_dir."""
     server = create_server(base_dir)
     async with stdio_server() as (read_stream, write_stream):
-        await server.run(read_stream, write_stream, server.create_initialization_options())
+        await server.run(
+            read_stream, write_stream, server.create_initialization_options()
+        )
 
 
 def run_mcp(base_dir: Path, settings: McpSettings | None = None) -> None:
