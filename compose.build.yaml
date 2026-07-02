@@ -37,7 +37,7 @@ services:
     volumes:
       - ./nginx/default.conf.template:/etc/nginx/default.conf.template:ro
       - ./nginx/.htpasswd:/etc/nginx/auth/.htpasswd:ro
-    command: /bin/sh -c "export MCP_HTTP_URL=$${MCP_HTTP_URL:-http://llmbase-mcp:$${MCP_HTTP_PORT:-8100}/mcp}; envsubst '$$MCP_API_KEY $$MCP_HTTP_URL' < /etc/nginx/default.conf.template > /etc/nginx/nginx.conf && nginx -g 'daemon off;'"
+    command: /bin/sh -c "export MCP_HTTP_URL=$${MCP_HTTP_URL:-http://llmbase-mcp:$${MCP_HTTP_PORT:-8100}/mcp/}; envsubst '$$MCP_API_KEY $$MCP_HTTP_URL' < /etc/nginx/default.conf.template > /etc/nginx/nginx.conf && nginx -g 'daemon off;'"
 
   llmbase:
     build: .

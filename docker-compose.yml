@@ -37,7 +37,7 @@ services:
       - llmbase-net
     volumes:
       - ./nginx:/etc/nginx/custom:ro
-    command: /bin/sh -c "export MCP_HTTP_URL=$${MCP_HTTP_URL:-http://llmbase-mcp:$${MCP_HTTP_PORT:-8100}/mcp}; envsubst '$$MCP_API_KEY $$MCP_HTTP_URL' < /etc/nginx/custom/default.conf > /etc/nginx/nginx.conf && nginx -g 'daemon off;'"
+    command: /bin/sh -c "export MCP_HTTP_URL=$${MCP_HTTP_URL:-http://llmbase-mcp:$${MCP_HTTP_PORT:-8100}/mcp/}; envsubst '$$MCP_API_KEY $$MCP_HTTP_URL' < /etc/nginx/custom/default.conf > /etc/nginx/nginx.conf && nginx -g 'daemon off;'"
 
   llmbase:
     image: ghcr.io/jumping2000/llmbase:0.8.9
