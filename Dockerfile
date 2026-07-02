@@ -26,5 +26,6 @@ RUN mkdir -p raw wiki/_meta wiki/concepts wiki/outputs
 # Expose port
 EXPOSE 5555
 
-# Use uvicorn for unified ASGI (Flask + MCP)
-CMD ["uvicorn", "--host", "0.0.0.0", "--port", "5555", "--workers", "2", "--timeout-keep-alive", "300", "asgi:app"]
+# Use uvicorn for unified ASGI (Flask + MCP). Single worker required
+# because MCP sessions are in-memory (StreamableHTTPSessionManager).
+CMD ["uvicorn", "--host", "0.0.0.0", "--port", "5555", "--workers", "1", "--timeout-keep-alive", "300", "asgi:app"]
