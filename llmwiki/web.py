@@ -1640,23 +1640,21 @@ def create_web_app(base_dir: Path | None = None):
 def create_asgi_app(base_dir: Path | None = None):
     """Create the unified ASGI application.
 
-    Wraps the Flask web app via WSGIMiddleware on ``/`` and mounts
+    Wraps the Flask web app via WSGIMiddleware on ``/`` and dispatches
     the MCP streamable HTTP endpoint on ``/mcp``. Both share a single
     Uvicorn process.
 
-    Returns a Starlette application ready for ``uvicorn asgi:app``.
+    Returns a raw ASGI callable for ``uvicorn asgi:app``.
     """
-    import contextlib
     import os
 
-    from starlette.applications import Starlette
     from starlette.middleware.wsgi import WSGIMiddleware
-    from starlette.routing import Mount
 
     base = Path(base_dir) if base_dir else Path.cwd()
 
     # Flask app — unchanged
     flask_app = create_web_app(base)
+    flask_asgi = WSGIMiddleware(flask_app)
 
     # MCP session manager
     from .mcp_server import create_mcp_session_manager
@@ -1671,15 +1669,31 @@ def create_asgi_app(base_dir: Path | None = None):
 
         mcp_handler = MCPAuthMiddleware(mcp_handler, api_key)
 
-    @contextlib.asynccontextmanager
-    async def lifespan(app: Starlette):
-        async with mcp_manager.run():
-            yield
+    # Track lifespan state for clean startup/shutdown
+    _cm = None
 
-    return Starlette(
-        lifespan=lifespan,
-        routes=[
-            Mount("/", app=WSGIMiddleware(flask_app)),
-            Mount("/mcp", app=mcp_handler),
-        ],
-    )
+    async def app(scope, receive, send):
+        nonlocal _cm
+
+        if scope["type"] == "lifespan":
+            while True:
+                message = await receive()
+                if message["type"] == "lifespan.startup":
+                    _cm = mcp_manager.run()
+                    await _cm.__aenter__()
+                    await send({"type": "lifespan.startup.complete"})
+                elif message["type"] == "lifespan.shutdown":
+                    if _cm is not None:
+                        await _cm.__aexit__(None, None, None)
+                        _cm = None
+                    await send({"type": "lifespan.shutdown.complete"})
+                    return
+            return
+
+        path = scope.get("raw_path", scope.get("path", b"/")).decode()
+        if path.startswith("/mcp"):
+            await mcp_handler(scope, receive, send)
+        else:
+            await flask_asgi(scope, receive, send)
+
+    return app
