@@ -7,7 +7,7 @@ time to change compile behavior **without forking any function**:
 
   SYSTEM_PROMPT           – system message sent to the LLM
   COMPILE_USER_PROMPT     – user prompt template (placeholders: {title},
-                            {content}, {existing}, {article_format})
+                            {content}, {existing}, {article_format}, {domains})
   COMPILE_ARTICLE_FORMAT  – the example article format embedded in the
                             user prompt (the most common override point)
   SECTION_HEADERS         – list of (key, markdown_header) tuples that
@@ -24,12 +24,12 @@ Example (single-language Italian KB)::
 
 import json
 import re as _slug_re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import frontmatter
 
-from .config import load_config, ensure_dirs
+from .config import ensure_dirs, load_config
 from .llm import chat
 
 
@@ -113,7 +113,7 @@ chiaro e leggermente saggistico, non come traduzione parola per parola.
 Usa [[Other Concept]] per i riferimenti incrociati."""
 
 
-# Full user prompt template.  Placeholders: {title}, {content}, {existing}, {article_format}.
+# Full user prompt template.  Placeholders: {title}, {content}, {existing}, {article_format}, {domains}.
 # Override the entire string, or just override COMPILE_ARTICLE_FORMAT for the common case.
 COMPILE_USER_PROMPT = """I have a raw document titled "{title}" that needs to be compiled into wiki articles.
 
@@ -171,7 +171,9 @@ def _header_for_section(section_key: str) -> str:
     return f"## {section_key}"
 
 
-def compile_new(base_dir: Path | None = None, batch_size: int | None = None) -> list[str]:
+def compile_new(
+    base_dir: Path | None = None, batch_size: int | None = None
+) -> list[str]:
     """Compile unprocessed raw documents into wiki articles."""
     cfg = load_config(base_dir)
     ensure_dirs(cfg)
@@ -191,8 +193,12 @@ def compile_new(base_dir: Path | None = None, batch_size: int | None = None) -> 
     compiled_articles = []
 
     from .hooks import emit
+
     try:
-        _preview_titles = [frontmatter.load(str(p)).metadata.get("title", p.parent.name) for p in batch[:5]]
+        _preview_titles = [
+            frontmatter.load(str(p)).metadata.get("title", p.parent.name)
+            for p in batch[:5]
+        ]
     except Exception:
         _preview_titles = [p.parent.name for p in batch[:5]]
     emit("before_compile", batch_size=len(batch), titles=_preview_titles)
@@ -224,13 +230,17 @@ def compile_new(base_dir: Path | None = None, batch_size: int | None = None) -> 
         if not content.strip():
             # Check for non-md files in the directory
             for f in doc_path.parent.iterdir():
-                if f.suffix in (".txt", ".py", ".json", ".csv") and f.name != "index.md":
+                if (
+                    f.suffix in (".txt", ".py", ".json", ".csv")
+                    and f.name != "index.md"
+                ):
                     content += f"\n\n## File: {f.name}\n\n```\n{f.read_text(errors='ignore')[:5000]}\n```"
 
         # Ask LLM to extract concepts and write articles
         existing_text = (
-            chr(10).join('  - ' + c for c in existing_concepts)
-            if existing_concepts else '  (none yet)'
+            chr(10).join("  - " + c for c in existing_concepts)
+            if existing_concepts
+            else "  (none yet)"
         )
         from .domains import list_domains
 
@@ -271,7 +281,9 @@ def compile_new(base_dir: Path | None = None, batch_size: int | None = None) -> 
         articles = _parse_compile_response(response)
         raw_domain = post.metadata.get("domain")
         for article in articles:
-            article["domain"] = raw_domain or resolve_domain(article.get("domain"), base_dir)
+            article["domain"] = raw_domain or resolve_domain(
+                article.get("domain"), base_dir
+            )
             article["sources"] = [source_ref]
             article_path = _write_article(article, concepts_dir)
             if article_path:
@@ -280,7 +292,7 @@ def compile_new(base_dir: Path | None = None, batch_size: int | None = None) -> 
 
         # Mark raw doc as compiled
         post.metadata["compiled"] = True
-        post.metadata["compiled_at"] = datetime.now(timezone.utc).isoformat()
+        post.metadata["compiled_at"] = datetime.now(UTC).isoformat()
         doc_path.write_text(frontmatter.dumps(post), encoding="utf-8")
 
         # Log to compiled_sources (survives volume reset)
@@ -290,6 +302,7 @@ def compile_new(base_dir: Path | None = None, batch_size: int | None = None) -> 
         # Emit compiled hook — downstream can register callbacks for remote
         # sync, notifications, etc. via tools.hooks.register("compiled", ...)
         from .hooks import emit
+
         compile_work_id = (
             post.metadata.get("work_id")
             or post.metadata.get("work")
@@ -305,7 +318,9 @@ def compile_new(base_dir: Path | None = None, batch_size: int | None = None) -> 
         )
 
     # Persist compiled sources log
-    compiled_log_path.write_text(json.dumps(sorted(compiled_sources), ensure_ascii=False), encoding="utf-8")
+    compiled_log_path.write_text(
+        json.dumps(sorted(compiled_sources), ensure_ascii=False), encoding="utf-8"
+    )
 
     # Rebuild index
     rebuild_index(base_dir)
@@ -314,13 +329,17 @@ def compile_new(base_dir: Path | None = None, batch_size: int | None = None) -> 
     if compiled_articles:
         try:
             from .taxonomy import assign_new_articles
+
             assign_new_articles(base_dir)
         except Exception:
             pass  # Non-critical
 
     if compiled_articles:
-        emit("after_compile_batch", count=len(compiled_articles),
-             articles=compiled_articles[:10])
+        emit(
+            "after_compile_batch",
+            count=len(compiled_articles),
+            articles=compiled_articles[:10],
+        )
 
     return compiled_articles
 
@@ -371,12 +390,11 @@ def rebuild_index(base_dir: Path | None = None):
     # Write JSON index for programmatic access
     index_json_path = meta_dir / "index.json"
     from .atomic import atomic_write_json
+
     atomic_write_json(index_json_path, index_entries)
 
     # Write markdown index for Obsidian
-    index_md = "---\ntitle: Wiki Index\nupdated: {}\n---\n\n# Knowledge Base Index\n\n".format(
-        datetime.now(timezone.utc).isoformat()
-    )
+    index_md = f"---\ntitle: Wiki Index\nupdated: {datetime.now(UTC).isoformat()}\n---\n\n# Knowledge Base Index\n\n"
     # Group by tags
     tag_groups: dict[str, list] = {}
     for entry in index_entries:
@@ -397,6 +415,7 @@ def rebuild_index(base_dir: Path | None = None):
 
     # Build alias map (must come before backlinks)
     from .resolve import build_aliases, save_aliases
+
     aliases = build_aliases(concepts_dir)
     save_aliases(aliases, meta_dir)
 
@@ -404,6 +423,7 @@ def rebuild_index(base_dir: Path | None = None):
     _build_backlinks(concepts_dir, meta_dir)
 
     from .hooks import emit
+
     emit("index_rebuilt", article_count=len(index_entries))
 
     return index_entries
@@ -582,8 +602,8 @@ def _write_article(article: dict, concepts_dir: Path) -> Path | None:
     post.metadata["tags"] = article.get("tags", [])
     post.metadata["sources"] = article.get("sources", [])
     post.metadata["domain"] = article.get("domain") or "generale"
-    post.metadata["created"] = datetime.now(timezone.utc).isoformat()
-    post.metadata["updated"] = datetime.now(timezone.utc).isoformat()
+    post.metadata["created"] = datetime.now(UTC).isoformat()
+    post.metadata["updated"] = datetime.now(UTC).isoformat()
     article_path.write_text(frontmatter.dumps(post), encoding="utf-8")
     return article_path
 
@@ -595,12 +615,11 @@ def _merge_into(existing_path: Path, article: dict):
     keeps the longer version of each section. Never blindly appends
     entire content blocks — prevents duplicate sections.
     """
-    import re
 
     existing = frontmatter.load(str(existing_path))
     new_content = article.get("content", "")
     if not new_content or not new_content.strip():
-        return None
+        return
 
     # Split both into language sections
     existing_sections = _split_sections(existing.content)
@@ -630,8 +649,12 @@ def _merge_into(existing_path: Path, article: dict):
         existing_sources = existing.metadata.get("sources", [])
 
         def _source_key(s):
-            return (s.get("plugin", ""), s.get("url", ""),
-                    s.get("work_id", ""), s.get("title", ""))
+            return (
+                s.get("plugin", ""),
+                s.get("url", ""),
+                s.get("work_id", ""),
+                s.get("title", ""),
+            )
 
         existing_keys = {_source_key(s) for s in existing_sources}
         added = False
@@ -647,13 +670,13 @@ def _merge_into(existing_path: Path, article: dict):
     if changed:
         # Reassemble content from sections
         existing.content = _assemble_sections(existing_sections)
-        existing.metadata["updated"] = datetime.now(timezone.utc).isoformat()
+        existing.metadata["updated"] = datetime.now(UTC).isoformat()
         old_tags = set(existing.metadata.get("tags", []))
         new_tags = set(article.get("tags", []))
         existing.metadata["tags"] = sorted(old_tags | new_tags)
         existing_path.write_text(frontmatter.dumps(existing), encoding="utf-8")
 
-    return None
+    return
 
 
 def _split_sections(content: str) -> dict[str, str]:
@@ -664,6 +687,7 @@ def _split_sections(content: str) -> dict[str, str]:
     splitting automatically.
     """
     import re
+
     sections: dict[str, str] = {"_preamble": ""}
     current = "_preamble"
 
@@ -726,6 +750,7 @@ def _build_backlinks(concepts_dir: Path, meta_dir: Path):
     canonical slug 'can-chan' instead of the raw Chinese text.
     """
     import re
+
     from .resolve import load_aliases, resolve_link
 
     aliases = load_aliases(meta_dir)
@@ -746,4 +771,5 @@ def _build_backlinks(concepts_dir: Path, meta_dir: Path):
 
     backlinks_path = meta_dir / "backlinks.json"
     from .atomic import atomic_write_json
+
     atomic_write_json(backlinks_path, backlinks)
