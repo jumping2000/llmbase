@@ -221,6 +221,7 @@ def ingest_file(
     file_path: str,
     base_dir: Path | None = None,
     original_name: str | None = None,
+    domain: str | None = None,
 ) -> Path:
     """Copy a local file (paper PDF, markdown, etc.) into raw/."""
     cfg = load_config(base_dir)
@@ -253,6 +254,8 @@ def ingest_file(
             post.metadata["ingested_at"] = datetime.now(timezone.utc).isoformat()
         post.metadata["type"] = "local_file"
         post.metadata["compiled"] = False
+        if domain:
+            post.metadata["domain"] = domain
         # Sanitize before persistence — same reasoning as ingest_url.
         post.content = strip_surrogates(post.content)
         if isinstance(post.metadata.get("title"), str):
@@ -267,6 +270,8 @@ def ingest_file(
         meta.metadata["type"] = "local_file"
         meta.metadata["file"] = logical_name
         meta.metadata["compiled"] = False
+        if domain:
+            meta.metadata["domain"] = domain
         meta_path = doc_dir / "index.md"
         meta_path.write_text(frontmatter.dumps(meta), encoding="utf-8")
 

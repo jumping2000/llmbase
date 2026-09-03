@@ -68,6 +68,7 @@ def ingest_pdf(
     chunk_pages: int = 20,
     base_dir: Path | None = None,
     original_name: str | None = None,
+    domain: str | None = None,
 ) -> list[Path]:
     """Ingest a PDF file into the knowledge base.
 
@@ -114,6 +115,8 @@ def ingest_pdf(
         if chunk["metadata"].get("author"):
             post.metadata["author"] = chunk["metadata"]["author"]
         post.metadata["compiled"] = False
+        if domain:
+            post.metadata["domain"] = domain
 
         doc_path = doc_dir / "index.md"
         doc_path.write_text(frontmatter.dumps(post), encoding="utf-8")
