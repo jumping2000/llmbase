@@ -48,3 +48,17 @@ def test_search_accepts_domain_param(client):
     r = client.get("/api/search?q=x&domain=lavoro")
     assert r.status_code == 200
     assert r.get_json()["query"] == "x"
+
+
+def test_article_includes_domain(client, tmp_path):
+    import frontmatter
+
+    concepts = tmp_path / "wiki" / "concepts"
+    concepts.mkdir(parents=True, exist_ok=True)
+    post = frontmatter.Post("# T")
+    post.metadata["title"] = "T"
+    post.metadata["domain"] = "lavoro"
+    (concepts / "t.md").write_text(frontmatter.dumps(post), encoding="utf-8")
+    r = client.get("/api/articles/t")
+    assert r.status_code == 200
+    assert r.get_json()["domain"] == "lavoro"

@@ -92,6 +92,12 @@ export function ArticleDetail() {
           <p className="text-on-surface-variant font-body text-lg italic mb-4">{article.summary}</p>
         )}
         <div className="flex flex-wrap items-center gap-2 mb-4">
+          {article.domain && (
+            <span className="flex items-center gap-1 px-2 py-0.5 text-xs rounded-full bg-secondary/10 text-secondary border border-secondary/20">
+              <Icon name="category" className="text-[13px]" />
+              {article.domain}
+            </span>
+          )}
           {article.tags?.map(t => <Tag key={t} label={t} />)}
         </div>
 

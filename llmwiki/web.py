@@ -725,6 +725,7 @@ def create_web_app(base_dir: Path | None = None):
                 "title": post.metadata.get("title", slug),
                 "summary": post.metadata.get("summary", ""),
                 "tags": post.metadata.get("tags", []),
+                "domain": post.metadata.get("domain", "generale"),
                 "sources": safe_sources,
                 "content": post.content,
                 "backlinks": _get_backlinks(cfg, slug),

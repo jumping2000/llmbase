@@ -5,6 +5,7 @@ export interface Article {
   title: string;
   summary: string;
   tags: string[];
+  domain?: string;
   content?: string;
   sources?: { plugin?: string; url?: string; title?: string; work_id?: string }[];
   backlinks?: { slug: string; title: string }[];
