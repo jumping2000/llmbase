@@ -129,11 +129,19 @@ def _reassign_articles(
 ) -> int:
     cfg = load_config(base_dir)
     concepts_dir = Path(cfg["paths"]["concepts"])
+    raw_dir = Path(cfg["paths"]["raw"])
     count = 0
     if concepts_dir.exists():
         for md_file in sorted(concepts_dir.glob("*.md")):
             post = frontmatter.load(str(md_file))
             if post.metadata.get("domain", DEFAULT_DOMAIN) == from_domain:
+                post.metadata["domain"] = to_domain
+                md_file.write_text(frontmatter.dumps(post), encoding="utf-8")
+                count += 1
+    if raw_dir.exists():
+        for md_file in raw_dir.rglob("*.md"):
+            post = frontmatter.load(str(md_file))
+            if post.metadata.get("domain") == from_domain:
                 post.metadata["domain"] = to_domain
                 md_file.write_text(frontmatter.dumps(post), encoding="utf-8")
                 count += 1

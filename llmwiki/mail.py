@@ -35,7 +35,9 @@ logger = logging.getLogger("llmbase.mail")
 _SUBJECT_TAG_RE = re.compile(r"\[([^\]]+)\]")
 
 
-def extract_domain_from_subject(subject: str, base_dir: Path | None = None) -> str | None:
+def extract_domain_from_subject(
+    subject: str, base_dir: Path | None = None
+) -> str | None:
     """Return the ``[tag]`` from a subject line, or None."""
     m = _SUBJECT_TAG_RE.search(subject or "")
     return m.group(1).strip() if m else None
@@ -119,7 +121,9 @@ class MailPoller:
     def start(self) -> None:
         if self._thread and self._thread.is_alive():
             return
-        self._thread = threading.Thread(target=self._run, name="mail-poller", daemon=True)
+        self._thread = threading.Thread(
+            target=self._run, name="mail-poller", daemon=True
+        )
         self._thread.start()
 
     def stop(self) -> None:
@@ -145,7 +149,9 @@ class MailPoller:
                 return 0
             ids = data[0].split() if data and data[0] else []
             processed = 0
-            for num in ids:
+            # Reverse order: expunge renumbers higher sequence numbers only,
+            # so descending iteration keeps unprocessed ids stable.
+            for num in reversed(ids):
                 try:
                     if self._process_message(mail, num):
                         processed += 1
@@ -166,17 +172,30 @@ class MailPoller:
         msg = email.message_from_bytes(raw)
         subject = _decode_header_value(msg.get("Subject", ""))
         tag = extract_domain_from_subject(subject, self.base_dir)
-        domain = resolve_domain(tag, self.base_dir) if tag else self.default_domain
+        domain = self.default_domain
+        if tag:
+            domain = resolve_domain(tag, self.base_dir)
+            if domain == "generale" and tag.strip().lower() != "generale":
+                logger.warning(f"[mail] tag '{tag}' non riconosciuto, uso 'generale'")
 
         body = _body_to_markdown(msg)
         if body.strip():
-            with tempfile.NamedTemporaryFile("w", suffix=".md", delete=False, encoding="utf-8") as tmp:
+            with tempfile.NamedTemporaryFile(
+                "w", suffix=".md", delete=False, encoding="utf-8"
+            ) as tmp:
                 tmp.write(body)
                 body_path = tmp.name
             try:
                 from .ingest import ingest_file
 
-                ingest_file(body_path, self.base_dir, original_name=f"{subject or 'email'}.md", domain=domain)
+                ingest_file(
+                    body_path,
+                    self.base_dir,
+                    original_name=f"{subject or 'email'}.md",
+                    domain=domain,
+                )
+            except Exception as e:
+                logger.warning(f"[mail] body ingest failed: {e}")
             finally:
                 Path(body_path).unlink(missing_ok=True)
 
@@ -189,11 +208,20 @@ class MailPoller:
                 if suffix == ".pdf":
                     from .pdf import ingest_pdf
 
-                    ingest_pdf(att_path, base_dir=self.base_dir, original_name=name, domain=domain)
+                    ingest_pdf(
+                        att_path,
+                        base_dir=self.base_dir,
+                        original_name=name,
+                        domain=domain,
+                    )
                 else:
                     from .ingest import ingest_file
 
-                    ingest_file(att_path, self.base_dir, original_name=name, domain=domain)
+                    ingest_file(
+                        att_path, self.base_dir, original_name=name, domain=domain
+                    )
+            except Exception as e:
+                logger.warning(f"[mail] allegato '{name}' saltato: {e}")
             finally:
                 Path(att_path).unlink(missing_ok=True)
 
@@ -206,7 +234,9 @@ class MailPoller:
             mail.store(num, "+FLAGS", "\\Deleted")
             mail.expunge()
         except Exception as e:
-            logger.warning(f"[mail] move to {self.processed_folder} failed ({e}); marking seen")
+            logger.warning(
+                f"[mail] move to {self.processed_folder} failed ({e}); marking seen"
+            )
             mail.store(num, "+FLAGS", "\\Seen")
 
 
@@ -220,7 +250,7 @@ def resolve_mail_poller(base_dir: Path) -> MailPoller | None:
     port = int(os.environ.get("LLMBASE_MAIL_PORT", "993"))
     folder = os.environ.get("LLMBASE_MAIL_FOLDER", "INBOX")
     processed = os.environ.get("LLMBASE_MAIL_PROCESSED_FOLDER", "Processed")
-    poll_minutes = int(os.environ.get("LLMBASE_MAIL_POLL_MINUTES", "1"))
+    poll_minutes = max(1, int(os.environ.get("LLMBASE_MAIL_POLL_MINUTES", "1")))
     default_domain = os.environ.get("LLMBASE_MAIL_DEFAULT_DOMAIN", "generale")
     return MailPoller(
         base_dir,

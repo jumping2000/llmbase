@@ -1316,7 +1316,11 @@ def create_web_app(base_dir: Path | None = None):
             return jsonify({"status": "error", "message": "label required"}), 400
         from . import operations as _ops
 
-        return jsonify(_ops.dispatch("kb_domains_create", base, {"label": label}))
+        try:
+            result = _ops.dispatch("kb_domains_create", base, {"label": label})
+        except RuntimeError as e:
+            return jsonify({"status": "busy", "error": str(e)}), 409
+        return jsonify(result)
 
     @app.route("/api/domains/<domain_id>/rename", methods=["POST"])
     @require_auth
@@ -1333,6 +1337,8 @@ def create_web_app(base_dir: Path | None = None):
             )
         except ValueError as e:
             return jsonify({"status": "error", "message": str(e)}), 400
+        except RuntimeError as e:
+            return jsonify({"status": "busy", "error": str(e)}), 409
         return jsonify(result)
 
     @app.route("/api/domains/<domain_id>", methods=["DELETE"])
@@ -1344,6 +1350,8 @@ def create_web_app(base_dir: Path | None = None):
             result = _ops.dispatch("kb_domains_delete", base, {"domain_id": domain_id})
         except ValueError as e:
             return jsonify({"status": "error", "message": str(e)}), 400
+        except RuntimeError as e:
+            return jsonify({"status": "busy", "error": str(e)}), 409
         return jsonify(result)
 
     @app.route("/api/articles/bulk-domain", methods=["POST"])
@@ -1738,8 +1746,8 @@ def create_asgi_app(base_dir: Path | None = None):
 
     mcp_manager = create_mcp_session_manager(base)
 
-    from .telegram import resolve_telegram_bot
     from .mail import resolve_mail_poller
+    from .telegram import resolve_telegram_bot
 
     tg_bot = resolve_telegram_bot(base)
     mail_poller = resolve_mail_poller(base)

@@ -64,6 +64,20 @@ def test_delete_domain_reassigns_articles(tmp_path):
     assert "casa" not in [d["id"] for d in list_domains(tmp_path)]
 
 
+def test_delete_domain_reassigns_raw_docs(tmp_path):
+    create_domain("Casa", tmp_path)
+    raw_doc = tmp_path / "raw" / "doc"
+    raw_doc.mkdir(parents=True, exist_ok=True)
+    post = frontmatter.Post("# raw")
+    post.metadata["title"] = "doc"
+    post.metadata["domain"] = "casa"
+    (raw_doc / "index.md").write_text(frontmatter.dumps(post), encoding="utf-8")
+    delete_domain("casa", tmp_path)
+    assert (
+        frontmatter.load(str(raw_doc / "index.md")).metadata["domain"] == DEFAULT_DOMAIN
+    )
+
+
 def test_bulk_assign_domain(tmp_path):
     create_domain("Lavoro", tmp_path)
     _write_concept(tmp_path, "a")

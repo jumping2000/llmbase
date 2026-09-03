@@ -17,12 +17,12 @@ Example::
 import json
 import logging
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import frontmatter
 
-from .config import load_config, ensure_dirs
+from .config import ensure_dirs, load_config
 from .llm import chat, chat_with_context, extract_json
 
 logger = logging.getLogger("llmbase.query")
@@ -122,7 +122,9 @@ def query(
     )
 
     # File back into wiki if requested
-    output_path = _file_output(question, answer, output_format, cfg) if file_back else None
+    output_path = (
+        _file_output(question, answer, output_format, cfg) if file_back else None
+    )
 
     if return_path:
         return {"answer": answer, "output_path": output_path}
@@ -195,12 +197,15 @@ def query_with_search(
 
     selector_index = index
     if len(selector_index) > prefilter_threshold:
-        selector_index = _bm25_prefilter(question, selector_index, top_k=prefilter_top_k)
+        selector_index = _bm25_prefilter(
+            question, selector_index, top_k=prefilter_top_k
+        )
 
     # Sanitize before assembling the selector prompt — existing index.json
     # entries may carry lone surrogates from pre-0.6.6 ingests. Without this
     # the selector `chat()` crashes before chat_with_context() ever runs.
     from .llm import strip_surrogates
+
     index_summary = "\n".join(
         f"- {strip_surrogates(str(e.get('title', '')))}: "
         f"{strip_surrogates(str(e.get('summary', '')))}"
@@ -236,7 +241,7 @@ Which articles (by title) are most relevant? List up to 10, one per line, just t
 
     # If LLM matching missed, fall back to keyword matching
     if len(context_files) < 3:
-        context_files = _gather_context(question, cfg)
+        context_files = _gather_context(question, cfg, domain)
 
     if not context_files:
         return "Could not find relevant articles for this question."
@@ -268,7 +273,11 @@ Which articles (by title) are most relevant? List up to 10, one per line, just t
             if any(cf["path"] == entry["title"] for cf in context_files):
                 consulted.append({"slug": entry["slug"], "title": entry["title"]})
 
-        result: dict = {"answer": answer, "consulted": consulted, "output_path": output_path}
+        result: dict = {
+            "answer": answer,
+            "consulted": consulted,
+            "output_path": output_path,
+        }
 
         if promote:
             try:
@@ -310,6 +319,7 @@ PROMOTE_TITLE_EXAMPLE: str | None = None
 def _derive_promote_examples() -> tuple[str, str]:
     """Build content/title schema hints from compile.SECTION_HEADERS at call time."""
     from . import compile as _compile_mod  # late import so downstream overrides apply
+
     headers = _compile_mod.SECTION_HEADERS or [("English", "## English")]
 
     def _label(lang_key: str, header: str) -> str:
@@ -387,7 +397,7 @@ ANSWER:
 {answer}
 
 ARTICLES ALREADY CONSULTED FOR THIS ANSWER (likely candidates for merge, not new creation):
-{', '.join(consulted_slugs) if consulted_slugs else '(none)'}
+{", ".join(consulted_slugs) if consulted_slugs else "(none)"}
 
 CURRENT WIKI INDEX (do not create duplicates — use merge_into for existing slugs):
 {index_summary}
@@ -455,7 +465,11 @@ If rejecting, reply with:
     # this prevents the writer from creating a duplicate when the judge picks
     # a different new slug than the one it intends to merge into.
     merge_into = decision.get("merge_into") or None
-    if isinstance(merge_into, str) and merge_into.strip().lower() not in ("", "null", "none"):
+    if isinstance(merge_into, str) and merge_into.strip().lower() not in (
+        "",
+        "null",
+        "none",
+    ):
         target_slug = merge_into.strip()
     else:
         merge_into = None
@@ -464,11 +478,13 @@ If rejecting, reply with:
     # Validate required fields for a promotion
     if not target_slug or not decision.get("title") or not decision.get("content"):
         missing = [
-            k for k, v in (
+            k
+            for k, v in (
                 ("slug", target_slug),
                 ("title", decision.get("title")),
                 ("content", decision.get("content")),
-            ) if not v
+            )
+            if not v
         ]
         return {
             "promoted": False,
@@ -490,13 +506,15 @@ If rejecting, reply with:
         "summary": decision.get("summary", ""),
         "tags": decision.get("tags", []),
         "content": decision["content"],
-        "sources": [{
-            "plugin": "qa",
-            "url": "",
-            "title": question,
-            "question": question,
-            "created": datetime.now(timezone.utc).isoformat(),
-        }],
+        "sources": [
+            {
+                "plugin": "qa",
+                "url": "",
+                "title": question,
+                "question": question,
+                "created": datetime.now(UTC).isoformat(),
+            }
+        ],
     }
 
     concepts_dir = Path(cfg["paths"]["concepts"])
@@ -543,10 +561,12 @@ def _gather_context(question: str, cfg: dict, domain: str | None = None) -> list
     # Always include the index
     index_path = meta_dir / "_index.md"
     if index_path.exists():
-        context_files.append({
-            "path": "_index.md",
-            "content": index_path.read_text()[:3000],
-        })
+        context_files.append(
+            {
+                "path": "_index.md",
+                "content": index_path.read_text()[:3000],
+            }
+        )
 
     # Score articles by keyword overlap
     question_words = set(re.findall(r"\w+", question.lower()))
@@ -573,20 +593,24 @@ def _gather_context(question: str, cfg: dict, domain: str | None = None) -> list
     # Sort by relevance, take top articles
     scored.sort(key=lambda x: x[0], reverse=True)
     for _, md_file, content in scored[:15]:
-        context_files.append({
-            "path": md_file.name,
-            "content": content[:4000],
-        })
+        context_files.append(
+            {
+                "path": md_file.name,
+                "content": content[:4000],
+            }
+        )
 
     # Also check outputs
     for md_file in outputs_dir.glob("*.md"):
         content = md_file.read_text()
         text_words = set(re.findall(r"\w+", content[:500].lower()))
         if len(question_words & text_words) > 1:
-            context_files.append({
-                "path": f"outputs/{md_file.name}",
-                "content": content[:3000],
-            })
+            context_files.append(
+                {
+                    "path": f"outputs/{md_file.name}",
+                    "content": content[:3000],
+                }
+            )
 
     return context_files
 
@@ -629,14 +653,14 @@ def _file_output(question: str, answer: str, output_format: str, cfg: dict) -> s
     outputs_dir = Path(cfg["paths"]["outputs"])
     outputs_dir.mkdir(parents=True, exist_ok=True)
 
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+    timestamp = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
     slug = re.sub(r"[^\w]+", "-", question.lower())[:50].strip("-")
     filename = f"{timestamp}-{slug}.md"
 
     post = frontmatter.Post(answer)
     post.metadata["title"] = question
     post.metadata["type"] = f"query_{output_format}"
-    post.metadata["created"] = datetime.now(timezone.utc).isoformat()
+    post.metadata["created"] = datetime.now(UTC).isoformat()
 
     output_path = outputs_dir / filename
     output_path.write_text(frontmatter.dumps(post), encoding="utf-8")
@@ -673,6 +697,7 @@ def _bm25_prefilter(question: str, index: list[dict], top_k: int) -> list[dict]:
     """
     import math
     from collections import Counter
+
     from .search import _tokenize
 
     if top_k <= 0:
@@ -685,19 +710,23 @@ def _bm25_prefilter(question: str, index: list[dict], top_k: int) -> list[dict]:
     docs = []
     for entry in index:
         tags = entry.get("tags") or []
-        text = " ".join([
-            str(entry.get("title", "")),
-            str(entry.get("summary", "")),
-            " ".join(str(t) for t in tags),
-        ])
+        text = " ".join(
+            [
+                str(entry.get("title", "")),
+                str(entry.get("summary", "")),
+                " ".join(str(t) for t in tags),
+            ]
+        )
         tokens = _tokenize(text)
         if not tokens:
             continue
-        docs.append({
-            "entry": entry,
-            "tokens": tokens,
-            "tokens_set": set(tokens),
-        })
+        docs.append(
+            {
+                "entry": entry,
+                "tokens": tokens,
+                "tokens_set": set(tokens),
+            }
+        )
 
     if not docs:
         return index[:top_k]
