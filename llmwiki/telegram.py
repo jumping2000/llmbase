@@ -19,7 +19,6 @@ from pathlib import Path
 import requests
 
 from . import operations as ops
-from .domains import create_domain
 
 logger = logging.getLogger("llmbase.telegram")
 
@@ -109,9 +108,15 @@ class TelegramBot:
             self._send(chat_id, HELP_TEXT)
         elif cmd == "/dominio":
             if arg:
-                dom = create_domain(arg, self.base_dir)["id"]
-                self._chat_domain[chat_id] = dom
-                self._send(chat_id, f"Dominio attivo: {dom}")
+                from .domains import domain_exists, list_domains, normalize_domain_id
+
+                dom = normalize_domain_id(arg)
+                if domain_exists(dom, self.base_dir):
+                    self._chat_domain[chat_id] = dom
+                    self._send(chat_id, f"Dominio attivo: {dom}")
+                else:
+                    available = ", ".join(d["id"] for d in list_domains(self.base_dir))
+                    self._send(chat_id, f"Dominio sconosciuto: {dom}. Disponibili: {available}")
             else:
                 self._send(chat_id, f"Dominio attivo: {self._domain_for(chat_id)}")
         elif cmd == "/cerca":
