@@ -220,7 +220,7 @@ export function Dashboard() {
         ))}
       </div>
 
-      {/* Quick Actions */}
+      {/* Quick Actions
       <div className="flex flex-wrap gap-3 mb-8">
           <button onClick={() => navigate('/qa')} className="flex items-center gap-2 px-5 py-3 bg-primary/10 border border-primary/20 rounded-xl text-sm hover:bg-primary/20 transition-colors">
             <Icon name="forum" className="text-primary text-[18px]" /> {it ? 'Fai una domanda' : 'Ask a Question'}
@@ -231,7 +231,7 @@ export function Dashboard() {
           <button onClick={() => navigate('/health')} className="flex items-center gap-2 px-5 py-3 bg-surface-container border border-outline-variant/30 rounded-xl text-sm hover:border-tertiary/50 transition-colors">
             <Icon name="health_and_safety" className="text-tertiary text-[18px]" /> {it ? 'Controllo salute' : 'Health Check'}
           </button>
-      </div>
+      </div> */}
 
       {/* Domains */}
       <div className="bg-surface-container rounded-xl p-4 border border-outline-variant/20 mb-8">

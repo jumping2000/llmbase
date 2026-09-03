@@ -1,29 +1,106 @@
 """Search engine: naive full-text search over the wiki with web UI and CLI."""
 
-import json
 import math
 import re
 from collections import Counter
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
 
 import frontmatter
 
 from .config import load_config
 
-
 SEARCH_TOKENIZER: Callable[[str], list[str]] | None = None
 STOPWORDS: set[str] = {
-    "the", "a", "an", "is", "are", "was", "were", "be", "been", "being",
-    "have", "has", "had", "do", "does", "did", "will", "would", "could",
-    "should", "may", "might", "shall", "can", "need", "dare", "ought",
-    "used", "to", "of", "in", "for", "on", "with", "at", "by", "from",
-    "as", "into", "through", "during", "before", "after", "above", "below",
-    "between", "out", "off", "over", "under", "again", "further", "then",
-    "once", "here", "there", "when", "where", "why", "how", "all", "both",
-    "each", "few", "more", "most", "other", "some", "such", "no", "nor",
-    "not", "only", "own", "same", "so", "than", "too", "very", "and",
-    "but", "or", "if", "while", "that", "this", "it", "its", "they",
+    "the",
+    "a",
+    "an",
+    "is",
+    "are",
+    "was",
+    "were",
+    "be",
+    "been",
+    "being",
+    "have",
+    "has",
+    "had",
+    "do",
+    "does",
+    "did",
+    "will",
+    "would",
+    "could",
+    "should",
+    "may",
+    "might",
+    "shall",
+    "can",
+    "need",
+    "dare",
+    "ought",
+    "used",
+    "to",
+    "of",
+    "in",
+    "for",
+    "on",
+    "with",
+    "at",
+    "by",
+    "from",
+    "as",
+    "into",
+    "through",
+    "during",
+    "before",
+    "after",
+    "above",
+    "below",
+    "between",
+    "out",
+    "off",
+    "over",
+    "under",
+    "again",
+    "further",
+    "then",
+    "once",
+    "here",
+    "there",
+    "when",
+    "where",
+    "why",
+    "how",
+    "all",
+    "both",
+    "each",
+    "few",
+    "more",
+    "most",
+    "other",
+    "some",
+    "such",
+    "no",
+    "nor",
+    "not",
+    "only",
+    "own",
+    "same",
+    "so",
+    "than",
+    "too",
+    "very",
+    "and",
+    "but",
+    "or",
+    "if",
+    "while",
+    "that",
+    "this",
+    "it",
+    "its",
+    "they",
 }
 _WORD_RE = re.compile(r"\w+", re.UNICODE)
 
@@ -34,7 +111,9 @@ _CJK_RE = re.compile(
 )
 
 
-def search(query: str, top_k: int = 10, base_dir: Path | None = None, domain: str | None = None) -> list[dict]:
+def search(
+    query: str, top_k: int = 10, base_dir: Path | None = None, domain: str | None = None
+) -> list[dict]:
     """Search the wiki using TF-IDF-like scoring."""
     cfg = load_config(base_dir)
     concepts_dir = Path(cfg["paths"]["concepts"])
@@ -58,17 +137,19 @@ def search(query: str, top_k: int = 10, base_dir: Path | None = None, domain: st
         tags = " ".join(post.metadata.get("tags", []))
         text = f"{title} {title} {summary} {tags} {post.content}"  # title weighted 2x
         tokens = _tokenize(text)
-        docs.append({
-            "path": str(md_file),
-            "slug": md_file.stem,
-            "title": title,
-            "summary": summary,
-            "tags": post.metadata.get("tags", []),
-            "domain": post.metadata.get("domain", "generale"),
-            "text": text,
-            "tokens": tokens,
-            "tokens_set": set(tokens),
-        })
+        docs.append(
+            {
+                "path": str(md_file),
+                "slug": md_file.stem,
+                "title": title,
+                "summary": summary,
+                "tags": post.metadata.get("tags", []),
+                "domain": post.metadata.get("domain", "generale"),
+                "text": text,
+                "tokens": tokens,
+                "tokens_set": set(tokens),
+            }
+        )
 
     if not docs:
         return []
@@ -95,16 +176,18 @@ def search(query: str, top_k: int = 10, base_dir: Path | None = None, domain: st
         if score > 0:
             # Find best matching snippet
             snippet = _extract_snippet(doc["text"], query_terms)
-            results.append({
-                "slug": doc["slug"],
-                "title": doc["title"],
-                "summary": doc["summary"],
-                "domain": doc["domain"],
-                "score": round(score, 3),
-                "matched_terms": matched_terms,
-                "snippet": snippet,
-                "path": doc["path"],
-            })
+            results.append(
+                {
+                    "slug": doc["slug"],
+                    "title": doc["title"],
+                    "summary": doc["summary"],
+                    "domain": doc["domain"],
+                    "score": round(score, 3),
+                    "matched_terms": matched_terms,
+                    "snippet": snippet,
+                    "path": doc["path"],
+                }
+            )
 
     results.sort(key=lambda x: x["score"], reverse=True)
     return results[:top_k]
@@ -147,7 +230,12 @@ def search_raw(query: str, top_k: int = 10, base_dir: Path | None = None) -> lis
         raw_source = post.metadata.get("source", "") or ""
         # Only surface http(s) URLs — local filesystem paths from local-file
         # ingest would leak usernames / absolute paths to callers.
-        source_url = raw_source if isinstance(raw_source, str) and raw_source.startswith(("http://", "https://")) else ""
+        source_url = (
+            raw_source
+            if isinstance(raw_source, str)
+            and raw_source.startswith(("http://", "https://"))
+            else ""
+        )
         rel = md_file.relative_to(raw_dir)
         # Use top-level subdir as the source identifier when metadata lacks it
         source_id = rel.parts[0] if len(rel.parts) > 1 else md_file.stem
@@ -155,15 +243,17 @@ def search_raw(query: str, top_k: int = 10, base_dir: Path | None = None) -> lis
         tokens = _tokenize(text)
         if not tokens:
             continue
-        docs.append({
-            "rel_path": str(rel),
-            "source": source_id,
-            "source_url": source_url,
-            "title": title,
-            "text": text,
-            "tokens": tokens,
-            "tokens_set": set(tokens),
-        })
+        docs.append(
+            {
+                "rel_path": str(rel),
+                "source": source_id,
+                "source_url": source_url,
+                "title": title,
+                "text": text,
+                "tokens": tokens,
+                "tokens_set": set(tokens),
+            }
+        )
 
     if not docs:
         return []
@@ -187,15 +277,17 @@ def search_raw(query: str, top_k: int = 10, base_dir: Path | None = None) -> lis
 
         if score > 0:
             snippet = _extract_snippet(doc["text"], query_terms)
-            results.append({
-                "source": doc["source"],
-                "source_url": doc["source_url"],
-                "title": doc["title"],
-                "rel_path": doc["rel_path"],
-                "score": round(score, 3),
-                "matched_terms": matched_terms,
-                "snippet": snippet,
-            })
+            results.append(
+                {
+                    "source": doc["source"],
+                    "source_url": doc["source_url"],
+                    "title": doc["title"],
+                    "rel_path": doc["rel_path"],
+                    "score": round(score, 3),
+                    "matched_terms": matched_terms,
+                    "snippet": snippet,
+                }
+            )
 
     results.sort(key=lambda x: x["score"], reverse=True)
     return results[:top_k]
@@ -220,7 +312,7 @@ def search_cli(query: str, base_dir: Path | None = None) -> str:
 
 def create_search_app(base_dir: Path | None = None):
     """Create Flask app for web UI search."""
-    from flask import Flask, request, jsonify, render_template_string
+    from flask import Flask, jsonify, render_template_string, request
 
     app = Flask(__name__)
     app.config["BASE_DIR"] = base_dir
@@ -320,7 +412,7 @@ def _tokenize(text: str) -> list[str]:
                 tokens.append(w)
             else:
                 for i in range(len(w) - 1):
-                    tokens.append(w[i:i + 2])
+                    tokens.append(w[i : i + 2])
         elif w not in STOPWORDS and len(w) > 1:
             tokens.append(w)
 
