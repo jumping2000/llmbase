@@ -353,6 +353,7 @@ def rebuild_index(base_dir: Path | None = None):
             "summary": post.metadata.get("summary", ""),
             "tags": post.metadata.get("tags", []),
             "sources": post.metadata.get("sources", []),
+            "domain": post.metadata.get("domain", "generale"),
         }
         index_entries.append(entry)
 
