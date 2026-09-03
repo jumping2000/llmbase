@@ -74,6 +74,7 @@ def query(
     return_path: bool = False,
     model: str | None = None,
     api_key: str | None = None,
+    domain: str | None = None,
 ) -> str | dict:
     """Ask a question against the wiki and return the answer.
 
@@ -94,7 +95,7 @@ def query(
     ensure_dirs(cfg)
 
     # Gather relevant context
-    context_files = _gather_context(question, cfg)
+    context_files = _gather_context(question, cfg, domain)
 
     if not context_files:
         msg = "No articles found in the wiki. Run `llmbase compile` first to build the wiki from raw documents."
@@ -137,6 +138,7 @@ def query_with_search(
     promote: bool = False,
     model: str | None = None,
     api_key: str | None = None,
+    domain: str | None = None,
 ) -> str | dict:
     """Multi-step query: first search for relevant articles, then answer.
 
@@ -166,6 +168,10 @@ def query_with_search(
     index = _load_index(meta_dir)
     if not index:
         return "Wiki is empty. Run `llmbase compile` first."
+
+    index = _filter_index_by_domain(index, domain)
+    if not index:
+        return f"No articles found for domain '{domain}'. Run `llmbase compile` first."
 
     # Step 0: TF-IDF prefilter — caps prompt size regardless of KB scale.
     # Below threshold, full index fits any model; above, the LLM selector
@@ -519,7 +525,14 @@ If rejecting, reply with:
     }
 
 
-def _gather_context(question: str, cfg: dict) -> list[dict]:
+def _filter_index_by_domain(index: list[dict], domain: str | None) -> list[dict]:
+    """Filter index entries to a single domain. ``domain=None`` = no filter."""
+    if not domain:
+        return index
+    return [e for e in index if e.get("domain", "generale") == domain]
+
+
+def _gather_context(question: str, cfg: dict, domain: str | None = None) -> list[dict]:
     """Gather relevant wiki articles as context for a query."""
     concepts_dir = Path(cfg["paths"]["concepts"])
     meta_dir = Path(cfg["paths"]["meta"])
@@ -542,6 +555,9 @@ def _gather_context(question: str, cfg: dict) -> list[dict]:
     for md_file in concepts_dir.glob("*.md"):
         content = md_file.read_text()
         post = frontmatter.load(str(md_file))
+
+        if domain and post.metadata.get("domain", "generale") != domain:
+            continue
 
         # Simple relevance scoring
         title = post.metadata.get("title", "").lower()
