@@ -24,6 +24,7 @@ Aggiungere a llmbase tre funzionalità:
 |---|---|
 | Modello domini | **B** — KB unica + campo `domain` sui documenti |
 | Ciclo vita domini | **D** — dinamici da UI, assegnazione esplicita (default `generale`), LLM suggerisce ma non impone |
+| Assegnazione esistenti | **A** — selezione multipla da UI (bulk) per associare i documenti già in wiki a un dominio |
 | Ricezione email | **IMAP polling** + tag nel subject `[lavoro]` |
 | Bot Telegram | **long-polling** + whitelist `chat_id` + comando `/dominio` |
 | Ordine implementazione | **Domini → Telegram → Email** |
@@ -57,6 +58,7 @@ wiki/_meta/domains.json  ← elenco domini gestito da UI
 **Assegnazione**
 - Esplicita all'ingest: form upload, tag mail, comando Telegram scrivono `domain` nel frontmatter del raw.
 - Al compile: se il raw ha `domain` esplicito → vince; se vuoto → il LLM suggerisce il dominio (il prompt di compile riceve l'elenco domini) e il valore suggerito viene scritto nell'articolo. Modificabile dopo da UI.
+- Assegnazione bulk dei documenti esistenti: selezione multipla nell'elenco articoli (filtrabile per tag/dominio) + azione "assegna a dominio X" → aggiorna il frontmatter di N articoli in un colpo solo.
 - `ingest_file` / `ingest_pdf` / `api_upload` accettano un parametro `domain` opzionale e lo scrivono nel frontmatter.
 
 **Filtro**
@@ -67,11 +69,13 @@ wiki/_meta/domains.json  ← elenco domini gestito da UI
 
 **Gestione UI**
 - API: `GET /api/domains`, `POST /api/domains`, `DELETE /api/domains/<id>`, `POST /api/domains/<id>/rename`.
+- API bulk: `POST /api/articles/bulk-domain` con body `{"slugs": [...], "domain": "lavoro"}` → aggiorna il frontmatter degli articoli indicati e ricostruisce l'indice.
 - Eliminazione di un dominio: i documenti con quel `domain` vengono riassegnati a `generale` (nessun orfano).
-- Frontend: selettore dominio nella toolbar + pagina settings per creare/rinominare/eliminare domini.
+- Frontend: selettore dominio nella toolbar, pagina settings per creare/rinominare/eliminare domini, multi-selezione nell'elenco articoli con azione "assegna a dominio".
 
 **Migrazione**
 - Backfill una tantum: articoli senza `domain` → `generale` (al primo rebuild index). Nessun downtime.
+- L'associazione dei documenti già esistenti (le decine di articoli attuali) ai domini avviene poi via selezione multipla (assegnazione bulk).
 
 **File toccati**: nuovo `llmwiki/domains.py`; `config.py` (defaults), `ingest.py`, `compile.py` (prompt + carry), `search.py`, `query.py`, `web.py` (route + param), `operations.py` (`kb_search`/`kb_ask` params + nuove op `kb_domains_*`), `rebuild_index`; frontend (selettore + settings).
 
@@ -110,7 +114,7 @@ wiki/_meta/domains.json  ← elenco domini gestito da UI
 
 ## Criteri di verifica (definizione di "finito")
 
-1. **Domini**: creo `lavoro` da UI; cerco con filtro `lavoro` e un documento `domain: lavoro` appare, uno `domain: studio` no; `ask` scoped per dominio risponde solo con contenuto del dominio.
+1. **Domini**: creo `lavoro` da UI; seleziono N articoli esistenti e li assegno a `lavoro` (bulk) → tutti ricevono `domain: lavoro` e l'indice si aggiorna; cerco con filtro `lavoro` e un documento `domain: lavoro` appare, uno `domain: studio` no; `ask` scoped per dominio risponde solo con contenuto del dominio.
 2. **Email**: invio una mail con subject `[lavoro] ...` + allegato PDF → entro ~1 min il documento appare in wiki con `domain: lavoro`, contenuto testuale + testo del PDF processati; una mail con tag sconosciuto atterra su `generale`.
 3. **Telegram**: `/ask` risponde attingendo alla wiki; invio un PDF al bot → entra in wiki nel dominio corrente; `/dominio studio` cambia il dominio delle operazioni successive; un `chat_id` non whitelisted viene ignorato.
 
