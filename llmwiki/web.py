@@ -923,7 +923,8 @@ def create_web_app(base_dir: Path | None = None):
     def api_search():
         q = request.args.get("q", "")
         top_k = int(request.args.get("top_k", 10))
-        results = search(q, top_k=top_k, base_dir=base)
+        domain = request.args.get("domain") or None
+        results = search(q, top_k=top_k, base_dir=base, domain=domain)
         return jsonify({"query": q, "results": results})
 
     # Body-field name fragments that signal an LLM API key. Request
@@ -991,6 +992,7 @@ def create_web_app(base_dir: Path | None = None):
         file_back = data.get("file_back", True)
         tone = data.get("tone", "default")
         promote = data.get("promote", False)
+        domain = data.get("domain") or None
         # Per-request model override: empty/None falls back to LLMBASE_MODEL.
         # Reject non-string / oversized to keep the param plumbing tight.
         raw_model = data.get("model")
@@ -1095,6 +1097,8 @@ def create_web_app(base_dir: Path | None = None):
                 "deep": True,
                 "promote": promote,
             }
+            if domain:
+                ask_args["domain"] = domain
             if model is not None:
                 ask_args["model"] = model
             if api_key is not None:
@@ -1121,6 +1125,7 @@ def create_web_app(base_dir: Path | None = None):
                 return_path=True,
                 model=model,
                 api_key=api_key,
+                domain=domain,
             )
             payload = {"answer": result["answer"]}
             if result.get("output_path"):
@@ -1224,6 +1229,8 @@ def create_web_app(base_dir: Path | None = None):
         except ValueError:
             return jsonify({"status": "error", "message": "Invalid chunk_pages"}), 400
 
+        domain = request.form.get("domain") or None
+
         cfg = load_config(base)
         raw_dir = Path(cfg["paths"]["raw"])
         raw_dir.mkdir(parents=True, exist_ok=True)
@@ -1256,6 +1263,7 @@ def create_web_app(base_dir: Path | None = None):
                         chunk_pages=chunk_pages,
                         base_dir=base,
                         original_name=f.filename,
+                        domain=domain,
                     )
                     uploaded.append(
                         {
@@ -1268,7 +1276,9 @@ def create_web_app(base_dir: Path | None = None):
                 else:
                     from .ingest import ingest_file
 
-                    path = ingest_file(tmp_path, base, original_name=f.filename)
+                    path = ingest_file(
+                        tmp_path, base, original_name=f.filename, domain=domain
+                    )
                     uploaded.append(
                         {
                             "filename": f.filename,
@@ -1290,6 +1300,77 @@ def create_web_app(base_dir: Path | None = None):
                 "total_files": len(files),
             }
         )
+
+    @app.route("/api/domains", methods=["GET"])
+    def api_domains():
+        from . import operations as _ops
+
+        return jsonify(_ops.dispatch("kb_domains_list", base, {}))
+
+    @app.route("/api/domains", methods=["POST"])
+    @require_auth
+    def api_domains_create():
+        data = request.json or {}
+        label = (data.get("label") or "").strip()
+        if not label:
+            return jsonify({"status": "error", "message": "label required"}), 400
+        from . import operations as _ops
+
+        return jsonify(_ops.dispatch("kb_domains_create", base, {"label": label}))
+
+    @app.route("/api/domains/<domain_id>/rename", methods=["POST"])
+    @require_auth
+    def api_domains_rename(domain_id):
+        data = request.json or {}
+        label = (data.get("label") or "").strip()
+        if not label:
+            return jsonify({"status": "error", "message": "label required"}), 400
+        from . import operations as _ops
+
+        try:
+            result = _ops.dispatch(
+                "kb_domains_rename", base, {"domain_id": domain_id, "label": label}
+            )
+        except ValueError as e:
+            return jsonify({"status": "error", "message": str(e)}), 400
+        return jsonify(result)
+
+    @app.route("/api/domains/<domain_id>", methods=["DELETE"])
+    @require_auth
+    def api_domains_delete(domain_id):
+        from . import operations as _ops
+
+        try:
+            result = _ops.dispatch("kb_domains_delete", base, {"domain_id": domain_id})
+        except ValueError as e:
+            return jsonify({"status": "error", "message": str(e)}), 400
+        return jsonify(result)
+
+    @app.route("/api/articles/bulk-domain", methods=["POST"])
+    @require_auth
+    def api_articles_bulk_domain():
+        data = request.json or {}
+        slugs = data.get("slugs") or []
+        domain = (data.get("domain") or "").strip()
+        if not isinstance(slugs, list) or not domain:
+            return jsonify(
+                {"status": "error", "message": "slugs and domain required"}
+            ), 400
+        from . import operations as _ops
+
+        try:
+            result = _ops.dispatch(
+                "kb_domains_bulk_assign", base, {"slugs": slugs, "domain": domain}
+            )
+        except RuntimeError as e:
+            return jsonify({"status": "busy", "error": str(e)}), 409
+        except ValueError:
+            # Assign-on-create: an unknown domain is created implicitly.
+            _ops.dispatch("kb_domains_create", base, {"label": domain})
+            result = _ops.dispatch(
+                "kb_domains_bulk_assign", base, {"slugs": slugs, "domain": domain}
+            )
+        return jsonify(result)
 
     @app.route("/api/articles/<slug>", methods=["DELETE"])
     @require_auth

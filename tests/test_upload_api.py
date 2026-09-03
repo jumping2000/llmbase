@@ -17,7 +17,7 @@ def _client(tmp_kb):
 def test_api_upload_accepts_multiple_files_and_preserves_names(tmp_kb, monkeypatch):
     calls = []
 
-    def fake_ingest_pdf(pdf_path, chunk_pages=20, base_dir=None, original_name=None):
+    def fake_ingest_pdf(pdf_path, chunk_pages=20, base_dir=None, original_name=None, domain=None):
         calls.append({
             "pdf_path": pdf_path,
             "chunk_pages": chunk_pages,
@@ -56,7 +56,7 @@ def test_api_upload_accepts_multiple_files_and_preserves_names(tmp_kb, monkeypat
 def test_api_upload_accepts_markdown_files(tmp_kb, monkeypatch):
     calls = []
 
-    def fake_ingest_file(file_path, base_dir=None, original_name=None):
+    def fake_ingest_file(file_path, base_dir=None, original_name=None, domain=None):
         calls.append({
             "file_path": file_path,
             "base_dir": base_dir,
