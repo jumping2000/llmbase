@@ -2,6 +2,7 @@
 from pathlib import Path
 
 import frontmatter
+import pytest
 
 from llmwiki.domains import (
     DEFAULT_DOMAIN,
@@ -74,3 +75,14 @@ def test_bulk_assign_domain(tmp_path):
     for slug in ("a", "b"):
         post = frontmatter.load(str(tmp_path / "wiki" / "concepts" / f"{slug}.md"))
         assert post.metadata.get("domain") == "lavoro"
+
+
+def test_bulk_assign_unknown_domain_raises(tmp_path):
+    _write_concept(tmp_path, "a")
+    with pytest.raises(ValueError):
+        bulk_assign_domain(["a"], "tipooo", tmp_path)
+
+
+def test_rename_default_domain_raises(tmp_path):
+    with pytest.raises(ValueError):
+        rename_domain("generale", "X", tmp_path)

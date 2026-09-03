@@ -38,7 +38,11 @@ def list_domains(base_dir: Path | None = None) -> list[dict]:
             data = []
         if isinstance(data, list):
             for item in data:
-                if isinstance(item, dict) and item.get("id") and item["id"] != DEFAULT_DOMAIN:
+                if (
+                    isinstance(item, dict)
+                    and item.get("id")
+                    and item["id"] != DEFAULT_DOMAIN
+                ):
                     domains.append(item)
     return domains
 
@@ -79,6 +83,8 @@ def create_domain(label: str, base_dir: Path | None = None) -> dict:
 
 def rename_domain(domain_id: str, new_label: str, base_dir: Path | None = None) -> dict:
     dom_id = normalize_domain_id(domain_id)
+    if dom_id == DEFAULT_DOMAIN:
+        raise ValueError("cannot rename the default domain")
     if not domain_exists(dom_id, base_dir):
         raise ValueError(f"unknown domain: {dom_id}")
     domains = list_domains(base_dir)
@@ -98,10 +104,16 @@ def delete_domain(domain_id: str, base_dir: Path | None = None) -> dict:
     domains = [d for d in list_domains(base_dir) if d["id"] != dom_id]
     _save_domains(domains, base_dir)
     reassigned = _reassign_articles(dom_id, DEFAULT_DOMAIN, base_dir)
-    return {"deleted": dom_id, "reassigned": DEFAULT_DOMAIN, "reassigned_count": reassigned}
+    return {
+        "deleted": dom_id,
+        "reassigned": DEFAULT_DOMAIN,
+        "reassigned_count": reassigned,
+    }
 
 
-def _set_article_domain(slug: str, domain_id: str, base_dir: Path | None = None) -> bool:
+def _set_article_domain(
+    slug: str, domain_id: str, base_dir: Path | None = None
+) -> bool:
     cfg = load_config(base_dir)
     path = Path(cfg["paths"]["concepts"]) / f"{slug}.md"
     if not path.exists():
@@ -112,7 +124,9 @@ def _set_article_domain(slug: str, domain_id: str, base_dir: Path | None = None)
     return True
 
 
-def _reassign_articles(from_domain: str, to_domain: str, base_dir: Path | None = None) -> int:
+def _reassign_articles(
+    from_domain: str, to_domain: str, base_dir: Path | None = None
+) -> int:
     cfg = load_config(base_dir)
     concepts_dir = Path(cfg["paths"]["concepts"])
     count = 0
@@ -127,8 +141,12 @@ def _reassign_articles(from_domain: str, to_domain: str, base_dir: Path | None =
     return count
 
 
-def bulk_assign_domain(slugs: list[str], domain_id: str, base_dir: Path | None = None) -> dict:
-    dom_id = resolve_domain(domain_id, base_dir)
+def bulk_assign_domain(
+    slugs: list[str], domain_id: str, base_dir: Path | None = None
+) -> dict:
+    dom_id = normalize_domain_id(domain_id)
+    if not domain_exists(dom_id, base_dir):
+        raise ValueError(f"unknown domain: {dom_id}")
     updated, missing = [], []
     for slug in slugs:
         if _set_article_domain(slug, dom_id, base_dir):

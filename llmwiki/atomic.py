@@ -12,7 +12,7 @@ import tempfile
 from pathlib import Path
 
 
-def atomic_write_json(path: Path, data: dict, ensure_ascii: bool = False):
+def atomic_write_json(path: Path, data: dict | list, ensure_ascii: bool = False):
     """Write JSON atomically using temp file + rename.
 
     If the process crashes mid-write, the original file is untouched.
