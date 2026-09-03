@@ -48,3 +48,23 @@ llmbase web
 ```
 
 Poi apri `http://localhost:5555`.
+
+## Domini
+
+Ogni documento ha un `domain` (default `generale`). Crea e gestisci i domini
+dalla UI web (Dashboard → Domini), via API HTTP (`/api/domains`) oppure con gli
+strumenti MCP `kb_domains_*`. Search e ask accettano un parametro `domain` per
+limitare i risultati a un dominio.
+
+## Bot Telegram
+
+Imposta `LLMBASE_TG_TOKEN` e `LLMBASE_TG_ALLOWED_CHAT_IDS` in `.env` (vedi
+`.env.example`). Il bot offre `/ask`, `/cerca`, `/dominio` e l'invio di
+documenti, e gira nello stesso processo dell'app web.
+
+## Ingestione email
+
+Imposta `LLMBASE_MAIL_HOST`, `LLMBASE_MAIL_USER` e `LLMBASE_MAIL_PASSWORD` in
+`.env`. Il poller controlla la casella ogni minuto; un tag `[dominio]`
+nell'oggetto indirizza il messaggio (corpo e allegati PDF) a quel dominio.
+

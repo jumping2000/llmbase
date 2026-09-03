@@ -15,7 +15,7 @@ Il server web espone un'API HTTP JSON insieme al frontend.
 - `GET /api/articles/<slug>`
 - `GET /api/articles/<slug>/sections`
 - `GET /api/aliases`
-- `GET /api/search?q=<query>&top_k=<n>`
+- `GET /api/search?q=<query>&top_k=<n>&domain=<domain>`
 - `GET /api/tones`
 - `GET /api/sources`
 - `GET /api/sources/<slug>`
@@ -31,6 +31,7 @@ Il server web espone un'API HTTP JSON insieme al frontend.
 - `GET /api/worker/status`
 - `GET /api/wiki/export`
 - `GET /api/xici`
+- `GET /api/domains`
 - `POST /api/lint`
 
 ## Endpoint di scrittura
@@ -49,6 +50,10 @@ Il server web espone un'API HTTP JSON insieme al frontend.
 - `POST /api/trails`
 - `POST /api/trails/<trail_id>/delete`
 - `DELETE /api/articles/<slug>`
+- `POST /api/domains`
+- `POST /api/domains/<domain_id>/rename`
+- `DELETE /api/domains/<domain_id>`
+- `POST /api/articles/bulk-domain`
 
 Quando `LLMBASE_API_SECRET` è impostato, gli endpoint di scrittura richiedono autenticazione.
 Alcuni endpoint operazionali di lettura sono anch'essi protetti perché espongono stato dei job o attività interne:
@@ -79,6 +84,12 @@ Richiede il supporto dell'automazione browser (`opencli`) sull'host llmbase e in
 `GET /api/wiki/export` esporta l'intera wiki compilata come JSON per backup o sincronizzazione downstream.
 
 `GET /api/trails` elenca i trail di ricerca salvati e `POST /api/trails` aggiunge un passo o crea un trail.
+
+`GET /api/domains` elenca tutti i domini (il `generale` implicito più quelli personalizzati).
+`POST /api/domains` crea un dominio da un body `{"label": "..."}`; `POST /api/domains/<domain_id>/rename` lo rinomina; `DELETE /api/domains/<domain_id>` lo elimina riassegnando i suoi documenti a `generale`.
+`POST /api/articles/bulk-domain` con `{"slugs": [...], "domain": "..."}` assegna un dominio a più articoli e ricostruisce l'indice.
+
+Gli articoli portano un campo `domain` (default `generale`). `/api/search`, `/api/ask` e `/api/upload` lo accettano per filtrare per dominio; la lista e il dettaglio articolo lo includono nelle risposte.
 
 `GET /api/compile/status` restituisce lo stato di compilazione persistito più recente:
 

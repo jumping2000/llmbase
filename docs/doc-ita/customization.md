@@ -118,3 +118,24 @@ register(Operation(
     },
 ))
 ```
+
+## Domini
+
+I domini sono faccette di primo livello sugli articoli. Il dominio di default
+implicito è `generale`; i domini aggiuntivi vivono in `wiki/_meta/domains.json`
+e si gestiscono tramite la UI web (Dashboard → Domini), l'API HTTP oppure le
+operazioni `kb_domains_*`. I documenti senza dominio esplicito ricadono su
+`generale`.
+
+## Telegram ed email
+
+Entrambe le integrazioni sono opzionali e configurate esclusivamente via
+variabili d'ambiente (vedi `.env.example`):
+
+- Bot Telegram long-polling — `llmwiki/telegram.py` (`LLMBASE_TG_TOKEN`,
+  `LLMBASE_TG_ALLOWED_CHAT_IDS`, `LLMBASE_TG_DEFAULT_DOMAIN`).
+- Ingestione email via IMAP — `llmwiki/mail.py` (`LLMBASE_MAIL_*`).
+
+Avvio e arresto avvengono nel lifespan ASGI insieme al worker; impostare le
+variabili d'ambiente rilevanti le abilita.
+

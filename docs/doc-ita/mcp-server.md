@@ -82,6 +82,17 @@ L'elenco seguente è illustrativo, non esaustivo. La superficie reale degli stru
 - `kb_export_graph`
 - `kb_rebuild_index`
 - `kb_xici`
+- `kb_domains_list`
+- `kb_domains_create`
+- `kb_domains_rename`
+- `kb_domains_delete`
+- `kb_domains_bulk_assign`
+
+## Filtro per dominio
+
+`kb_search` e `kb_ask` accettano un parametro opzionale `domain` per circoscrivere
+la query a un singolo dominio (default `generale`). Gli strumenti `kb_domains_*`
+gestiscono l'elenco domini salvato in `wiki/_meta/domains.json`.
 
 ## Toni di `kb_ask`
 

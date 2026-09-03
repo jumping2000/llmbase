@@ -48,3 +48,23 @@ llmbase web
 ```
 
 Then open `http://localhost:5555`.
+
+## Domains
+
+Every document has a `domain` (default `generale`). Create and manage domains
+from the web UI (Dashboard → Domini), via the HTTP API (`/api/domains`), or via
+the `kb_domains_*` MCP tools. Search and ask accept a `domain` parameter to
+scope results to one domain.
+
+## Telegram bot
+
+Set `LLMBASE_TG_TOKEN` and `LLMBASE_TG_ALLOWED_CHAT_IDS` in `.env` (see
+`.env.example`). The bot offers `/ask`, `/cerca`, `/dominio`, and document
+upload, and runs in the same process as the web app.
+
+## Email ingestion
+
+Set `LLMBASE_MAIL_HOST`, `LLMBASE_MAIL_USER`, and `LLMBASE_MAIL_PASSWORD` in
+`.env`. The poller checks the mailbox every minute; a `[dominio]` tag in the
+subject routes the message (body and PDF attachments) to that domain.
+

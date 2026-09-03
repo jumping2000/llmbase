@@ -6,6 +6,12 @@ LLMBase is an LLM-assisted knowledge base that turns raw documents into a struct
 
 The repository currently targets English and Italian output across compilation, search, export, taxonomy, and guided-introduction flows.
 
+## Features
+
+- **Domains** — tag every article with a `domain` (default `generale`) and filter search/ask by domain.
+- **Telegram bot** — ask the wiki and add documents from Telegram (`/ask`, `/cerca`, `/dominio`).
+- **Email ingestion** — send documents to a mailbox; a `[dominio]` tag in the subject routes them, PDF attachments included.
+
 ## Architecture
 
 ```

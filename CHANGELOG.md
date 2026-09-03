@@ -2,6 +2,8 @@
 
 | Versione | Highlights |
 |----------|-----------|
+| **v0.9.1** | Domini UX (menu a tendina, badge), fix vari |
+| **v0.9.0** | Domini, bot Telegram, email ingestion |
 | **v0.8.9** | MCP streamable-http, doc fixes |
 | **v0.8.8** | Docker config read-only mount |
 | **v0.8.7** | LLM token tracking, error handling |
@@ -10,6 +12,20 @@
 | **v0.8.3** | Worker seed URL learning |
 | **v0.8.2** | Nginx Basic Auth, PDF upload, Chinese removal |
 | **v0.8.1** | Initial EN/IT release |
+
+## v0.9.1
+
+- Reworked the Domains panel UX: dropdown selector, with rename/delete acting on the selected domain.
+- Show the domain badge on the article page, article list, and search results.
+- Fixed email ingestion: broken-PDF attachment no longer causes a re-ingest loop; IMAP expunge now iterates in reverse to avoid sequence-number drift.
+- Fixed `ask` domain filter in the keyword fallback path; domain deletion now also reassigns raw docs.
+
+## v0.9.0
+
+- Added **domains**: a `domain` frontmatter facet on raw docs and wiki articles; CRUD via `llmwiki/domains.py`; filters on search/ask/index; bulk assignment; LLM domain suggestion at compile; web API (`/api/domains`, `/api/articles/bulk-domain`) and UI.
+- Added **Telegram bot**: long-polling gateway (`llmwiki/telegram.py`) with chat-id whitelist and `/ask`, `/cerca`, `/dominio`, and document upload.
+- Added **email ingestion**: IMAP polling (`llmwiki/mail.py`) with `[domain]` subject-tag routing, markdown body and PDF attachments.
+- Exposed `kb_domains_*` MCP operations and a `domain` parameter on `kb_search` / `kb_ask`.
 
 ## v0.8.9
 

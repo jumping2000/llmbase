@@ -15,7 +15,7 @@ The web server exposes a JSON HTTP API alongside the frontend.
 - `GET /api/articles/<slug>`
 - `GET /api/articles/<slug>/sections`
 - `GET /api/aliases`
-- `GET /api/search?q=<query>&top_k=<n>`
+- `GET /api/search?q=<query>&top_k=<n>&domain=<domain>`
 - `GET /api/tones`
 - `GET /api/sources`
 - `GET /api/sources/<slug>`
@@ -31,6 +31,7 @@ The web server exposes a JSON HTTP API alongside the frontend.
 - `GET /api/worker/status`
 - `GET /api/wiki/export`
 - `GET /api/xici`
+- `GET /api/domains`
 - `POST /api/lint`
 
 ## Write endpoints
@@ -49,6 +50,10 @@ The web server exposes a JSON HTTP API alongside the frontend.
 - `POST /api/trails`
 - `POST /api/trails/<trail_id>/delete`
 - `DELETE /api/articles/<slug>`
+- `POST /api/domains`
+- `POST /api/domains/<domain_id>/rename`
+- `DELETE /api/domains/<domain_id>`
+- `POST /api/articles/bulk-domain`
 
 When `LLMBASE_API_SECRET` is set, write endpoints require authentication.
 Some operational read endpoints are also auth-gated because they expose job state or internal activity:
@@ -79,6 +84,12 @@ It requires browser automation support (`opencli`) on the llmbase host and inges
 `GET /api/wiki/export` exports the whole compiled wiki as JSON for backup or downstream sync.
 
 `GET /api/trails` lists stored research trails and `POST /api/trails` appends a step or creates a trail.
+
+`GET /api/domains` lists all domains (the implicit `generale` plus any custom ones).
+`POST /api/domains` creates a domain from a `{"label": "..."}` body; `POST /api/domains/<domain_id>/rename` renames it; `DELETE /api/domains/<domain_id>` deletes it and reassigns its documents to `generale`.
+`POST /api/articles/bulk-domain` with `{"slugs": [...], "domain": "..."}` assigns a domain to many articles at once and rebuilds the index.
+
+Articles carry a `domain` field (default `generale`). `/api/search`, `/api/ask`, and `/api/upload` accept it for per-domain filtering; the article list and article detail responses include it.
 
 `GET /api/compile/status` returns the latest persisted compile state:
 

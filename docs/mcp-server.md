@@ -99,6 +99,17 @@ The list below is illustrative, not exhaustive. The actual MCP tool surface is g
 - `kb_export_graph`
 - `kb_rebuild_index`
 - `kb_xici`
+- `kb_domains_list`
+- `kb_domains_create`
+- `kb_domains_rename`
+- `kb_domains_delete`
+- `kb_domains_bulk_assign`
+
+## Domain filtering
+
+`kb_search` and `kb_ask` accept an optional `domain` parameter to scope the
+query to a single domain (default `generale`). The `kb_domains_*` tools manage
+the domain list stored in `wiki/_meta/domains.json`.
 
 ## Ask tone values
 
