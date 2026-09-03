@@ -1739,8 +1739,10 @@ def create_asgi_app(base_dir: Path | None = None):
     mcp_manager = create_mcp_session_manager(base)
 
     from .telegram import resolve_telegram_bot
+    from .mail import resolve_mail_poller
 
     tg_bot = resolve_telegram_bot(base)
+    mail_poller = resolve_mail_poller(base)
 
     # Wrap MCP handler with auth if MCP_API_KEY is set
     api_key = os.environ.get("MCP_API_KEY", "")
@@ -1764,10 +1766,14 @@ def create_asgi_app(base_dir: Path | None = None):
                     await _cm.__aenter__()
                     if tg_bot is not None:
                         tg_bot.start()
+                    if mail_poller is not None:
+                        mail_poller.start()
                     await send({"type": "lifespan.startup.complete"})
                 elif message["type"] == "lifespan.shutdown":
                     if tg_bot is not None:
                         tg_bot.stop()
+                    if mail_poller is not None:
+                        mail_poller.stop()
                     if _cm is not None:
                         await _cm.__aexit__(None, None, None)
                         _cm = None
