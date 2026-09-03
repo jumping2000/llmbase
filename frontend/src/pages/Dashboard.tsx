@@ -235,6 +235,12 @@ export function Dashboard() {
 
       {/* Domains */}
       <div className="bg-surface-container rounded-xl p-4 border border-outline-variant/20 mb-8">
+        <div className="flex items-center gap-2 mb-3">
+          <Icon name="category" className="text-primary text-[16px]" />
+          <span className="text-xs uppercase tracking-widest text-on-surface-variant">
+            {it ? 'Domini' : 'Domains'}
+          </span>
+        </div>
         <DomainManager />
       </div>
 

@@ -44,7 +44,6 @@ export default function DomainManager() {
 
   return (
     <div>
-      <h2>Domini</h2>
       <ul>
         {domains.map((d) => (
           <li key={d.id}>
