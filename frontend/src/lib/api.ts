@@ -15,6 +15,7 @@ export interface SearchResult {
   slug: string;
   title: string;
   summary: string;
+  domain?: string;
   score: number;
   snippet: string;
   matched_terms: string[];

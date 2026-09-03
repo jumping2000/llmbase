@@ -82,6 +82,12 @@ export function Search() {
                 {r.score}
               </span>
             </div>
+            {r.domain && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] rounded-full bg-secondary/10 text-secondary border border-secondary/20 mb-1">
+                <Icon name="category" className="text-[12px]" />
+                {r.domain}
+              </span>
+            )}
             {r.summary && <p className="text-sm text-on-surface-variant mb-2">{r.summary}</p>}
             {r.snippet && (
               <p className="text-sm text-outline italic">...{r.snippet}...</p>

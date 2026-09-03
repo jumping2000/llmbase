@@ -536,6 +536,7 @@ def create_web_app(base_dir: Path | None = None):
                         "title": post.metadata.get("title", md_file.stem),
                         "summary": post.metadata.get("summary", ""),
                         "tags": post.metadata.get("tags", []),
+                        "domain": post.metadata.get("domain", "generale"),
                     }
                 )
             resp = jsonify({"articles": arts})
@@ -578,6 +579,7 @@ def create_web_app(base_dir: Path | None = None):
                 "title": post.metadata.get("title", p.stem),
                 "summary": post.metadata.get("summary", ""),
                 "tags": post.metadata.get("tags", []),
+                "domain": post.metadata.get("domain", "generale"),
             }
             if fields:
                 entry = {k: v for k, v in entry.items() if k in fields}
