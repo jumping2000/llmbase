@@ -299,10 +299,11 @@ export const api = {
   getSources: () => get<{ documents: RawDoc[] }>('/api/sources').then(d => d.documents),
   ingest: (source: string) => post<{ status: string; path: string }>('/api/ingest', { source }),
   ingestBrowser: (source: string) => post<{ status: string; path: string }>('/api/ingest/browser', { source }),
-  uploadFiles: (files: File[], chunkPages = 20) => {
+  uploadFiles: (files: File[], chunkPages = 20, domain?: string) => {
     const form = new FormData();
     for (const file of files) form.append('file', file);
     form.append('chunk_pages', String(chunkPages));
+    if (domain) form.append('domain', domain);
     return postForm<UploadBatchResult>('/api/upload', form);
   },
   compile: () => post<{ status: string; message?: string; articles_created?: number }>('/api/compile', {}),

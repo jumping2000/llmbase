@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Icon } from '../components/Icon';
 import { Markdown } from '../components/Markdown';
 import { ApiError, api, type RawDoc } from '../lib/api';
+import { useDomains } from '../lib/domains';
 
 // Poll the worker status while a job is in flight. 2s is a decent balance
 // between recovery latency and request noise — compile jobs typically run
@@ -89,6 +90,7 @@ export function Ingest() {
   const [blockedUrl, setBlockedUrl] = useState('');
   const [browserRetrying, setBrowserRetrying] = useState(false);
   const [preview, setPreview] = useState<{ title: string; content: string; metadata: Record<string, string> } | null>(null);
+  const { current } = useDomains();
   const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollFailures = useRef(0);
   const uploadInputRef = useRef<HTMLInputElement | null>(null);
@@ -230,7 +232,7 @@ export function Ingest() {
     setMessage('');
 
     try {
-      const result = await api.uploadFiles(selectedFiles, chunkPages);
+      const result = await api.uploadFiles(selectedFiles, chunkPages, current);
       if (!mounted.current) return;
 
       const okCount = result.uploaded.length;

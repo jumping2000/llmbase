@@ -30,6 +30,18 @@ export default function DomainManager() {
     }
   };
 
+  const rename = async (id: string, currentLabel: string) => {
+    const next = window.prompt('Nuovo nome', currentLabel);
+    if (next === null || !next.trim()) return;
+    setError('');
+    try {
+      await api.renameDomain(id, next.trim());
+      reload();
+    } catch (e) {
+      setError(String(e));
+    }
+  };
+
   return (
     <div>
       <h2>Domini</h2>
@@ -38,7 +50,10 @@ export default function DomainManager() {
           <li key={d.id}>
             {d.label} <code>{d.id}</code>
             {d.id !== 'generale' && (
-              <button onClick={() => remove(d.id)}>Elimina</button>
+              <>
+                <button onClick={() => rename(d.id, d.label)}>Rinomina</button>
+                <button onClick={() => remove(d.id)}>Elimina</button>
+              </>
             )}
           </li>
         ))}

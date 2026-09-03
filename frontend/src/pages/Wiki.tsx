@@ -3,6 +3,7 @@ import { Icon } from '../components/Icon';
 import { ArticleCard } from '../components/ArticleCard';
 import { Shimmer } from '../components/Loading';
 import { api, type Article, type Collection } from '../lib/api';
+import { useDomains } from '../lib/domains';
 
 export function Wiki() {
   const [articles, setArticles] = useState<Article[]>([]);
@@ -10,17 +11,54 @@ export function Wiki() {
   const [filter, setFilter] = useState('');
   const [selectedCollection, setSelectedCollection] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [assignDomain, setAssignDomain] = useState('');
+  const [assignMessage, setAssignMessage] = useState('');
+  const { domains } = useDomains();
 
-  useEffect(() => {
-    Promise.all([
-      api.getArticles(),
-      api.getCollections(),
-    ]).then(([a, c]) => {
+  const loadArticles = async () => {
+    try {
+      const [a, c] = await Promise.all([
+        api.getArticles(),
+        api.getCollections(),
+      ]);
       setArticles(a);
       setCollections(c);
+    } catch {
+      /* ignore */
+    } finally {
       setLoading(false);
-    }).catch(() => setLoading(false));
+    }
+  };
+
+  useEffect(() => {
+    loadArticles();
   }, []);
+
+  const toggleSelect = (slug: string) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(slug)) {
+        next.delete(slug);
+      } else {
+        next.add(slug);
+      }
+      return next;
+    });
+  };
+
+  const handleBulkAssign = async () => {
+    if (selected.size === 0 || !assignDomain) return;
+    setAssignMessage('');
+    try {
+      const res = await api.bulkAssignDomain([...selected], assignDomain);
+      setSelected(new Set());
+      setAssignMessage(`Aggiornati ${res.updated.length} articoli al dominio "${assignDomain}".`);
+      await loadArticles();
+    } catch (e) {
+      setAssignMessage(`Errore: ${e}`);
+    }
+  };
 
   const filtered = useMemo(() => {
     return articles.filter(a => {
@@ -102,6 +140,44 @@ export function Wiki() {
             />
           </div>
 
+          {/* Bulk domain assignment */}
+          {selected.size > 0 && (
+            <div className="flex flex-wrap items-center gap-3 mb-4 p-3 rounded-lg bg-primary-container/15 border border-primary/20">
+              <span className="text-sm text-on-surface-variant">
+                {selected.size} selezionat{selected.size === 1 ? 'o' : 'i'}
+              </span>
+              <select
+                value={assignDomain}
+                onChange={e => setAssignDomain(e.target.value)}
+                className="bg-surface-high border border-outline-variant/40 rounded-lg px-3 py-2 text-sm"
+              >
+                <option value="">Scegli dominio…</option>
+                {domains.map(d => (
+                  <option key={d.id} value={d.id}>{d.label}</option>
+                ))}
+              </select>
+              <button
+                onClick={handleBulkAssign}
+                disabled={!assignDomain}
+                className="px-4 py-2 bg-primary text-on-primary rounded-lg text-sm font-medium hover:opacity-90 disabled:opacity-50"
+              >
+                Assegna a dominio
+              </button>
+              <button
+                onClick={() => setSelected(new Set())}
+                className="text-sm text-on-surface-variant hover:text-on-surface"
+              >
+                Annulla
+              </button>
+            </div>
+          )}
+
+          {assignMessage && (
+            <div className={`rounded-lg px-4 py-3 mb-4 text-sm ${assignMessage.startsWith('Errore') ? 'bg-error-container/20 text-error' : 'bg-tertiary-container/20 text-tertiary'}`}>
+              {assignMessage}
+            </div>
+          )}
+
           {/* Results */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {loading && Array.from({ length: 6 }).map((_, i) => (
@@ -109,7 +185,18 @@ export function Wiki() {
                 <Shimmer lines={3} />
               </div>
             ))}
-            {filtered.map(a => <ArticleCard key={a.slug} article={a} />)}
+            {filtered.map(a => (
+              <div key={a.slug} className="relative">
+                <ArticleCard article={a} />
+                <input
+                  type="checkbox"
+                  checked={selected.has(a.slug)}
+                  onChange={() => toggleSelect(a.slug)}
+                  className="absolute top-3 right-3 w-4 h-4 accent-primary cursor-pointer"
+                  aria-label={`Seleziona ${a.title}`}
+                />
+              </div>
+            ))}
           </div>
 
           {!loading && filtered.length === 0 && (
