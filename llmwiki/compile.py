@@ -133,6 +133,8 @@ CRITICAL DEDUPLICATION RULES:
 - New articles should only be created for genuinely NEW concepts not covered above
 
 Please:
+Available domains: {domains}
+Assign each article a `domain:` field from this list. If unsure, use `generale`.
 1. Identify the key concepts from this document (1-5 concepts)
 2. For each concept, produce a wiki article in this exact format:
 
@@ -141,6 +143,7 @@ slug: concept-name-here
 title: English Title / Titolo italiano
 summary: One-line summary in English
 tags: tag1, tag2, tag3
+domain: generale
 ---
 {article_format}
 ===END===
@@ -229,11 +232,15 @@ def compile_new(base_dir: Path | None = None, batch_size: int | None = None) -> 
             chr(10).join('  - ' + c for c in existing_concepts)
             if existing_concepts else '  (none yet)'
         )
+        from .domains import list_domains
+
+        domains_text = ", ".join(d["id"] for d in list_domains(base_dir))
         prompt = COMPILE_USER_PROMPT.format(
             title=title,
             content=content[:15000],
             existing=existing_text,
             article_format=COMPILE_ARTICLE_FORMAT,
+            domains=domains_text,
         )
 
         response = chat(
@@ -259,8 +266,12 @@ def compile_new(base_dir: Path | None = None, batch_size: int | None = None) -> 
                 source_ref[key] = post.metadata[key]
 
         # Parse response and write articles (with source ref)
+        from .domains import resolve_domain
+
         articles = _parse_compile_response(response)
+        raw_domain = post.metadata.get("domain")
         for article in articles:
+            article["domain"] = raw_domain or resolve_domain(article.get("domain"), base_dir)
             article["sources"] = [source_ref]
             article_path = _write_article(article, concepts_dir)
             if article_path:
@@ -492,6 +503,8 @@ def _parse_article_block(block: str) -> dict | None:
             value = value.strip()
             if key in ("slug", "title", "summary"):
                 meta[key] = value
+            elif key == "domain":
+                meta["domain"] = value
             elif key == "tags":
                 meta["tags"] = [t.strip() for t in value.split(",")]
 
@@ -568,6 +581,7 @@ def _write_article(article: dict, concepts_dir: Path) -> Path | None:
     post.metadata["summary"] = article.get("summary", "")
     post.metadata["tags"] = article.get("tags", [])
     post.metadata["sources"] = article.get("sources", [])
+    post.metadata["domain"] = article.get("domain") or "generale"
     post.metadata["created"] = datetime.now(timezone.utc).isoformat()
     post.metadata["updated"] = datetime.now(timezone.utc).isoformat()
     article_path.write_text(frontmatter.dumps(post), encoding="utf-8")
