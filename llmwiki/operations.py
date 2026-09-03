@@ -99,9 +99,9 @@ def dispatch(name: str, base_dir: Path, arguments: dict | None = None) -> Any:
 # no heavy import graph (MCP stdio wants fast startup).
 
 
-def _op_search(base_dir: Path, query: str, top_k: int = 10) -> dict:
+def _op_search(base_dir: Path, query: str, top_k: int = 10, domain: str | None = None) -> dict:
     from .search import search
-    return {"results": search(query, top_k=top_k, base_dir=base_dir)}
+    return {"results": search(query, top_k=top_k, base_dir=base_dir, domain=domain)}
 
 
 def _op_search_raw(base_dir: Path, query: str, top_k: int = 10) -> dict:
@@ -118,6 +118,7 @@ def _op_ask(
     promote: bool = False,
     model: str | None = None,
     api_key: str | None = None,
+    domain: str | None = None,
 ) -> dict:
     from .query import query, query_with_search
     if deep:
@@ -130,6 +131,7 @@ def _op_ask(
             promote=promote,
             model=model,
             api_key=api_key,
+            domain=domain,
         )
         if isinstance(result, dict):
             return result
@@ -141,6 +143,7 @@ def _op_ask(
         tone=tone,
         model=model,
         api_key=api_key,
+        domain=domain,
     )
     return {"answer": answer}
 
@@ -398,6 +401,31 @@ def _op_xici(base_dir: Path, lang: str = "en-it") -> dict:
     return get_xici(base_dir, lang)
 
 
+def _op_domains_list(base_dir: Path) -> dict:
+    from .domains import list_domains
+    return {"domains": list_domains(base_dir)}
+
+
+def _op_domains_create(base_dir: Path, label: str) -> dict:
+    from .domains import create_domain
+    return {"domain": create_domain(label, base_dir)}
+
+
+def _op_domains_rename(base_dir: Path, domain_id: str, label: str) -> dict:
+    from .domains import rename_domain
+    return {"domain": rename_domain(domain_id, label, base_dir)}
+
+
+def _op_domains_delete(base_dir: Path, domain_id: str) -> dict:
+    from .domains import delete_domain
+    return delete_domain(domain_id, base_dir)
+
+
+def _op_domains_bulk_assign(base_dir: Path, slugs: list, domain: str) -> dict:
+    from .domains import bulk_assign_domain
+    return bulk_assign_domain(slugs, domain, base_dir)
+
+
 # ─── Canonical registry ─────────────────────────────────────────────
 
 _CANONICAL: list[Operation] = [
@@ -410,6 +438,7 @@ _CANONICAL: list[Operation] = [
             "properties": {
                 "query": {"type": "string", "description": "Search query"},
                 "top_k": {"type": "integer", "default": 10},
+                "domain": {"type": "string"},
             },
             "required": ["query"],
         },
@@ -463,6 +492,7 @@ _CANONICAL: list[Operation] = [
                     "writeOnly": True,
                     "description": "Per-request LLM API key override. HTTP callers MUST use the X-LLM-Key header instead; the /api/ask body is rejected with 400 if any api_key-like field is present.",
                 },
+                "domain": {"type": "string"},
             },
             "required": ["question"],
         },
@@ -697,6 +727,67 @@ _CANONICAL: list[Operation] = [
             "properties": {"lang": {"type": "string", "default": "en-it"}},
         },
         category="read",
+    ),
+    Operation(
+        name="kb_domains_list",
+        description="List all wiki domains (including the implicit default).",
+        handler=_op_domains_list,
+        params={"type": "object", "properties": {}},
+        category="read",
+    ),
+    Operation(
+        name="kb_domains_create",
+        description="Create a new wiki domain from a label.",
+        handler=_op_domains_create,
+        params={
+            "type": "object",
+            "properties": {"label": {"type": "string"}},
+            "required": ["label"],
+        },
+        writes=True,
+        category="write",
+    ),
+    Operation(
+        name="kb_domains_rename",
+        description="Rename a wiki domain's display label.",
+        handler=_op_domains_rename,
+        params={
+            "type": "object",
+            "properties": {
+                "domain_id": {"type": "string"},
+                "label": {"type": "string"},
+            },
+            "required": ["domain_id", "label"],
+        },
+        writes=True,
+        category="write",
+    ),
+    Operation(
+        name="kb_domains_delete",
+        description="Delete a domain, reassigning its articles to the default.",
+        handler=_op_domains_delete,
+        params={
+            "type": "object",
+            "properties": {"domain_id": {"type": "string"}},
+            "required": ["domain_id"],
+        },
+        writes=True,
+        category="write",
+    ),
+    Operation(
+        name="kb_domains_bulk_assign",
+        description="Assign a domain to a list of article slugs.",
+        handler=_op_domains_bulk_assign,
+        params={
+            "type": "object",
+            "properties": {
+                "slugs": {"type": "array", "items": {"type": "string"}},
+                "domain": {"type": "string"},
+            },
+            "required": ["slugs", "domain"],
+        },
+        writes=True,
+        category="write",
     ),
 ]
 
