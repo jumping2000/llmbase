@@ -197,6 +197,12 @@ async function post<T>(url: string, body?: unknown): Promise<T> {
   return res.json();
 }
 
+async function del<T>(url: string): Promise<T> {
+  const res = await fetch(BASE + url, { method: 'DELETE' });
+  if (!res.ok) throw new ApiError(res.status, `API error: ${res.status}`);
+  return res.json();
+}
+
 async function postForm<T>(url: string, body: FormData): Promise<T> {
   const res = await fetch(BASE + url, {
     method: 'POST',
@@ -238,19 +244,35 @@ export interface TaxonomyCategory {
   children: TaxonomyCategory[];
 }
 
+export interface Domain {
+  id: string;
+  label: string;
+}
+
 export const api = {
   getCollections: () => get<{ collections: Collection[] }>('/api/collections').then(d => d.collections),
   getTaxonomy: (lang: string) => get<{ categories: TaxonomyCategory[] }>(`/api/taxonomy?lang=${lang}`).then(d => d.categories),
   getStats: () => get<Stats>('/api/stats'),
   getArticles: () => get<{ articles: Article[] }>('/api/articles').then(d => d.articles),
   getArticle: (slug: string) => get<Article>('/api/articles/' + slug),
-  search: (q: string, topK = 10) => get<{ results: SearchResult[] }>(`/api/search?q=${encodeURIComponent(q)}&top_k=${topK}`).then(d => d.results),
+  listDomains: () => get<{ domains: Domain[] }>('/api/domains').then(d => d.domains),
+  createDomain: (label: string) => post<{ domain: Domain }>('/api/domains', { label }).then(d => d.domain),
+  renameDomain: (id: string, label: string) =>
+    post<{ domain: Domain }>(`/api/domains/${id}/rename`, { label }).then(d => d.domain),
+  deleteDomain: (id: string) => del<{ deleted: string }>(`/api/domains/${id}`),
+  bulkAssignDomain: (slugs: string[], domain: string) =>
+    post<{ domain: string; updated: string[]; missing: string[] }>('/api/articles/bulk-domain', { slugs, domain }),
+  search: (q: string, topK = 10, domain?: string) =>
+    get<{ results: SearchResult[] }>(
+      `/api/search?q=${encodeURIComponent(q)}&top_k=${topK}${domain ? `&domain=${encodeURIComponent(domain)}` : ''}`
+    ).then(d => d.results),
   ask: (
     question: string,
     deep = false,
     fileBack = true,
     tone = 'default',
     promote = false,
+    domain?: string,
   ) =>
     post<{
       answer: string;
@@ -263,7 +285,7 @@ export const api = {
         path?: string;
         merged?: boolean;
       };
-    }>('/api/ask', { question, deep, file_back: fileBack, tone, promote }),
+    }>('/api/ask', { question, deep, file_back: fileBack, tone, promote, ...(domain ? { domain } : {}) }),
   getTones: () => get<{ tones: { id: string; label: string; label_zh: string; icon: string }[] }>('/api/tones').then(d => d.tones),
   getAliases: () => get<{ aliases: Record<string, string> }>('/api/aliases').then(d => d.aliases),
   getTrails: () => get<{ trails: Trail[] }>('/api/trails').then(d => d.trails),

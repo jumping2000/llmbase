@@ -1,6 +1,7 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useState, useEffect, useRef } from 'react';
 import { Icon } from './Icon';
+import DomainSelect from './DomainSelect';
 import { useTheme } from '../lib/theme';
 import { useLang, type Lang, LANG_OPTIONS, localizeTitle } from '../lib/lang';
 import { fetchBranding, getBranding, type Branding } from '../lib/branding';
@@ -312,6 +313,8 @@ export function Layout() {
               : `Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}>
             <Icon name={theme === 'dark' ? 'light_mode' : 'dark_mode'} className="text-[20px]" />
           </button>
+
+          <DomainSelect />
 
           {compileBadge && (
             <div

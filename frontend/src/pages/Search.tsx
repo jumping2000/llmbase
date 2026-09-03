@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Icon } from '../components/Icon';
 import { Loading } from '../components/Loading';
 import { api, type SearchResult } from '../lib/api';
+import { useDomains } from '../lib/domains';
 
 export function Search() {
   const navigate = useNavigate();
@@ -11,6 +12,7 @@ export function Search() {
   const [results, setResults] = useState<SearchResult[]>([]);
   const [searched, setSearched] = useState(false);
   const [loading, setLoading] = useState(false);
+  const { current } = useDomains();
 
   useEffect(() => {
     const q = searchParams.get('q');
@@ -22,7 +24,7 @@ export function Search() {
     if (!term.trim()) return;
     setLoading(true);
     try {
-      const res = await api.search(term);
+      const res = await api.search(term, 10, current);
       setResults(res);
       setSearched(true);
     } catch { /* */ }

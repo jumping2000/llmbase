@@ -5,6 +5,7 @@ import { Shimmer } from '../components/Loading';
 import { api } from '../lib/api';
 import { useLang } from '../lib/lang';
 import { useTrail } from '../lib/trail';
+import { useDomains } from '../lib/domains';
 
 interface PromotionInfo {
   promoted: boolean;
@@ -43,6 +44,7 @@ export function QA() {
   }, []);
 
   const { recording, recordStep, startTrailAndRecord } = useTrail();
+  const { current } = useDomains();
 
   async function ask(deep: boolean) {
     if (!question.trim() || loading) return;
@@ -50,7 +52,7 @@ export function QA() {
     setAnswer('');
     setPromotion(null);
     try {
-      const res = await api.ask(question, deep, fileBack, tone, promote);
+      const res = await api.ask(question, deep, fileBack, tone, promote, current);
       setAnswer(res.answer);
       const promo = res.promotion ?? null;
       setPromotion(promo);

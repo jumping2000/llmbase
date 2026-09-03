@@ -5,6 +5,7 @@ import { Shimmer } from '../components/Loading';
 import { Markdown } from '../components/Markdown';
 import { useLang } from '../lib/lang';
 import { api, type CompileStatus, type LlmUsageRecentRequest, type LlmUsageSummary, type LlmUsageWindow, type Stats, type XiCi } from '../lib/api';
+import DomainManager from '../components/DomainManager';
 
 const COMPILE_POLL_MS = 3000;
 const LLM_USAGE_WINDOWS: Array<{ value: Exclude<LlmUsageWindow, 'custom'>; label: string }> = [
@@ -230,6 +231,11 @@ export function Dashboard() {
           <button onClick={() => navigate('/health')} className="flex items-center gap-2 px-5 py-3 bg-surface-container border border-outline-variant/30 rounded-xl text-sm hover:border-tertiary/50 transition-colors">
             <Icon name="health_and_safety" className="text-tertiary text-[18px]" /> {it ? 'Controllo salute' : 'Health Check'}
           </button>
+      </div>
+
+      {/* Domains */}
+      <div className="bg-surface-container rounded-xl p-4 border border-outline-variant/20 mb-8">
+        <DomainManager />
       </div>
 
       {/* Background Jobs + Agent API */}
