@@ -1364,12 +1364,8 @@ def create_web_app(base_dir: Path | None = None):
             )
         except RuntimeError as e:
             return jsonify({"status": "busy", "error": str(e)}), 409
-        except ValueError:
-            # Assign-on-create: an unknown domain is created implicitly.
-            _ops.dispatch("kb_domains_create", base, {"label": domain})
-            result = _ops.dispatch(
-                "kb_domains_bulk_assign", base, {"slugs": slugs, "domain": domain}
-            )
+        except ValueError as e:
+            return jsonify({"status": "error", "message": str(e)}), 400
         return jsonify(result)
 
     @app.route("/api/articles/<slug>", methods=["DELETE"])

@@ -33,9 +33,15 @@ def test_domains_crud(client):
 
 
 def test_bulk_domain_endpoint(client):
+    client.post("/api/domains", json={"label": "Lavoro"})
     r = client.post("/api/articles/bulk-domain", json={"slugs": [], "domain": "lavoro"})
     assert r.status_code == 200
     assert r.get_json()["domain"] == "lavoro"
+
+
+def test_bulk_domain_unknown_returns_400(client):
+    r = client.post("/api/articles/bulk-domain", json={"slugs": [], "domain": "tipooo"})
+    assert r.status_code == 400
 
 
 def test_search_accepts_domain_param(client):
