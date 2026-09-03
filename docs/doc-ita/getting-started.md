@@ -58,13 +58,12 @@ limitare i risultati a un dominio.
 
 ## Bot Telegram
 
-Imposta `LLMBASE_TG_TOKEN` e `LLMBASE_TG_ALLOWED_CHAT_IDS` in `.env` (vedi
-`.env.example`). Il bot offre `/ask`, `/cerca`, `/dominio` e l'invio di
-documenti, e gira nello stesso processo dell'app web.
+Vedi [Bot Telegram](telegram.md) per la configurazione completa. Imposta
+`LLMBASE_TG_TOKEN` e `LLMBASE_TG_ALLOWED_CHAT_IDS` in `.env` per abilitarlo.
 
 ## Ingestione email
 
+Vedi [Ingestione email](email-ingestion.md) per la configurazione completa.
 Imposta `LLMBASE_MAIL_HOST`, `LLMBASE_MAIL_USER` e `LLMBASE_MAIL_PASSWORD` in
-`.env`. Il poller controlla la casella ogni minuto; un tag `[dominio]`
-nell'oggetto indirizza il messaggio (corpo e allegati PDF) a quel dominio.
+`.env` per abilitarla.
 
