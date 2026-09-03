@@ -62,7 +62,7 @@ export function QA() {
       if (deep && res.consulted && res.consulted.length > 0) {
         if (recording) {
           // Already recording → append to current trail
-          recordStep({ type: 'query', question });
+          recordStep({ type: 'query', question, answer: res.answer });
           for (const a of res.consulted) {
             recordStep({ type: 'article', slug: a.slug, title: a.title });
           }
@@ -70,13 +70,13 @@ export function QA() {
           // Not recording → start new trail from this research
           const trailName = question.length > 30 ? question.slice(0, 30) + '…' : question;
           const steps = [
-            { type: 'query' as const, question },
+            { type: 'query' as const, question, answer: res.answer },
             ...res.consulted.map(a => ({ type: 'article' as const, slug: a.slug, title: a.title })),
           ];
           startTrailAndRecord(trailName, steps);
         }
       } else if (recording) {
-        recordStep({ type: 'query', question });
+        recordStep({ type: 'query', question, answer: res.answer });
       }
     } catch (e) {
       setAnswer(it ? 'Errore: impossibile ottenere una risposta. Controlla la connessione API.' : 'Error: Failed to get response. Check API connection.');

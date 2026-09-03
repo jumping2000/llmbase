@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Icon } from '../components/Icon';
 import { Shimmer } from '../components/Loading';
+import { Markdown } from '../components/Markdown';
 import { useLang } from '../lib/lang';
 import { api, type Trail } from '../lib/api';
 
@@ -12,6 +13,7 @@ export function Trails() {
   const [trails, setTrails] = useState<Trail[]>([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [stepExpanded, setStepExpanded] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     api.getTrails().then(setTrails).catch(() => {});
@@ -21,6 +23,15 @@ export function Trails() {
   const deleteTrail = (id: string) => {
     api.deleteTrail(id).then(() => {
       setTrails(prev => prev.filter(t => t.id !== id));
+    });
+  };
+
+  const toggleStep = (key: string) => {
+    setStepExpanded(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
     });
   };
 
@@ -75,7 +86,11 @@ export function Trails() {
                   {/* Vertical line */}
                   <div className="absolute left-0 top-0 bottom-0 w-px bg-outline-variant/30" />
 
-                  {trail.steps.map((step, i) => (
+                  {trail.steps.map((step, i) => {
+                    const stepKey = `${trail.id}:${i}`;
+                    const isQuery = step.type === 'query';
+                    const isOpen = stepExpanded.has(stepKey);
+                    return (
                     <div key={i} className="relative flex items-start gap-3 mb-3 pl-5">
                       {/* Dot on the line */}
                       <div className={`absolute left-[-4px] top-1.5 w-2 h-2 rounded-full ${
@@ -84,16 +99,27 @@ export function Trails() {
                       }`} />
                       <Icon name={stepIcon(step.type)} className="text-[14px] text-on-surface-variant mt-0.5 flex-shrink-0" />
                       <div className="min-w-0 flex-1">
-                        <div className="text-sm text-on-surface truncate cursor-pointer hover:text-primary transition-colors"
-                          onClick={() => step.slug && navigate(`/wiki/${step.slug}`)}>
+                        <div
+                          className={`text-sm text-on-surface truncate transition-colors ${step.slug || (isQuery && step.answer) ? 'cursor-pointer hover:text-primary' : ''}`}
+                          onClick={() => {
+                            if (step.slug) navigate(`/wiki/${step.slug}`);
+                            else if (isQuery && step.answer) toggleStep(stepKey);
+                          }}
+                        >
                           {stepLabel(step)}
                         </div>
                         <div className="text-[10px] text-outline">
                           {new Date(step.ts).toLocaleTimeString()}
                         </div>
+                        {isQuery && step.answer && isOpen && (
+                          <div className="mt-2 text-sm text-on-surface-variant bg-surface-high rounded-lg p-3 border border-outline-variant/20">
+                            <Markdown content={step.answer} />
+                          </div>
+                        )}
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}

@@ -51,6 +51,7 @@ export interface TrailStep {
   slug?: string;
   title?: string;
   question?: string;
+  answer?: string;
   ts: string;
 }
 
