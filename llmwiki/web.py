@@ -82,7 +82,7 @@ def _lite_cache_max_age() -> int:
         n = int(raw)
     except (TypeError, ValueError):
         return 0
-    return n if n > 0 else 0
+    return max(0, n)
 
 
 def _if_none_match_hits(header: str | None, etag: str) -> bool:
@@ -92,13 +92,12 @@ def _if_none_match_hits(header: str | None, etag: str) -> bool:
     h = header.strip()
     if h == "*":
         return True
-    target = etag[2:] if etag.startswith("W/") else etag
+    target = etag.removeprefix("W/")
     for raw in h.split(","):
         cand = raw.strip()
         if not cand:
             continue
-        if cand.startswith("W/"):
-            cand = cand[2:]
+        cand = cand.removeprefix("W/")
         if cand == target:
             return True
     return False
@@ -114,6 +113,8 @@ def _normalize_tags(value) -> list[str]:
         return [str(t) for t in value]
     return [str(value)]
 
+
+from datetime import UTC
 
 from .compile import rebuild_index
 from .config import load_config
@@ -512,8 +513,7 @@ def create_web_app(base_dir: Path | None = None):
                 st = p.stat()
             except OSError:
                 continue
-            if st.st_mtime > max_mtime:
-                max_mtime = st.st_mtime
+            max_mtime = max(max_mtime, st.st_mtime)
             sig_hash.update(f"{p.name}:{st.st_mtime}:{st.st_size}\n".encode())
         etag_extra = request.query_string.decode("utf-8", errors="replace")
         sig_hash.update(f"|q={etag_extra}".encode())
@@ -848,7 +848,7 @@ def create_web_app(base_dir: Path | None = None):
     def api_trails_save():
         """Add a step to a trail (or create a new trail)."""
         import uuid
-        from datetime import datetime, timezone
+        from datetime import datetime
 
         data = request.get_json(silent=True) or {}
         step = data.get("step")
@@ -861,7 +861,7 @@ def create_web_app(base_dir: Path | None = None):
         with _trail_lock:
             trails_data = _load_trails()
             trails = trails_data.get("trails", [])
-            now = datetime.now(timezone.utc).isoformat()
+            now = datetime.now(UTC).isoformat()
 
             if trail_id:
                 trail = next((t for t in trails if t["id"] == trail_id), None)
@@ -1397,7 +1397,7 @@ def create_web_app(base_dir: Path | None = None):
     def api_compile():
         import logging
         import threading
-        from datetime import datetime, timezone
+        from datetime import datetime
 
         from . import operations as _ops
         from .worker import job_lock
@@ -1416,7 +1416,7 @@ def create_web_app(base_dir: Path | None = None):
                 encoding="utf-8",
             )
 
-        started_at = datetime.now(timezone.utc).isoformat()
+        started_at = datetime.now(UTC).isoformat()
         persist_result(
             {
                 "status": "running",
@@ -1440,7 +1440,7 @@ def create_web_app(base_dir: Path | None = None):
                         "articles_created": result.get("articles_created", 0),
                         "articles": result.get("articles", []),
                         "started_at": started_at,
-                        "finished_at": datetime.now(timezone.utc).isoformat(),
+                        "finished_at": datetime.now(UTC).isoformat(),
                     }
                 )
                 logger.info(
@@ -1456,7 +1456,7 @@ def create_web_app(base_dir: Path | None = None):
                             "full": full,
                             "error": str(exc),
                             "started_at": started_at,
-                            "finished_at": datetime.now(timezone.utc).isoformat(),
+                            "finished_at": datetime.now(UTC).isoformat(),
                         }
                     )
                 except Exception:
@@ -1478,7 +1478,7 @@ def create_web_app(base_dir: Path | None = None):
                     "full": full,
                     "error": str(exc),
                     "started_at": started_at,
-                    "finished_at": datetime.now(timezone.utc).isoformat(),
+                    "finished_at": datetime.now(UTC).isoformat(),
                 }
             )
             try:
@@ -1648,7 +1648,7 @@ def create_asgi_app(base_dir: Path | None = None):
     """
     import os
 
-    from starlette.middleware.wsgi import WSGIMiddleware
+    from a2wsgi import WSGIMiddleware
 
     base = Path(base_dir) if base_dir else Path.cwd()
 

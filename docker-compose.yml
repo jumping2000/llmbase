@@ -32,6 +32,7 @@ services:
       - llmbase-net
     volumes:
       - ./nginx/default.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/.htpasswd:/etc/nginx/custom/.htpasswd:ro
     command: nginx -g 'daemon off;'
 
   llmbase:
@@ -49,6 +50,7 @@ services:
       - llmbase-net
     volumes:
       - ./config.yaml:/app/config.yaml:ro
+      - ./.env:/app/.env:ro
       - ./raw:/app/raw
       - ./wiki:/app/wiki
     healthcheck:
@@ -69,6 +71,7 @@ services:
       - llmbase-net
     volumes:
       - ./config.yaml:/app/config.yaml:ro
+      - ./.env:/app/.env:ro
       - ./raw:/app/raw
       - ./wiki:/app/wiki
 
