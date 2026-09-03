@@ -34,7 +34,7 @@ _CJK_RE = re.compile(
 )
 
 
-def search(query: str, top_k: int = 10, base_dir: Path | None = None) -> list[dict]:
+def search(query: str, top_k: int = 10, base_dir: Path | None = None, domain: str | None = None) -> list[dict]:
     """Search the wiki using TF-IDF-like scoring."""
     cfg = load_config(base_dir)
     concepts_dir = Path(cfg["paths"]["concepts"])
@@ -51,6 +51,8 @@ def search(query: str, top_k: int = 10, base_dir: Path | None = None) -> list[di
     docs = []
     for md_file in list(concepts_dir.glob("*.md")) + list(outputs_dir.glob("*.md")):
         post = frontmatter.load(str(md_file))
+        if domain and post.metadata.get("domain", "generale") != domain:
+            continue
         title = post.metadata.get("title", md_file.stem)
         summary = post.metadata.get("summary", "")
         tags = " ".join(post.metadata.get("tags", []))
