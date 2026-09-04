@@ -390,6 +390,11 @@ def _op_export_graph(base_dir: Path, slug: str, depth: int = 2) -> dict:
     return export_graph(slug, depth, base_dir)
 
 
+def _op_backfill_doc_dates(base_dir: Path, force: bool = False) -> dict:
+    from .docdate import backfill_doc_dates
+    return backfill_doc_dates(base_dir, force=force)
+
+
 def _op_rebuild_index(base_dir: Path) -> dict:
     from .compile import rebuild_index
     entries = rebuild_index(base_dir)
@@ -715,6 +720,20 @@ _CANONICAL: list[Operation] = [
         description="Rebuild the wiki index, aliases, backlinks metadata.",
         handler=_op_rebuild_index,
         params={"type": "object", "properties": {}},
+        writes=True,
+        category="write",
+    ),
+    Operation(
+        name="kb_backfill_doc_dates",
+        description=(
+            "Extract doc_date (authoring/validation date) for raw documents "
+            "missing it and propagate to citing articles. force=true re-extracts."
+        ),
+        handler=_op_backfill_doc_dates,
+        params={
+            "type": "object",
+            "properties": {"force": {"type": "boolean", "default": False}},
+        },
         writes=True,
         category="write",
     ),

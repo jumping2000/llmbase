@@ -267,3 +267,34 @@ def propagate_doc_date(slug: str, base_dir: Path | None = None) -> int:
     except Exception:
         logger.exception("propagate_doc_date failed for %s", slug)
         return 0
+
+
+def backfill_doc_dates(base_dir: Path | None = None, force: bool = False) -> dict:
+    """Extract doc_date for raw docs missing it; propagate to articles."""
+    import frontmatter
+
+    from .config import load_config
+
+    cfg = load_config(base_dir)
+    raw_dir = Path(cfg["paths"]["raw"])
+    extracted = skipped = missing = 0
+    if raw_dir.exists():
+        for doc_dir in sorted(raw_dir.iterdir()):
+            if not doc_dir.is_dir():
+                continue
+            idx = doc_dir / "index.md"
+            if not idx.exists():
+                continue
+            post = frontmatter.load(str(idx))
+            if post.metadata.get("doc_date") and not force:
+                skipped += 1
+                continue
+            doc_date = extract_doc_date(post.content, base_dir=base_dir)
+            if doc_date:
+                post.metadata["doc_date"] = doc_date
+                idx.write_text(frontmatter.dumps(post), encoding="utf-8")
+                propagate_doc_date(doc_dir.name, base_dir)
+                extracted += 1
+            else:
+                missing += 1
+    return {"extracted": extracted, "skipped": skipped, "missing": missing}

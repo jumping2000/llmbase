@@ -225,6 +225,20 @@ def compile_index_cmd(ctx):
     console.print(f"[green]✓[/green] Index rebuilt with {len(entries)} articles")
 
 
+@cli.command("backfill-doc-dates")
+@click.option("--force", is_flag=True, help="Re-extract even when doc_date is present")
+@click.pass_context
+def backfill_doc_dates_cmd(ctx, force):
+    """Extract authoring dates for raw docs and propagate to articles."""
+    from .operations import dispatch
+    with console.status("Backfilling doc dates..."):
+        result = dispatch("kb_backfill_doc_dates", ctx.obj["base_dir"], {"force": force})
+    console.print(
+        f"[green]✓[/green] Extracted: {result['extracted']}, "
+        f"skipped: {result['skipped']}, no date found: {result['missing']}"
+    )
+
+
 # ─── Query commands ────────────────────────────────────────────────
 
 @cli.command()
