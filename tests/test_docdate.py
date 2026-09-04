@@ -249,3 +249,68 @@ def test_propagate_never_overwrites_with_none(tmp_path):
     import frontmatter
     post = frontmatter.load(str(tmp_path / "wiki" / "concepts" / "concept-y.md"))
     assert post.metadata["sources"][0]["doc_date"] == "2020-01-01"
+
+
+def test_propagate_title_collision_does_not_cross_pollute(tmp_path):
+    # Two raws share a title but have different dates and sources.
+    # A source citing raw B (by url) must NOT get raw A's date via title.
+    _make_raw(tmp_path, "relazione-2022", doc_date="2022-01-01", source="rel-a.pdf")
+    _make_raw(tmp_path, "relazione-2024", doc_date="2024-01-01", source="rel-b.pdf")
+    # Both raws have title == slug (per _make_raw), so titles collide.
+    _make_article(tmp_path, "concept-coll", [
+        {"plugin": "pdf", "url": "rel-b.pdf", "title": "relazione-2022"},
+    ])
+    # Propagating raw A: url "rel-b.pdf" != A's source "rel-a.pdf";
+    # A has no type metadata → plugin+title clause can't fire either.
+    assert propagate_doc_date("relazione-2022", base_dir=tmp_path) == 0
+    import frontmatter
+    post = frontmatter.load(str(tmp_path / "wiki" / "concepts" / "concept-coll.md"))
+    assert "doc_date" not in post.metadata["sources"][0]
+    # Sanity: propagating raw B (the actually-cited doc) does match by url.
+    assert propagate_doc_date("relazione-2024", base_dir=tmp_path) == 1
+    post = frontmatter.load(str(tmp_path / "wiki" / "concepts" / "concept-coll.md"))
+    assert post.metadata["sources"][0]["doc_date"] == "2024-01-01"
+
+
+def test_propagate_plugin_title_match(tmp_path):
+    # Source without url but matching plugin+title gets the date.
+    import frontmatter
+    raw_dir = tmp_path / "raw" / "manuale-d"
+    raw_dir.mkdir(parents=True)
+    post = frontmatter.Post("Contenuto")
+    post.metadata["title"] = "Manuale D"
+    post.metadata["type"] = "pdf"
+    post.metadata["doc_date"] = "2024-02-02"
+    (raw_dir / "index.md").write_text(frontmatter.dumps(post), encoding="utf-8")
+    _make_article(tmp_path, "concept-d", [
+        {"plugin": "pdf", "title": "Manuale D"},
+    ])
+    n = propagate_doc_date("manuale-d", base_dir=tmp_path)
+    assert n == 1
+    art = frontmatter.load(str(tmp_path / "wiki" / "concepts" / "concept-d.md"))
+    assert art.metadata["sources"][0]["doc_date"] == "2024-02-02"
+
+
+def test_propagate_non_matching_source_untouched(tmp_path):
+    import frontmatter
+    _make_raw(tmp_path, "manuale-e", doc_date="2024-03-05", source="e.pdf")
+    _make_article(tmp_path, "concept-e", [
+        {"plugin": "pdf", "url": "e.pdf", "title": "E"},
+        {"plugin": "pdf", "url": "other.pdf", "title": "Other", "doc_date": "2021-01-01"},
+    ])
+    propagate_doc_date("manuale-e", base_dir=tmp_path)
+    art = frontmatter.load(str(tmp_path / "wiki" / "concepts" / "concept-e.md"))
+    srcs = art.metadata["sources"]
+    assert srcs[0]["doc_date"] == "2024-03-05"
+    assert srcs[1]["doc_date"] == "2021-01-01"
+
+
+def test_propagate_counts_articles_not_sources(tmp_path):
+    _make_raw(tmp_path, "manuale-f", doc_date="2024-04-04", source="f.pdf")
+    _make_article(tmp_path, "concept-f1", [
+        {"plugin": "pdf", "url": "f.pdf", "title": "F"},
+    ])
+    _make_article(tmp_path, "concept-f2", [
+        {"plugin": "pdf", "url": "f.pdf", "title": "F"},
+    ])
+    assert propagate_doc_date("manuale-f", base_dir=tmp_path) == 2

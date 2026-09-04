@@ -7,9 +7,12 @@ field (``doc_date``) — extraction must never break ingestion.
 
 from __future__ import annotations
 
+import logging
 import re
 from datetime import date
 from pathlib import Path
+
+logger = logging.getLogger("llmbase.docdate")
 
 # Output granularity: YYYY, YYYY-MM, YYYY-MM-DD
 _ISO_RE = re.compile(r"^(\d{4})(?:-(\d{2}))?(?:-(\d{2}))?$")
@@ -234,7 +237,7 @@ def propagate_doc_date(slug: str, base_dir: Path | None = None) -> int:
             return 0
 
         raw_source = str(raw_post.metadata.get("source", "") or "")
-        raw_title = str(raw_post.metadata.get("title", "") or slug)
+        raw_title = str(raw_post.metadata.get("title", "") or "")
         raw_type = str(raw_post.metadata.get("type", "") or "")
 
         updated = 0
@@ -247,20 +250,20 @@ def propagate_doc_date(slug: str, base_dir: Path | None = None) -> int:
                     continue
                 match = (
                     (src.get("url", "") and src.get("url") == raw_source)
-                    or (src.get("title", "") and src.get("title") == raw_title)
                     or (
                         raw_type
                         and src.get("plugin", "") == raw_type
-                        and src.get("title", "") == raw_title
+                        and src.get("title", "")
+                        and src.get("title") == raw_title
                     )
                 )
                 if match and src.get("doc_date") != doc_date:
                     src["doc_date"] = doc_date
                     changed = True
             if changed:
-                post.metadata["sources"] = sources
                 md_file.write_text(frontmatter.dumps(post), encoding="utf-8")
                 updated += 1
         return updated
     except Exception:
+        logger.exception("propagate_doc_date failed for %s", slug)
         return 0
