@@ -18,39 +18,57 @@ llmbase mcp
 
 `stdio` resta il transport predefinito.
 
-## Avvio in streamable-http
+## Avvio in streamable-http (unificato)
+
+L'MCP streamable HTTP è ora parte della web app — non serve un servizio separato.
+Avvia l'app ASGI unificata:
 
 ```bash
+uvicorn asgi:app --host 127.0.0.1 --port 5555
+```
+
+L'endpoint MCP è servito su `http://localhost:5555/mcp` con risposte JSON pure
+(`json_response=True`, niente SSE sulle POST).
+
+### Auth
+
+Se `MCP_API_KEY` è impostata nell'ambiente, le richieste a `/mcp` devono includere
+l'header `X-API-Key: <chiave>`. In sviluppo locale (senza `MCP_API_KEY`), l'endpoint
+è aperto.
+
+### CLI (deprecato)
+
+```bash
+# Deprecato — usare uvicorn asgi:app
 llmbase mcp --transport streamable-http --http-port 8100
 ```
 
-Impostazioni supportate:
+`stdio` resta il transport predefinito e non è deprecato:
 
-- `MCP_TRANSPORT`: `stdio` oppure `streamable-http`
-- `MCP_HTTP_PORT`: porta locale di ascolto in modalità HTTP
-- `MCP_HTTP_URL`: URL upstream completo opzionale usato dal layer di proxy
-- `MCP_API_KEY`: segreto condiviso validato dal proxy Nginx su `/mcp`
-
-I flag CLI hanno precedenza sul `.env`, e il `.env` ha precedenza sui default interni.
+```bash
+llmbase mcp
+```
 
 ## Deploy con Docker Compose
 
-Lo stack Compose incluso avvia un servizio dedicato `llmbase-mcp` ed espone MCP tramite Nginx su `/mcp`.
+Il servizio `llmbase-mcp` non esiste più. L'MCP è servito dallo stesso container
+della web app su `/mcp`.
 
-Nginx valida sempre `X-API-Key` contro `MCP_API_KEY` prima di inoltrare al servizio MCP upstream.
-
-Valori tipici nel `.env`:
+L'unica variabile d'ambiente MCP necessaria è `MCP_API_KEY`:
 
 ```dotenv
-MCP_TRANSPORT=streamable-http
-MCP_HTTP_PORT=8100
-MCP_HTTP_URL=http://llmbase-mcp:8100/mcp
 MCP_API_KEY=change-me
 ```
 
-I client pubblici si collegano all'host esistente su `/mcp` e devono inviare `X-API-Key`.
+Nginx inoltra `/mcp` allo stesso upstream di `/` e passa l'header `X-API-Key`.
 
-Se cambi `MCP_HTTP_PORT` in Compose, imposta anche `MCP_HTTP_URL` con l'upstream corrispondente, così Nginx continua a inoltrare verso la porta interna corretta.
+## Configurazione
+
+| Variabile | Default | Descrizione |
+|---|---|---|
+| `MCP_API_KEY` | *(vuoto)* | Chiave per autenticare le richieste `/mcp` via header `X-API-Key`. Vuoto = nessuna auth. |
+
+Le variabili `MCP_TRANSPORT`, `MCP_HTTP_PORT` e `MCP_HTTP_URL` sono rimosse.
 
 ## Fonte di verità del contratto
 

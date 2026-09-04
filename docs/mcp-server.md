@@ -18,32 +18,32 @@ llmbase mcp
 
 `stdio` remains the default transport.
 
-## Streamable HTTP (JSON mode, unified)
+## Streamable HTTP (unified)
 
-L'MCP streamable HTTP è ora parte della web app — non richiede un servizio separato.
-Si avvia con:
+MCP streamable HTTP is now part of the web app — no separate service is needed.
+Start the unified ASGI app:
 
 ```bash
 uvicorn asgi:app --host 127.0.0.1 --port 5555
 ```
 
-L'endpoint MCP è disponibile su `http://localhost:5555/mcp` con risposte JSON pure
-(`json_response=True`, niente SSE sulle POST).
+The MCP endpoint is served at `http://localhost:5555/mcp` with pure JSON responses
+(`json_response=True`, no SSE on POST).
 
 ### Auth
 
-Se `MCP_API_KEY` è configurata nell'ambiente, le richieste a `/mcp` devono includere
-l'header `X-API-Key: <chiave>`. In sviluppo locale (senza `MCP_API_KEY`), l'endpoint
-è aperto.
+If `MCP_API_KEY` is set in the environment, requests to `/mcp` must include the
+`X-API-Key: <key>` header. In local development (no `MCP_API_KEY`), the endpoint
+is open.
 
-### CLI (deprecato)
+### CLI (deprecated)
 
 ```bash
-# Deprecato — usare uvicorn asgi:app
+# Deprecated — use uvicorn asgi:app
 llmbase mcp --transport streamable-http --http-port 8100
 ```
 
-`stdio` rimane il default e non è deprecato:
+`stdio` remains the default and is not deprecated:
 
 ```bash
 llmbase mcp
@@ -51,24 +51,25 @@ llmbase mcp
 
 ## Docker Compose deployment
 
-Il servizio `llmbase-mcp` non esiste più. L'MCP è servito dallo stesso container
-della web app su `/mcp`.
+The `llmbase-mcp` service no longer exists. MCP is served by the same container
+as the web app, on `/mcp`.
 
-L'unica variabile d'ambiente MCP necessaria è `MCP_API_KEY`:
+The only MCP environment variable needed is `MCP_API_KEY`:
 
 ```dotenv
 MCP_API_KEY=change-me
 ```
 
-Nginx inoltra `/mcp` allo stesso upstream di `/` e passa l'header `X-API-Key`.
+Nginx forwards `/mcp` to the same upstream as `/` and passes the `X-API-Key`
+header through.
 
-## Configurazione
+## Configuration
 
-| Variabile | Default | Descrizione |
+| Variable | Default | Description |
 |---|---|---|
-| `MCP_API_KEY` | *(vuoto)* | Chiave per autenticare le richieste `/mcp` via header `X-API-Key`. Vuoto = nessuna auth. |
+| `MCP_API_KEY` | *(empty)* | Key for authenticating `/mcp` requests via the `X-API-Key` header. Empty = no auth. |
 
-Le variabili `MCP_TRANSPORT`, `MCP_HTTP_PORT`, `MCP_HTTP_URL` sono rimosse.
+The `MCP_TRANSPORT`, `MCP_HTTP_PORT`, and `MCP_HTTP_URL` variables have been removed.
 
 ## Contract source of truth
 
