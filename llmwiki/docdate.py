@@ -207,3 +207,60 @@ def extract_doc_date(text: str, base_dir: Path | None = None) -> str | None:
         return normalize_date(answer.strip())
     except Exception:
         return None
+
+
+def propagate_doc_date(slug: str, base_dir: Path | None = None) -> int:
+    """Push the raw doc's doc_date into the sources[] of citing articles.
+
+    Matches a source_ref to the raw by (plugin, url, title) — the same
+    fields _source_key uses in compile._merge_into. Returns the number
+    of articles updated. Never overwrites an existing doc_date with None.
+    """
+    import frontmatter
+
+    from .config import load_config
+
+    try:
+        cfg = load_config(base_dir)
+        raw_dir = Path(cfg["paths"]["raw"])
+        concepts_dir = Path(cfg["paths"]["concepts"])
+
+        idx = raw_dir / slug / "index.md"
+        if not idx.exists():
+            return 0
+        raw_post = frontmatter.load(str(idx))
+        doc_date = raw_post.metadata.get("doc_date")
+        if not doc_date:
+            return 0
+
+        raw_source = str(raw_post.metadata.get("source", "") or "")
+        raw_title = str(raw_post.metadata.get("title", "") or slug)
+        raw_type = str(raw_post.metadata.get("type", "") or "")
+
+        updated = 0
+        for md_file in concepts_dir.glob("*.md"):
+            post = frontmatter.load(str(md_file))
+            sources = post.metadata.get("sources", [])
+            changed = False
+            for src in sources:
+                if not isinstance(src, dict):
+                    continue
+                match = (
+                    (src.get("url", "") and src.get("url") == raw_source)
+                    or (src.get("title", "") and src.get("title") == raw_title)
+                    or (
+                        raw_type
+                        and src.get("plugin", "") == raw_type
+                        and src.get("title", "") == raw_title
+                    )
+                )
+                if match and src.get("doc_date") != doc_date:
+                    src["doc_date"] = doc_date
+                    changed = True
+            if changed:
+                post.metadata["sources"] = sources
+                md_file.write_text(frontmatter.dumps(post), encoding="utf-8")
+                updated += 1
+        return updated
+    except Exception:
+        return 0

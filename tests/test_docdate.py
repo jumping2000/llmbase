@@ -14,7 +14,7 @@ def _no_llm_fallback(monkeypatch):
     )
 
 
-from llmwiki.docdate import is_plausible, normalize_date
+from llmwiki.docdate import is_plausible, normalize_date, propagate_doc_date
 
 
 def test_normalize_iso_full():
@@ -194,3 +194,58 @@ def test_module_disabled(monkeypatch):
         lambda base_dir: {"enabled": False, "llm_fallback": True},
     )
     assert extract_doc_date("Data di emissione: 01/03/2024") is None
+
+
+def _make_raw(tmp_path, slug, doc_date=None, source="doc.pdf"):
+    import frontmatter
+    raw_dir = tmp_path / "raw" / slug
+    raw_dir.mkdir(parents=True)
+    post = frontmatter.Post("Contenuto")
+    post.metadata["title"] = slug
+    post.metadata["source"] = source
+    post.metadata["compiled"] = True
+    if doc_date:
+        post.metadata["doc_date"] = doc_date
+    (raw_dir / "index.md").write_text(frontmatter.dumps(post), encoding="utf-8")
+    return raw_dir
+
+
+def _make_article(tmp_path, slug, sources):
+    import frontmatter
+    concepts = tmp_path / "wiki" / "concepts"
+    concepts.mkdir(parents=True, exist_ok=True)
+    post = frontmatter.Post("Articolo")
+    post.metadata["sources"] = sources
+    (concepts / f"{slug}.md").write_text(frontmatter.dumps(post), encoding="utf-8")
+
+
+def test_propagate_updates_matching_sources(tmp_path):
+    _make_raw(tmp_path, "manuale-a", doc_date="2024-03-01", source="manuale-a.pdf")
+    _make_article(tmp_path, "concept-x", [
+        {"plugin": "pdf", "url": "manuale-a.pdf", "title": "Manuale A"},
+    ])
+    n = propagate_doc_date("manuale-a", base_dir=tmp_path)
+    assert n == 1
+    import frontmatter
+    post = frontmatter.load(str(tmp_path / "wiki" / "concepts" / "concept-x.md"))
+    assert post.metadata["sources"][0]["doc_date"] == "2024-03-01"
+
+
+def test_propagate_no_raw_returns_zero(tmp_path):
+    assert propagate_doc_date("missing", base_dir=tmp_path) == 0
+
+
+def test_propagate_raw_without_date_returns_zero(tmp_path):
+    _make_raw(tmp_path, "manuale-b")  # no doc_date
+    assert propagate_doc_date("manuale-b", base_dir=tmp_path) == 0
+
+
+def test_propagate_never_overwrites_with_none(tmp_path):
+    _make_raw(tmp_path, "manuale-c")  # no doc_date
+    _make_article(tmp_path, "concept-y", [
+        {"plugin": "pdf", "url": "x.pdf", "title": "X", "doc_date": "2020-01-01"},
+    ])
+    propagate_doc_date("manuale-c", base_dir=tmp_path)
+    import frontmatter
+    post = frontmatter.load(str(tmp_path / "wiki" / "concepts" / "concept-y.md"))
+    assert post.metadata["sources"][0]["doc_date"] == "2020-01-01"
