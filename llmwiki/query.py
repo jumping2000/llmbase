@@ -35,7 +35,12 @@ Answer questions thoroughly based on the provided context. If the context doesn'
 enough information, say so clearly.
 
 When citing sources, reference the article titles. Use markdown formatting for your answers.
-If asked to create visualizations, output matplotlib code blocks that can be executed."""
+If asked to create visualizations, output matplotlib code blocks that can be executed.
+
+Source recency: when multiple sources report conflicting information about the
+same concept, prefer the source with the most recent doc_date and explicitly
+flag the conflict, citing the dates. A source without a date is considered
+less reliable in case of conflict."""
 
 
 # Voice/tone modes: each maps to an instruction appended to the system prompt.
@@ -593,10 +598,20 @@ def _gather_context(question: str, cfg: dict, domain: str | None = None) -> list
     # Sort by relevance, take top articles
     scored.sort(key=lambda x: x[0], reverse=True)
     for _, md_file, content in scored[:15]:
+        post = frontmatter.load(str(md_file))
+        sources = post.metadata.get("sources", [])
+        date_lines = [
+            f"- {s.get('title', '')} (data: {s.get('doc_date', 'sconosciuta')})"
+            for s in sources
+            if isinstance(s, dict)
+        ]
+        header = ""
+        if date_lines:
+            header = "Fonti citate (con data di stesura):\n" + "\n".join(date_lines) + "\n\n"
         context_files.append(
             {
                 "path": md_file.name,
-                "content": content[:4000],
+                "content": (header + content)[:4000],
             }
         )
 
