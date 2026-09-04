@@ -2,7 +2,8 @@
 
 | Versione | Highlights |
 |----------|-----------|
-| **v0.9.1** | Domini UX (menu a tendina, badge), fix vari |
+| **v0.9.2** | Document authoring dates (`doc_date`), recency-aware answers |
+| **v0.9.1** | Domains UX (dropdown, badges), misc fixes |
 | **v0.9.0** | Domini, bot Telegram, email ingestion |
 | **v0.8.9** | MCP streamable-http, doc fixes |
 | **v0.8.8** | Docker config read-only mount |
@@ -12,6 +13,15 @@
 | **v0.8.3** | Worker seed URL learning |
 | **v0.8.2** | Nginx Basic Auth, PDF upload, Chinese removal |
 | **v0.8.1** | Initial EN/IT release |
+
+## v0.9.2
+
+- Added **document dates** (`doc_date`): the authoring/validation date of a source document is extracted at ingest time (multilingual regex first, LLM fallback) and stored in the raw document's frontmatter.
+- Propagated `doc_date` to wiki article `sources[]` at compile time; a new edition of the same document is kept as a distinct source.
+- Made query answers date-aware: a recency rule in the system prompt prefers the most recent source and flags conflicts, citing dates; undated sources are considered less reliable.
+- Added a `backfill-doc-dates [--force]` CLI command (and `kb_backfill_doc_dates` operation) to extract dates for already-ingested documents, with `extracted`/`skipped`/`missing`/`diverged` counters.
+- Added `PATCH /api/sources/<slug>/doc-date` (auth-protected, path-traversal-safe) and an editable "Data stesura" field in the raw document preview UI.
+- Added `docdate.enabled` / `docdate.llm_fallback` config options; propagation is fill-only so manual corrections are never overwritten.
 
 ## v0.9.1
 
