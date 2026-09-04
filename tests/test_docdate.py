@@ -1,5 +1,19 @@
 # tests/test_docdate.py
 
+import pytest
+
+
+@pytest.fixture(autouse=True)
+def _no_llm_fallback(monkeypatch):
+    """Default for this module: regex-only. Tests that exercise the LLM
+    fallback path monkeypatch _llm_extract themselves and that still works
+    because their own monkeypatch runs after this one."""
+    monkeypatch.setattr(
+        "llmwiki.docdate._docdate_config",
+        lambda base_dir: {"enabled": True, "llm_fallback": False},
+    )
+
+
 from llmwiki.docdate import is_plausible, normalize_date
 
 
@@ -133,17 +147,29 @@ def test_llm_fallback_used_when_regex_fails(monkeypatch):
         calls.append(prompt)
         return "2023-05-12"
 
+    monkeypatch.setattr(
+        "llmwiki.docdate._docdate_config",
+        lambda base_dir: {"enabled": True, "llm_fallback": True},
+    )
     monkeypatch.setattr("llmwiki.docdate._llm_extract", fake_chat)
     assert extract_doc_date("Documento senza date esplicite.") == "2023-05-12"
     assert len(calls) == 1
 
 
 def test_llm_fallback_invalid_answer_returns_none(monkeypatch):
+    monkeypatch.setattr(
+        "llmwiki.docdate._docdate_config",
+        lambda base_dir: {"enabled": True, "llm_fallback": True},
+    )
     monkeypatch.setattr("llmwiki.docdate._llm_extract", lambda p, **k: "garbage")
     assert extract_doc_date("Documento senza date esplicite.") is None
 
 
 def test_llm_fallback_none_answer(monkeypatch):
+    monkeypatch.setattr(
+        "llmwiki.docdate._docdate_config",
+        lambda base_dir: {"enabled": True, "llm_fallback": True},
+    )
     monkeypatch.setattr("llmwiki.docdate._llm_extract", lambda p, **k: "none")
     assert extract_doc_date("Documento senza date esplicite.") is None
 
