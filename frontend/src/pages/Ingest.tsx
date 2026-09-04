@@ -89,7 +89,7 @@ export function Ingest() {
   const [ingestErrorDetail, setIngestErrorDetail] = useState('');
   const [blockedUrl, setBlockedUrl] = useState('');
   const [browserRetrying, setBrowserRetrying] = useState(false);
-  const [preview, setPreview] = useState<{ title: string; content: string; metadata: Record<string, string> } | null>(null);
+  const [preview, setPreview] = useState<{ slug: string; title: string; content: string; metadata: Record<string, string> } | null>(null);
   const { current } = useDomains();
   const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollFailures = useRef(0);
@@ -304,6 +304,16 @@ export function Ingest() {
     } catch { /* */ }
   }
 
+  async function handleDocDateChange(docDate: string | null) {
+    if (!preview) return;
+    try {
+      await api.patchDocDate(preview.slug, docDate);
+      setPreview({ ...preview, metadata: { ...preview.metadata, doc_date: docDate ?? '' } });
+    } catch {
+      setMessage('Error: could not update doc date.');
+    }
+  }
+
   const uncompiled = docs.filter(d => !d.compiled).length;
   const hasPdfSelection = selectedFiles.some(isPdfFile);
   const pdfCount = selectedFiles.filter(isPdfFile).length;
@@ -455,6 +465,18 @@ export function Ingest() {
                 <p className="text-xs text-on-surface-variant mt-0.5">
                   {preview.metadata.type} | {preview.metadata.compiled === 'True' ? 'Compiled' : 'Pending'}
                 </p>
+                <div className="mt-2 flex items-center gap-2">
+                  <label className="text-xs text-on-surface-variant">Data stesura:</label>
+                  <input
+                    type="date"
+                    value={preview.metadata.doc_date && /^\d{4}-\d{2}-\d{2}$/.test(preview.metadata.doc_date) ? preview.metadata.doc_date : ''}
+                    onChange={e => handleDocDateChange(e.target.value || null)}
+                    className="bg-surface-high border border-outline-variant/40 rounded-lg px-2 py-1 text-xs text-on-surface"
+                  />
+                  {preview.metadata.doc_date && !/^\d{4}-\d{2}-\d{2}$/.test(preview.metadata.doc_date) && (
+                    <span className="text-xs text-on-surface-variant">{preview.metadata.doc_date}</span>
+                  )}
+                </div>
               </div>
               <button onClick={() => setPreview(null)}
                 className="p-2 rounded-lg hover:bg-surface-high text-on-surface-variant">

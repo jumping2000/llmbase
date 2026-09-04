@@ -200,6 +200,25 @@ async function post<T>(url: string, body?: unknown): Promise<T> {
   return res.json();
 }
 
+async function patch<T>(url: string, body?: unknown): Promise<T> {
+  const res = await fetch(BASE + url, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (!res.ok) {
+    let message = `API error: ${res.status}`;
+    try {
+      const data = await res.json() as { error?: string; message?: string };
+      if (data.error || data.message) message = data.error || data.message || message;
+    } catch {
+      // Ignore body parse failures and keep the status-based message.
+    }
+    throw new ApiError(res.status, message);
+  }
+  return res.json();
+}
+
 async function del<T>(url: string): Promise<T> {
   const res = await fetch(BASE + url, { method: 'DELETE' });
   if (!res.ok) throw new ApiError(res.status, `API error: ${res.status}`);
@@ -300,6 +319,11 @@ export const api = {
   getXiCi: (lang: string) => get<XiCi>(`/api/xici?lang=${lang}`),
   generateXiCi: (lang: string) => post<XiCi>('/api/xici/generate', { lang }),
   getSources: () => get<{ documents: RawDoc[] }>('/api/sources').then(d => d.documents),
+  patchDocDate: (slug: string, docDate: string | null) =>
+    patch<{ status: string; doc_date: string | null; articles_updated: number }>(
+      `/api/sources/${slug}/doc-date`,
+      { doc_date: docDate },
+    ),
   ingest: (source: string) => post<{ status: string; path: string }>('/api/ingest', { source }),
   ingestBrowser: (source: string) => post<{ status: string; path: string }>('/api/ingest/browser', { source }),
   uploadFiles: (files: File[], chunkPages = 20, domain?: string) => {
