@@ -124,3 +124,47 @@ def test_extract_scans_only_head():
 def test_is_plausible_accepts_recent():
     assert is_plausible("2024-03-01")
     assert is_plausible("2024")
+
+
+def test_llm_fallback_used_when_regex_fails(monkeypatch):
+    calls = []
+
+    def fake_chat(prompt, **kwargs):
+        calls.append(prompt)
+        return "2023-05-12"
+
+    monkeypatch.setattr("llmwiki.docdate._llm_extract", fake_chat)
+    assert extract_doc_date("Documento senza date esplicite.") == "2023-05-12"
+    assert len(calls) == 1
+
+
+def test_llm_fallback_invalid_answer_returns_none(monkeypatch):
+    monkeypatch.setattr("llmwiki.docdate._llm_extract", lambda p, **k: "garbage")
+    assert extract_doc_date("Documento senza date esplicite.") is None
+
+
+def test_llm_fallback_none_answer(monkeypatch):
+    monkeypatch.setattr("llmwiki.docdate._llm_extract", lambda p, **k: "none")
+    assert extract_doc_date("Documento senza date esplicite.") is None
+
+
+def test_llm_fallback_disabled_by_config(monkeypatch):
+    monkeypatch.setattr(
+        "llmwiki.docdate._docdate_config",
+        lambda base_dir: {"enabled": True, "llm_fallback": False},
+    )
+    called = []
+    monkeypatch.setattr(
+        "llmwiki.docdate._llm_extract",
+        lambda p, **k: called.append(p) or "2023-05-12",
+    )
+    assert extract_doc_date("Documento senza date esplicite.") is None
+    assert not called
+
+
+def test_module_disabled(monkeypatch):
+    monkeypatch.setattr(
+        "llmwiki.docdate._docdate_config",
+        lambda base_dir: {"enabled": False, "llm_fallback": True},
+    )
+    assert extract_doc_date("Data di emissione: 01/03/2024") is None

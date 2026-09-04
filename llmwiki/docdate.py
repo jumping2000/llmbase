@@ -135,12 +135,47 @@ def _p3_match_to_iso(m: re.Match) -> str | None:
     return f"{int(y2):04d}-{_MONTHS[mon2.lower()]:02d}-{int(d2):02d}"
 
 
+def _docdate_config(base_dir: Path | None) -> dict:
+    """Read docdate config with sensible defaults; never raises."""
+    try:
+        from .config import load_config
+
+        cfg = load_config(base_dir)
+        return {
+            "enabled": bool(cfg.get("docdate", {}).get("enabled", True)),
+            "llm_fallback": bool(cfg.get("docdate", {}).get("llm_fallback", True)),
+        }
+    except Exception:
+        return {"enabled": True, "llm_fallback": True}
+
+
+_LLM_PROMPT = (
+    "Find the authoring, validation, or last-modified date of this document. "
+    "Reply ONLY with an ISO date (YYYY-MM-DD, YYYY-MM, or YYYY) or 'none'.\n\n"
+)
+
+
+def _llm_extract(head: str, base_dir: Path | None) -> str | None:
+    """Micro LLM call; returns raw answer string or None on any failure."""
+    from .llm import chat
+
+    return chat(
+        _LLM_PROMPT + head[:_HEAD_CHARS],
+        feature="docdate",
+        stage="answer",
+        base_dir=base_dir,
+    )
+
+
 def extract_doc_date(text: str, base_dir: Path | None = None) -> str | None:
     """Extract the document's authoring/validation date from its opening text.
 
     Returns ISO "YYYY-MM-DD" | "YYYY-MM" | "YYYY" or None. Never raises.
     """
     try:
+        conf = _docdate_config(base_dir)
+        if not conf["enabled"]:
+            return None
         head = text[:_HEAD_CHARS]
         # Priority 1
         for m in _P1_RE.finditer(head):
@@ -161,6 +196,14 @@ def extract_doc_date(text: str, base_dir: Path | None = None) -> str | None:
             iso = _p3_match_to_iso(m)
             if iso and is_plausible(iso):
                 return iso
-        return None
+        if not conf["llm_fallback"]:
+            return None
+        try:
+            answer = _llm_extract(head, base_dir=base_dir)
+        except Exception:
+            return None
+        if not answer:
+            return None
+        return normalize_date(answer.strip())
     except Exception:
         return None
