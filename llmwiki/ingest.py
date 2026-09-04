@@ -3,7 +3,7 @@
 import hashlib
 import re
 import shutil
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -12,9 +12,8 @@ import requests
 from bs4 import BeautifulSoup
 from markdownify import markdownify as md
 
-from .config import load_config, ensure_dirs
+from .config import ensure_dirs, load_config
 from .llm import strip_surrogates
-
 
 _WEB_FETCH_HEADERS = {
     "User-Agent": (
@@ -31,7 +30,9 @@ _WEB_FETCH_HEADERS = {
 
 def _validate_url(url: str):
     """Block SSRF: reject private/internal network URLs."""
-    import ipaddress, socket
+    import ipaddress
+    import socket
+
     parsed = urlparse(url)
     if parsed.scheme not in ("http", "https"):
         raise ValueError(f"Unsupported URL scheme: {parsed.scheme}")
@@ -83,7 +84,11 @@ def ingest_url(url: str, base_dir: Path | None = None) -> Path:
     soup = BeautifulSoup(resp.text, "html.parser")
 
     # Extract title
-    title = soup.title.string.strip() if soup.title and soup.title.string else urlparse(url).netloc
+    title = (
+        soup.title.string.strip()
+        if soup.title and soup.title.string
+        else urlparse(url).netloc
+    )
     slug = _slugify(title)
 
     # Create directory for this document
@@ -108,7 +113,9 @@ def ingest_url(url: str, base_dir: Path | None = None) -> Path:
             elif src.startswith("/"):
                 parsed = urlparse(url)
                 src = f"{parsed.scheme}://{parsed.netloc}{src}"
-            img_resp = requests.get(src, timeout=15, headers=_WEB_FETCH_HEADERS, allow_redirects=True)
+            img_resp = requests.get(
+                src, timeout=15, headers=_WEB_FETCH_HEADERS, allow_redirects=True
+            )
             img_resp.raise_for_status()
             ext = _guess_ext(src, img_resp.headers.get("content-type", ""))
             img_hash = hashlib.md5(src.encode()).hexdigest()[:8]
@@ -121,6 +128,7 @@ def ingest_url(url: str, base_dir: Path | None = None) -> Path:
 
     # Convert to markdown (handle deeply nested HTML)
     import sys
+
     old_limit = sys.getrecursionlimit()
     sys.setrecursionlimit(10000)
     try:
@@ -152,16 +160,23 @@ def ingest_url_browser(url: str, base_dir: Path | None = None) -> Path:
     from .browser import fetch_article, is_opencli_available
 
     if not is_opencli_available():
-        raise ValueError("Browser-assisted ingest is unavailable: opencli is not installed.")
+        raise ValueError(
+            "Browser-assisted ingest is unavailable: opencli is not installed."
+        )
 
     article = fetch_article(url)
     if article.get("error"):
         raise ValueError(f"Browser-assisted ingest failed: {article['error']}")
 
-    title = str(article.get("title") or urlparse(url).netloc).strip() or urlparse(url).netloc
+    title = (
+        str(article.get("title") or urlparse(url).netloc).strip()
+        or urlparse(url).netloc
+    )
     content = str(article.get("content") or "").strip()
     if not content:
-        raise ValueError("Browser-assisted ingest failed: extracted page content was empty.")
+        raise ValueError(
+            "Browser-assisted ingest failed: extracted page content was empty."
+        )
 
     cfg = load_config(base_dir)
     ensure_dirs(cfg)
@@ -208,10 +223,11 @@ def _write_ingested_article(
     post = frontmatter.Post(strip_surrogates(content))
     post.metadata["title"] = strip_surrogates(title)
     post.metadata["source"] = url
-    post.metadata["ingested_at"] = datetime.now(timezone.utc).isoformat()
+    post.metadata["ingested_at"] = datetime.now(UTC).isoformat()
     post.metadata["type"] = article_type
     post.metadata["compiled"] = False
     from .docdate import extract_doc_date
+
     doc_date = extract_doc_date(content, base_dir=base_dir)
     if doc_date:
         post.metadata["doc_date"] = doc_date
@@ -220,6 +236,7 @@ def _write_ingested_article(
     doc_path.write_text(frontmatter.dumps(post), encoding="utf-8")
 
     from .hooks import emit
+
     emit("ingested", source=emit_source, url=url, title=title, path=str(doc_path))
     return doc_path
 
@@ -258,13 +275,14 @@ def ingest_file(
         if "source" not in post.metadata:
             post.metadata["source"] = source_value
         if "ingested_at" not in post.metadata:
-            post.metadata["ingested_at"] = datetime.now(timezone.utc).isoformat()
+            post.metadata["ingested_at"] = datetime.now(UTC).isoformat()
         post.metadata["type"] = "local_file"
         post.metadata["compiled"] = False
         if domain:
             post.metadata["domain"] = domain
         if "doc_date" not in post.metadata:
             from .docdate import extract_doc_date
+
             doc_date = extract_doc_date(post.content, base_dir=base_dir)
             if doc_date:
                 post.metadata["doc_date"] = doc_date
@@ -278,7 +296,7 @@ def ingest_file(
         meta = frontmatter.Post("")
         meta.metadata["title"] = logical_stem
         meta.metadata["source"] = source_value
-        meta.metadata["ingested_at"] = datetime.now(timezone.utc).isoformat()
+        meta.metadata["ingested_at"] = datetime.now(UTC).isoformat()
         meta.metadata["type"] = "local_file"
         meta.metadata["file"] = logical_name
         meta.metadata["compiled"] = False
@@ -288,6 +306,7 @@ def ingest_file(
         meta_path.write_text(frontmatter.dumps(meta), encoding="utf-8")
 
     from .hooks import emit
+
     emit("ingested", source="file", title=logical_stem, path=str(dest))
 
     return dest
@@ -318,7 +337,11 @@ def _safe_meta_value(v):
     if isinstance(v, (list, tuple)):
         return [x for x in (_safe_meta_value(i) for i in v) if x is not None]
     if isinstance(v, dict):
-        return {str(k): sv for k, sv in ((str(k), _safe_meta_value(val)) for k, val in v.items()) if sv is not None}
+        return {
+            str(k): sv
+            for k, sv in ((str(k), _safe_meta_value(val)) for k, val in v.items())
+            if sv is not None
+        }
     s = str(v)
     return None if _is_local_path(s) else s
 

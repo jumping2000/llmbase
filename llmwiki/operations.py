@@ -23,9 +23,10 @@ values should be JSON-serialisable (dicts, lists, strings, numbers).
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 
 @dataclass
@@ -55,7 +56,7 @@ def all_operations() -> list[Operation]:
     return list(_REGISTRY.values())
 
 
-def _needs_write_lock(op: "Operation", args: dict) -> bool:
+def _needs_write_lock(op: Operation, args: dict) -> bool:
     """Some ops are normally read-only but escalate to writes based on args.
 
     Currently only kb_ask does this (promote=True triggers index rebuilds
@@ -82,6 +83,7 @@ def dispatch(name: str, base_dir: Path, arguments: dict | None = None) -> Any:
     args = arguments or {}
     if _needs_write_lock(op, args):
         from .worker import job_lock
+
         if not job_lock.acquire(blocking=False):
             raise RuntimeError("another write operation is running")
         try:
@@ -99,13 +101,17 @@ def dispatch(name: str, base_dir: Path, arguments: dict | None = None) -> Any:
 # no heavy import graph (MCP stdio wants fast startup).
 
 
-def _op_search(base_dir: Path, query: str, top_k: int = 10, domain: str | None = None) -> dict:
+def _op_search(
+    base_dir: Path, query: str, top_k: int = 10, domain: str | None = None
+) -> dict:
     from .search import search
+
     return {"results": search(query, top_k=top_k, base_dir=base_dir, domain=domain)}
 
 
 def _op_search_raw(base_dir: Path, query: str, top_k: int = 10) -> dict:
     from .search import search_raw
+
     return {"results": search_raw(query, top_k=top_k, base_dir=base_dir)}
 
 
@@ -121,6 +127,7 @@ def _op_ask(
     domain: str | None = None,
 ) -> dict:
     from .query import query, query_with_search
+
     if deep:
         result = query_with_search(
             question,
@@ -162,6 +169,7 @@ def _safe_concept_path(concepts_dir: Path, slug: str) -> Path | None:
 
 def _op_get(base_dir: Path, slug: str, section: str | None = None) -> dict:
     import frontmatter
+
     from .config import load_config
     from .resolve import load_aliases, resolve_link
 
@@ -192,6 +200,7 @@ def _op_get(base_dir: Path, slug: str, section: str | None = None) -> dict:
     }
     if section:
         from .sections import extract_section_text, parse_sections
+
         sections = parse_sections(post.content)
         text = extract_section_text(post.content, sections, section)
         if text is None:
@@ -202,6 +211,7 @@ def _op_get(base_dir: Path, slug: str, section: str | None = None) -> dict:
 
 def _op_get_sections(base_dir: Path, slug: str) -> dict:
     import frontmatter
+
     from .config import load_config
     from .resolve import load_aliases, resolve_link
     from .sections import parse_sections
@@ -233,6 +243,7 @@ def _op_get_sections(base_dir: Path, slug: str) -> dict:
 
 def _op_list(base_dir: Path, tag: str | None = None) -> dict:
     import frontmatter
+
     from .config import load_config
 
     cfg = load_config(base_dir)
@@ -246,30 +257,38 @@ def _op_list(base_dir: Path, tag: str | None = None) -> dict:
         tags = post.metadata.get("tags", [])
         if tag and tag not in tags:
             continue
-        articles.append({
-            "slug": md_file.stem,
-            "title": post.metadata.get("title", md_file.stem),
-            "summary": post.metadata.get("summary", ""),
-            "tags": tags,
-        })
+        articles.append(
+            {
+                "slug": md_file.stem,
+                "title": post.metadata.get("title", md_file.stem),
+                "summary": post.metadata.get("summary", ""),
+                "tags": tags,
+            }
+        )
     return {"articles": articles}
 
 
 def _op_backlinks(base_dir: Path, slug: str) -> dict:
     import json
+
     from .config import load_config
 
     cfg = load_config(base_dir)
     meta_dir = Path(cfg["paths"]["meta"])
     bl_path = meta_dir / "backlinks.json"
     if not bl_path.exists():
-        return {"slug": slug, "cited_by": [], "note": "run `llmbase compile index` first"}
+        return {
+            "slug": slug,
+            "cited_by": [],
+            "note": "run `llmbase compile index` first",
+        }
     data = json.loads(bl_path.read_text())
     return {"slug": slug, "cited_by": data.get(slug, [])}
 
 
 def _op_taxonomy(base_dir: Path, lang: str = "en-it") -> dict:
     from .taxonomy import build_taxonomy
+
     return {"categories": build_taxonomy(base_dir, lang)}
 
 
@@ -303,6 +322,7 @@ def _op_llm_usage_summary(
     to_ts: str | None = None,
 ) -> dict:
     from .llm_usage import summarize_usage
+
     return summarize_usage(base_dir, from_ts=from_ts, to_ts=to_ts, last=last)
 
 
@@ -314,12 +334,18 @@ def _op_llm_usage_recent(
     to_ts: str | None = None,
 ) -> dict:
     from .llm_usage import recent_requests
-    return recent_requests(base_dir, limit=limit, from_ts=from_ts, to_ts=to_ts, last=last)
+
+    return recent_requests(
+        base_dir, limit=limit, from_ts=from_ts, to_ts=to_ts, last=last
+    )
 
 
-def _op_ingest(base_dir: Path, source: str | None = None, url: str | None = None) -> dict:
+def _op_ingest(
+    base_dir: Path, source: str | None = None, url: str | None = None
+) -> dict:
     """Ingest a URL or local file path. ``url`` is a legacy alias for ``source``."""
-    from .ingest import ingest_url, ingest_file
+    from .ingest import ingest_file, ingest_url
+
     target = source or url
     if not target:
         raise ValueError("kb_ingest requires 'source' (or legacy 'url')")
@@ -330,7 +356,9 @@ def _op_ingest(base_dir: Path, source: str | None = None, url: str | None = None
     return {"path": str(path)}
 
 
-def _op_ingest_browser(base_dir: Path, source: str | None = None, url: str | None = None) -> dict:
+def _op_ingest_browser(
+    base_dir: Path, source: str | None = None, url: str | None = None
+) -> dict:
     """Ingest a URL via browser automation. ``url`` is a legacy alias for ``source``."""
     from .ingest import ingest_url_browser
 
@@ -344,7 +372,8 @@ def _op_ingest_browser(base_dir: Path, source: str | None = None, url: str | Non
 
 
 def _op_compile(base_dir: Path, full: bool = False) -> dict:
-    from .compile import compile_new, compile_all
+    from .compile import compile_all, compile_new
+
     articles = compile_all(base_dir) if full else compile_new(base_dir)
     return {"articles_created": len(articles), "articles": articles}
 
@@ -354,11 +383,13 @@ def _op_lint(base_dir: Path, deep: bool = False, fix: bool = False) -> dict:
     if fix:
         return _op_lint_fix(base_dir)
     from .lint import lint, lint_deep
+
     return {"report": lint_deep(base_dir) if deep else lint(base_dir)}
 
 
 def _op_lint_fix(base_dir: Path) -> dict:
     from .lint import auto_fix
+
     fixes = auto_fix(base_dir)
     return {"fixes": fixes, "fix_count": len(fixes)}
 
@@ -376,58 +407,69 @@ def _op_export(base_dir: Path, type: str, slug: str, depth: int = 2) -> dict:
 
 def _op_export_article(base_dir: Path, slug: str) -> dict:
     from .export import export_article
+
     result = export_article(slug, base_dir)
     return result or {"found": False, "slug": slug}
 
 
 def _op_export_tag(base_dir: Path, tag: str) -> dict:
     from .export import export_by_tag
+
     return export_by_tag(tag, base_dir)
 
 
 def _op_export_graph(base_dir: Path, slug: str, depth: int = 2) -> dict:
     from .export import export_graph
+
     return export_graph(slug, depth, base_dir)
 
 
 def _op_backfill_doc_dates(base_dir: Path, force: bool = False) -> dict:
     from .docdate import backfill_doc_dates
+
     return backfill_doc_dates(base_dir, force=force)
 
 
 def _op_rebuild_index(base_dir: Path) -> dict:
     from .compile import rebuild_index
+
     entries = rebuild_index(base_dir)
     return {"article_count": len(entries)}
 
 
 def _op_xici(base_dir: Path, lang: str = "en-it") -> dict:
     from .xici import get_xici
+
     return get_xici(base_dir, lang)
 
 
 def _op_domains_list(base_dir: Path) -> dict:
     from .domains import list_domains
+
     return {"domains": list_domains(base_dir)}
 
 
 def _op_domains_create(base_dir: Path, label: str) -> dict:
     from .domains import create_domain
+
     return {"domain": create_domain(label, base_dir)}
 
 
 def _op_domains_rename(base_dir: Path, domain_id: str, label: str) -> dict:
     from .domains import rename_domain
+
     return {"domain": rename_domain(domain_id, label, base_dir)}
 
 
 def _op_domains_delete(base_dir: Path, domain_id: str) -> dict:
     from .domains import delete_domain
+
     return delete_domain(domain_id, base_dir)
 
 
 def _op_domains_bulk_assign(base_dir: Path, slugs: list, domain: str) -> dict:
     from .domains import bulk_assign_domain
+
     return bulk_assign_domain(slugs, domain, base_dir)
 
 
@@ -516,7 +558,10 @@ _CANONICAL: list[Operation] = [
             "type": "object",
             "properties": {
                 "slug": {"type": "string"},
-                "section": {"type": "string", "description": "Section anchor from kb_get_sections (e.g. h2-緒論-bb6572)"},
+                "section": {
+                    "type": "string",
+                    "description": "Section anchor from kb_get_sections (e.g. h2-緒論-bb6572)",
+                },
             },
             "required": ["slug"],
         },
@@ -625,7 +670,10 @@ _CANONICAL: list[Operation] = [
         params={
             "type": "object",
             "properties": {
-                "source": {"type": "string", "description": "URL to fetch via browser automation"},
+                "source": {
+                    "type": "string",
+                    "description": "URL to fetch via browser automation",
+                },
                 "url": {"type": "string", "description": "Legacy alias for source"},
             },
         },
@@ -651,7 +699,11 @@ _CANONICAL: list[Operation] = [
             "type": "object",
             "properties": {
                 "deep": {"type": "boolean", "default": False},
-                "fix": {"type": "boolean", "default": False, "description": "Legacy: run auto_fix"},
+                "fix": {
+                    "type": "boolean",
+                    "default": False,
+                    "description": "Legacy: run auto_fix",
+                },
             },
         },
         category="read",

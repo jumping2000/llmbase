@@ -38,13 +38,15 @@ def test_ingest_pdf_first_chunk_gets_doc_date(tmp_path, monkeypatch):
     import llmwiki.pdf as pdfmod
 
     def fake_pdf_to_markdown(path, chunk_pages=20):
-        return [{
-            "title": "Manuale Tecnico",
-            "content": "Manuale Tecnico\nData di emissione: 15/01/2024\n...",
-            "page_start": 1,
-            "page_end": 5,
-            "metadata": {"author": None, "total_pages": 5},
-        }]
+        return [
+            {
+                "title": "Manuale Tecnico",
+                "content": "Manuale Tecnico\nData di emissione: 15/01/2024\n...",
+                "page_start": 1,
+                "page_end": 5,
+                "metadata": {"author": None, "total_pages": 5},
+            }
+        ]
 
     monkeypatch.setattr(pdfmod, "pdf_to_markdown", fake_pdf_to_markdown)
     src = tmp_path / "manuale.pdf"

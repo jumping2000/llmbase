@@ -42,13 +42,21 @@ def test_merge_dedup_key_includes_doc_date(tmp_path):
     p = concepts / "concept-b.md"
     p.write_text(frontmatter.dumps(existing), encoding="utf-8")
 
-    _merge_into(p, {
-        "slug": "concept-b",
-        "content": "## English\n\nNew longer content that is definitely longer.\n\n## Italiano\n\nNuovo contenuto piu lungo.",
-        "sources": [
-            {"plugin": "pdf", "url": "doc.pdf", "title": "Doc", "doc_date": "2024-05-01"}
-        ],
-    })
+    _merge_into(
+        p,
+        {
+            "slug": "concept-b",
+            "content": "## English\n\nNew longer content that is definitely longer.\n\n## Italiano\n\nNuovo contenuto piu lungo.",
+            "sources": [
+                {
+                    "plugin": "pdf",
+                    "url": "doc.pdf",
+                    "title": "Doc",
+                    "doc_date": "2024-05-01",
+                }
+            ],
+        },
+    )
     merged = frontmatter.load(str(p))
     dates = sorted(s["doc_date"] for s in merged.metadata["sources"])
     assert dates == ["2022-01-01", "2024-05-01"]

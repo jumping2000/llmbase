@@ -1,7 +1,7 @@
 # tests/test_query_docdate.py
 import frontmatter
 
-from llmwiki.query import _gather_context, SYSTEM_PROMPT
+from llmwiki.query import SYSTEM_PROMPT, _gather_context
 
 
 def test_context_includes_source_dates(tmp_path):
@@ -10,13 +10,25 @@ def test_context_includes_source_dates(tmp_path):
     outputs = tmp_path / "outputs"
     for d in (concepts, meta, outputs):
         d.mkdir(parents=True)
-    post = frontmatter.Post("## English\n\nContent about mainframe.\n\n## Italiano\n\nContenuto.")
+    post = frontmatter.Post(
+        "## English\n\nContent about mainframe.\n\n## Italiano\n\nContenuto."
+    )
     post.metadata["title"] = "Mainframe"
     post.metadata["summary"] = "Mainframe architecture"
     post.metadata["tags"] = ["hw"]
     post.metadata["sources"] = [
-        {"plugin": "pdf", "url": "a.pdf", "title": "Manuale 2024", "doc_date": "2024-03-01"},
-        {"plugin": "pdf", "url": "b.pdf", "title": "Manuale 2022", "doc_date": "2022-01-01"},
+        {
+            "plugin": "pdf",
+            "url": "a.pdf",
+            "title": "Manuale 2024",
+            "doc_date": "2024-03-01",
+        },
+        {
+            "plugin": "pdf",
+            "url": "b.pdf",
+            "title": "Manuale 2022",
+            "doc_date": "2022-01-01",
+        },
     ]
     (concepts / "mainframe.md").write_text(frontmatter.dumps(post), encoding="utf-8")
 
@@ -62,4 +74,6 @@ def test_context_marks_undated_sources(tmp_path):
 
 
 def test_system_prompt_has_recency_rule():
-    assert "most recent" in SYSTEM_PROMPT.lower() or "più recente" in SYSTEM_PROMPT.lower()
+    assert (
+        "most recent" in SYSTEM_PROMPT.lower() or "più recente" in SYSTEM_PROMPT.lower()
+    )

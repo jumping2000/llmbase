@@ -1,12 +1,12 @@
 """PDF processing module — convert PDF files to markdown for ingestion."""
 
 import re
+from datetime import UTC, datetime
 from pathlib import Path
-from datetime import datetime, timezone
 
 import frontmatter
 
-from .config import load_config, ensure_dirs
+from .config import ensure_dirs, load_config
 
 
 def pdf_to_markdown(pdf_path: str, chunk_pages: int = 0) -> list[dict]:
@@ -23,7 +23,9 @@ def pdf_to_markdown(pdf_path: str, chunk_pages: int = 0) -> list[dict]:
     try:
         import fitz  # PyMuPDF
     except ImportError:
-        raise ImportError("PyMuPDF is required for PDF processing. Install: pip install pymupdf")
+        raise ImportError(
+            "PyMuPDF is required for PDF processing. Install: pip install pymupdf"
+        )
 
     doc = fitz.open(pdf_path)
     total_pages = len(doc)
@@ -36,13 +38,15 @@ def pdf_to_markdown(pdf_path: str, chunk_pages: int = 0) -> list[dict]:
     if chunk_pages <= 0:
         # Single document
         text = _extract_all_text(doc)
-        return [{
-            "title": title,
-            "content": text,
-            "page_start": 1,
-            "page_end": total_pages,
-            "metadata": {"author": author, "total_pages": total_pages},
-        }]
+        return [
+            {
+                "title": title,
+                "content": text,
+                "page_start": 1,
+                "page_end": total_pages,
+                "metadata": {"author": author, "total_pages": total_pages},
+            }
+        ]
 
     # Chunked output
     chunks = []
@@ -50,14 +54,18 @@ def pdf_to_markdown(pdf_path: str, chunk_pages: int = 0) -> list[dict]:
         end = min(start + chunk_pages, total_pages)
         text = _extract_page_range(doc, start, end)
         if text.strip():
-            chunk_title = f"{title} (p.{start+1}-{end})" if total_pages > chunk_pages else title
-            chunks.append({
-                "title": chunk_title,
-                "content": text,
-                "page_start": start + 1,
-                "page_end": end,
-                "metadata": {"author": author, "total_pages": total_pages},
-            })
+            chunk_title = (
+                f"{title} (p.{start + 1}-{end})" if total_pages > chunk_pages else title
+            )
+            chunks.append(
+                {
+                    "title": chunk_title,
+                    "content": text,
+                    "page_start": start + 1,
+                    "page_end": end,
+                    "metadata": {"author": author, "total_pages": total_pages},
+                }
+            )
 
     doc.close()
     return chunks
@@ -107,7 +115,7 @@ def ingest_pdf(
         post = frontmatter.Post(chunk["content"])
         post.metadata["title"] = chunk["title"]
         post.metadata["source"] = logical_name
-        post.metadata["ingested_at"] = datetime.now(timezone.utc).isoformat()
+        post.metadata["ingested_at"] = datetime.now(UTC).isoformat()
         post.metadata["type"] = "pdf"
         post.metadata["page_start"] = chunk["page_start"]
         post.metadata["page_end"] = chunk["page_end"]
@@ -119,6 +127,7 @@ def ingest_pdf(
             post.metadata["domain"] = domain
         if i == 0:  # cover chunk carries the authoring date
             from .docdate import extract_doc_date
+
             doc_date = extract_doc_date(chunk["content"], base_dir=base_dir)
             if doc_date:
                 post.metadata["doc_date"] = doc_date
@@ -136,7 +145,7 @@ def _extract_all_text(doc) -> str:
     for i, page in enumerate(doc):
         text = page.get_text().strip()
         if text:
-            parts.append(f"<!-- Page {i+1} -->\n\n{_clean_text(text)}")
+            parts.append(f"<!-- Page {i + 1} -->\n\n{_clean_text(text)}")
     return "\n\n---\n\n".join(parts)
 
 

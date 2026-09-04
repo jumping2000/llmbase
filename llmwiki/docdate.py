@@ -248,14 +248,11 @@ def propagate_doc_date(slug: str, base_dir: Path | None = None) -> int:
             for src in sources:
                 if not isinstance(src, dict):
                     continue
-                match = (
-                    (src.get("url", "") and src.get("url") == raw_source)
-                    or (
-                        raw_type
-                        and src.get("plugin", "") == raw_type
-                        and src.get("title", "")
-                        and src.get("title") == raw_title
-                    )
+                match = (src.get("url", "") and src.get("url") == raw_source) or (
+                    raw_type
+                    and src.get("plugin", "") == raw_type
+                    and src.get("title", "")
+                    and src.get("title") == raw_title
                 )
                 if match and not src.get("doc_date"):
                     src["doc_date"] = doc_date
@@ -303,4 +300,9 @@ def backfill_doc_dates(base_dir: Path | None = None, force: bool = False) -> dic
                 extracted += 1
             else:
                 missing += 1
-    return {"extracted": extracted, "skipped": skipped, "missing": missing, "diverged": diverged}
+    return {
+        "extracted": extracted,
+        "skipped": skipped,
+        "missing": missing,
+        "diverged": diverged,
+    }

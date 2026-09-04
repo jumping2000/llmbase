@@ -1,16 +1,17 @@
 """Main CLI entry point for LLMBase."""
 
 import logging
+from datetime import UTC
 from pathlib import Path
 
 import click
 from rich.console import Console
 from rich.logging import RichHandler
-from rich.table import Table
-from rich.panel import Panel
 from rich.markdown import Markdown
+from rich.panel import Panel
+from rich.table import Table
 
-from .config import load_config, ensure_dirs
+from .config import load_config
 
 console = Console()
 
@@ -26,15 +27,18 @@ def _configure_verbose_logging(verbosity: int):
     if verbosity <= 0:
         return
     llmbase_level = logging.INFO if verbosity == 1 else logging.DEBUG
-    http_level = logging.WARNING if verbosity == 1 else (
-        logging.INFO if verbosity == 2 else logging.DEBUG
+    http_level = (
+        logging.WARNING
+        if verbosity == 1
+        else (logging.INFO if verbosity == 2 else logging.DEBUG)
     )
     # Install a Rich handler once so repeated invocations in tests don't
     # stack handlers.
     root = logging.getLogger()
     if not any(isinstance(h, RichHandler) for h in root.handlers):
-        handler = RichHandler(console=console, rich_tracebacks=True,
-                              show_path=False, markup=False)
+        handler = RichHandler(
+            console=console, rich_tracebacks=True, show_path=False, markup=False
+        )
         root.addHandler(handler)
     root.setLevel(min(llmbase_level, http_level))
     for name in ("llmbase", "llmwiki", "httpx", "httpcore", "openai"):
@@ -44,9 +48,18 @@ def _configure_verbose_logging(verbosity: int):
 
 
 @click.group()
-@click.option("--base-dir", type=click.Path(exists=True), default=".", help="Project base directory")
-@click.option("-v", "--verbose", count=True,
-              help="Increase log verbosity (-v INFO, -vv DEBUG+http, -vvv wire).")
+@click.option(
+    "--base-dir",
+    type=click.Path(exists=True),
+    default=".",
+    help="Project base directory",
+)
+@click.option(
+    "-v",
+    "--verbose",
+    count=True,
+    help="Increase log verbosity (-v INFO, -vv DEBUG+http, -vvv wire).",
+)
 @click.pass_context
 def cli(ctx, base_dir, verbose):
     """LLMBase - LLM-powered personal knowledge base."""
@@ -58,10 +71,10 @@ def cli(ctx, base_dir, verbose):
 
 # ─── Ingest commands ───────────────────────────────────────────────
 
+
 @cli.group()
 def ingest():
     """Ingest raw documents into the knowledge base."""
-    pass
 
 
 @ingest.command("url")
@@ -70,6 +83,7 @@ def ingest():
 def ingest_url_cmd(ctx, url):
     """Ingest a web article by URL."""
     from .ingest import ingest_url
+
     with console.status("Fetching and converting..."):
         path = ingest_url(url, ctx.obj["base_dir"])
     console.print(f"[green]✓[/green] Ingested to: {path}")
@@ -81,17 +95,21 @@ def ingest_url_cmd(ctx, url):
 def ingest_file_cmd(ctx, file_path):
     """Ingest a local file."""
     from .ingest import ingest_file
+
     path = ingest_file(file_path, ctx.obj["base_dir"])
     console.print(f"[green]✓[/green] Ingested to: {path}")
 
 
 @ingest.command("pdf")
 @click.argument("pdf_path", type=click.Path(exists=True))
-@click.option("--chunk-pages", type=int, default=20, help="Pages per chunk (0 = single doc)")
+@click.option(
+    "--chunk-pages", type=int, default=20, help="Pages per chunk (0 = single doc)"
+)
 @click.pass_context
 def ingest_pdf_cmd(ctx, pdf_path, chunk_pages):
     """Ingest a PDF file, converting to markdown chunks automatically."""
     from .pdf import ingest_pdf
+
     with console.status(f"Processing PDF ({chunk_pages} pages/chunk)..."):
         paths = ingest_pdf(pdf_path, chunk_pages, ctx.obj["base_dir"])
     console.print(f"[green]✓[/green] Ingested PDF into {len(paths)} chunks:")
@@ -105,6 +123,7 @@ def ingest_pdf_cmd(ctx, pdf_path, chunk_pages):
 def ingest_dir_cmd(ctx, dir_path):
     """Ingest all supported files from a directory."""
     from .ingest import ingest_directory
+
     with console.status("Ingesting directory..."):
         paths = ingest_directory(dir_path, ctx.obj["base_dir"])
     console.print(f"[green]✓[/green] Ingested {len(paths)} files")
@@ -115,11 +134,13 @@ def ingest_dir_cmd(ctx, dir_path):
 @click.pass_context
 def ingest_browse_cmd(ctx, url):
     """Ingest a web page via opencli browser (uses your local Chrome session)."""
-    from .browser import is_opencli_available, fetch_article
+    from .browser import fetch_article, is_opencli_available
     from .ingest import ingest_url
 
     if not is_opencli_available():
-        console.print("[yellow]opencli not found. Install: npm install -g @jackwener/opencli[/yellow]")
+        console.print(
+            "[yellow]opencli not found. Install: npm install -g @jackwener/opencli[/yellow]"
+        )
         console.print("[dim]Falling back to HTTP fetch...[/dim]")
         with console.status("Fetching..."):
             path = ingest_url(url, ctx.obj["base_dir"])
@@ -137,9 +158,12 @@ def ingest_browse_cmd(ctx, url):
         console.print(f"[green]✓[/green] Ingested to: {path}")
     else:
         # Save as raw document
-        from .ingest import _slugify
-        from datetime import datetime, timezone
+        from datetime import datetime
+
         import frontmatter as fm
+
+        from .ingest import _slugify
+
         raw_dir = Path(ctx.obj["base_dir"]) / "raw"
         slug = _slugify(article["title"] or "untitled")
         doc_dir = raw_dir / slug
@@ -147,10 +171,11 @@ def ingest_browse_cmd(ctx, url):
         post = fm.Post(article["content"])
         post.metadata["title"] = article["title"]
         post.metadata["source"] = url
-        post.metadata["ingested_at"] = datetime.now(timezone.utc).isoformat()
+        post.metadata["ingested_at"] = datetime.now(UTC).isoformat()
         post.metadata["type"] = "browser_article"
         post.metadata["compiled"] = False
         from .docdate import extract_doc_date
+
         doc_date = extract_doc_date(article["content"], base_dir=ctx.obj["base_dir"])
         if doc_date:
             post.metadata["doc_date"] = doc_date
@@ -164,6 +189,7 @@ def ingest_browse_cmd(ctx, url):
 def ingest_list_cmd(ctx):
     """List all raw documents."""
     from .ingest import list_raw
+
     docs = list_raw(ctx.obj["base_dir"])
     if not docs:
         console.print("[yellow]No raw documents found.[/yellow]")
@@ -184,10 +210,10 @@ def ingest_list_cmd(ctx):
 
 # ─── Compile commands ──────────────────────────────────────────────
 
+
 @cli.group()
 def compile():
     """Compile raw documents into the wiki."""
-    pass
 
 
 @compile.command("new")
@@ -196,6 +222,7 @@ def compile():
 def compile_new_cmd(ctx, batch_size):
     """Compile only new/unprocessed raw documents."""
     from .compile import compile_new
+
     with console.status("Compiling new documents..."):
         articles = compile_new(ctx.obj["base_dir"], batch_size)
     if articles:
@@ -211,6 +238,7 @@ def compile_new_cmd(ctx, batch_size):
 def compile_all_cmd(ctx):
     """Recompile all raw documents (reset and rebuild)."""
     from .compile import compile_all
+
     with console.status("Recompiling all documents..."):
         articles = compile_all(ctx.obj["base_dir"])
     console.print(f"[green]✓[/green] Compiled {len(articles)} articles")
@@ -221,6 +249,7 @@ def compile_all_cmd(ctx):
 def compile_index_cmd(ctx):
     """Rebuild the wiki index without recompiling articles."""
     from .compile import rebuild_index
+
     entries = rebuild_index(ctx.obj["base_dir"])
     console.print(f"[green]✓[/green] Index rebuilt with {len(entries)} articles")
 
@@ -231,38 +260,60 @@ def compile_index_cmd(ctx):
 def backfill_doc_dates_cmd(ctx, force):
     """Extract authoring dates for raw docs and propagate to articles."""
     from .operations import dispatch
+
     try:
         with console.status("Backfilling doc dates..."):
-            result = dispatch("kb_backfill_doc_dates", ctx.obj["base_dir"], {"force": force})
+            result = dispatch(
+                "kb_backfill_doc_dates", ctx.obj["base_dir"], {"force": force}
+            )
     except RuntimeError as e:
         console.print(f"[yellow]Busy: {e}[/yellow]")
         raise SystemExit(3)
     console.print(
         f"[green]✓[/green] Extracted: {result['extracted']}, "
         f"skipped: {result['skipped']}, no date found: {result['missing']}"
-        + (f", [yellow]diverged from articles: {result['diverged']}[/yellow]" if result.get("diverged") else "")
+        + (
+            f", [yellow]diverged from articles: {result['diverged']}[/yellow]"
+            if result.get("diverged")
+            else ""
+        )
     )
 
 
 # ─── Query commands ────────────────────────────────────────────────
 
+
 @cli.command()
 @click.argument("question")
-@click.option("--format", "output_format", type=click.Choice(["markdown", "marp", "chart"]), default="markdown")
-@click.option("--tone", type=click.Choice(["default", "caveman", "scholar", "eli5"]), default="default",
-              help="Response tone: caveman (primitive), scholar (academic), eli5 (simple)")
+@click.option(
+    "--format",
+    "output_format",
+    type=click.Choice(["markdown", "marp", "chart"]),
+    default="markdown",
+)
+@click.option(
+    "--tone",
+    type=click.Choice(["default", "caveman", "scholar", "eli5"]),
+    default="default",
+    help="Response tone: caveman (primitive), scholar (academic), eli5 (simple)",
+)
 @click.option("--file-back", is_flag=True, help="Save the answer back into the wiki")
 @click.option("--deep", is_flag=True, help="Use multi-step search for complex queries")
 @click.pass_context
 def query(ctx, question, output_format, tone, file_back, deep):
     """Ask a question against the knowledge base."""
-    from .query import query as do_query, query_with_search
+    from .query import query as do_query
+    from .query import query_with_search
 
     with console.status("Researching..."):
         if deep:
-            answer = query_with_search(question, ctx.obj["base_dir"], tone=tone, file_back=file_back)
+            answer = query_with_search(
+                question, ctx.obj["base_dir"], tone=tone, file_back=file_back
+            )
         else:
-            answer = do_query(question, output_format, file_back, ctx.obj["base_dir"], tone=tone)
+            answer = do_query(
+                question, output_format, file_back, ctx.obj["base_dir"], tone=tone
+            )
 
     console.print(Panel(Markdown(answer), title="Answer", border_style="green"))
 
@@ -272,10 +323,10 @@ def query(ctx, question, output_format, tone, file_back, deep):
 
 # ─── Search commands ───────────────────────────────────────────────
 
+
 @cli.group()
 def search():
     """Search the knowledge base."""
-    pass
 
 
 @search.command("query")
@@ -285,8 +336,10 @@ def search():
 @click.pass_context
 def search_query_cmd(ctx, query_text, top_k, json_output):
     """Full-text search over the wiki."""
-    from .search import search as do_search, search_cli
     import json
+
+    from .search import search as do_search
+    from .search import search_cli
 
     if json_output:
         results = do_search(query_text, top_k, ctx.obj["base_dir"])
@@ -314,10 +367,10 @@ def search_serve_cmd(ctx, port):
 
 # ─── Lint commands ─────────────────────────────────────────────────
 
+
 @cli.group()
 def lint():
     """Run health checks on the knowledge base."""
-    pass
 
 
 @lint.command("check")
@@ -352,7 +405,9 @@ def lint_deep_cmd(ctx):
     with console.status("Running deep analysis..."):
         report = lint_deep(ctx.obj["base_dir"])
 
-    console.print(Panel(Markdown(report), title="Deep Lint Report", border_style="yellow"))
+    console.print(
+        Panel(Markdown(report), title="Deep Lint Report", border_style="yellow")
+    )
 
 
 @lint.command("fix")
@@ -444,9 +499,11 @@ def lint_dedup_cmd(ctx):
 @click.pass_context
 def lint_heal_cmd(ctx):
     """Full health cycle: check -> fix -> recheck -> report."""
-    from .lint import lint as do_lint, auto_fix
     import json
-    from datetime import datetime, timezone
+    from datetime import datetime
+
+    from .lint import auto_fix
+    from .lint import lint as do_lint
 
     # Phase 1: Check
     console.print("[cyan]Phase 1: Checking...[/cyan]")
@@ -482,24 +539,29 @@ def lint_heal_cmd(ctx):
     meta_dir = Path(cfg["paths"]["meta"])
     meta_dir.mkdir(parents=True, exist_ok=True)
     report = {
-        "checked_at": datetime.now(timezone.utc).isoformat(),
+        "checked_at": datetime.now(UTC).isoformat(),
         "issues_before": total_before,
         "issues_after": total_after,
         "results": results_after,
         "fixes_applied": fixes,
     }
     health_path = meta_dir / "health.json"
-    health_path.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
+    health_path.write_text(
+        json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
 
     # Summary
     resolved = total_before - total_after
-    console.print(f"\n[bold]Summary:[/bold] {resolved} resolved, {total_after} remaining")
+    console.print(
+        f"\n[bold]Summary:[/bold] {resolved} resolved, {total_after} remaining"
+    )
     if total_after == 0:
         console.print("[green]Knowledge base is now healthy.[/green]")
     console.print(f"[dim]Report saved to {health_path}[/dim]")
 
 
 # ─── Stats command ─────────────────────────────────────────────────
+
 
 @cli.command()
 @click.pass_context
@@ -534,6 +596,7 @@ def stats(ctx):
 
 # ─── Serve command (agent API) ─────────────────────────────────────
 
+
 @cli.command()
 @click.option("--port", type=int, default=5556)
 @click.pass_context
@@ -543,11 +606,14 @@ def serve(ctx, port):
 
     app = create_agent_server(ctx.obj["base_dir"], port)
     console.print(f"[green]Agent API running at http://localhost:{port}[/green]")
-    console.print("[dim]Endpoints: /api/ingest, /api/compile, /api/ask, /api/search, /api/articles, /api/lint[/dim]")
+    console.print(
+        "[dim]Endpoints: /api/ingest, /api/compile, /api/ask, /api/search, /api/articles, /api/lint[/dim]"
+    )
     app.run(host="0.0.0.0", port=port, debug=False)
 
 
 # ─── Web UI command ──────────────────────────────────────────────���─
+
 
 @cli.command()
 @click.option("--port", type=int, default=5555)
@@ -562,9 +628,21 @@ def web(ctx, port):
 
 
 @cli.command()
-@click.option("--transport", type=click.Choice(["stdio", "streamable-http"]), default=None, help="MCP transport to use")
-@click.option("--http-port", type=int, default=None, help="HTTP port for streamable-http transport")
-@click.option("--http-url", type=str, default=None, help="Optional full MCP HTTP URL override")
+@click.option(
+    "--transport",
+    type=click.Choice(["stdio", "streamable-http"]),
+    default=None,
+    help="MCP transport to use",
+)
+@click.option(
+    "--http-port",
+    type=int,
+    default=None,
+    help="HTTP port for streamable-http transport",
+)
+@click.option(
+    "--http-url", type=str, default=None, help="Optional full MCP HTTP URL override"
+)
 @click.pass_context
 def mcp(ctx, transport, http_port, http_url):
     """Start the MCP (Model Context Protocol) server for AI client integration.
@@ -572,19 +650,22 @@ def mcp(ctx, transport, http_port, http_url):
     Transport can be controlled via CLI flags or environment variables
     (CLI takes precedence).
     """
-    from .mcp_config import resolve_mcp_settings
     from . import mcp_server
+    from .mcp_config import resolve_mcp_settings
 
-    settings = resolve_mcp_settings(transport=transport, http_port=http_port, http_url=http_url)
-    console.print(f"[green]Starting LLMBase MCP server ({settings.transport})...[/green]")
+    settings = resolve_mcp_settings(
+        transport=transport, http_port=http_port, http_url=http_url
+    )
+    console.print(
+        f"[green]Starting LLMBase MCP server ({settings.transport})...[/green]"
+    )
     console.print("[dim]Register in your AI client settings to connect.[/dim]")
-    mcp_server.run_mcp(ctx.obj.get("base_dir", Path('.')).resolve(), settings)
+    mcp_server.run_mcp(ctx.obj.get("base_dir", Path(".")).resolve(), settings)
 
 
 @cli.group()
 def export():
     """Export structured data for downstream projects."""
-    pass
 
 
 @export.command("article")
@@ -592,8 +673,10 @@ def export():
 @click.pass_context
 def export_article_cmd(ctx, slug):
     """Export a single article with full context."""
-    from .export import export_article
     import json
+
+    from .export import export_article
+
     result = export_article(slug, ctx.obj["base_dir"])
     if not result:
         console.print(f"[red]Article not found: {slug}[/red]")
@@ -606,9 +689,15 @@ def export_article_cmd(ctx, slug):
 @click.pass_context
 def export_tag_cmd(ctx, tag):
     """Export all articles with a given tag."""
-    from .export import export_by_tag
     import json
-    click.echo(json.dumps(export_by_tag(tag, ctx.obj["base_dir"]), indent=2, ensure_ascii=False))
+
+    from .export import export_by_tag
+
+    click.echo(
+        json.dumps(
+            export_by_tag(tag, ctx.obj["base_dir"]), indent=2, ensure_ascii=False
+        )
+    )
 
 
 @export.command("graph")
@@ -617,17 +706,23 @@ def export_tag_cmd(ctx, tag):
 @click.pass_context
 def export_graph_cmd(ctx, slug, depth):
     """Export article subgraph (N levels of connections)."""
-    from .export import export_graph
     import json
-    click.echo(json.dumps(export_graph(slug, depth, ctx.obj["base_dir"]), indent=2, ensure_ascii=False))
+
+    from .export import export_graph
+
+    click.echo(
+        json.dumps(
+            export_graph(slug, depth, ctx.obj["base_dir"]), indent=2, ensure_ascii=False
+        )
+    )
 
 
 # ─── Operations contract (generic dispatch) ────────────────────────
 
+
 @cli.group()
 def ops():
     """Inspect and invoke operations via the unified contract (CLI/HTTP/MCP share)."""
-    pass
 
 
 @ops.command("list")
@@ -635,6 +730,7 @@ def ops():
 def ops_list_cmd(ctx):
     """List all registered operations."""
     from . import operations as _ops
+
     table = Table(title="Operations")
     table.add_column("name", style="cyan")
     table.add_column("category")
@@ -655,6 +751,7 @@ def ops_call_cmd(ctx, name, json_args):
     Example: llmbase ops call kb_search --json-args '{"query": "kong"}'
     """
     import json as _json
+
     from . import operations as _ops
 
     if _ops.get(name) is None:
@@ -681,6 +778,7 @@ def ops_call_cmd(ctx, name, json_args):
 
 def main():
     cli()
+
 
 if __name__ == "__main__":
     main()

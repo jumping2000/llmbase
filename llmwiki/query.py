@@ -607,7 +607,9 @@ def _gather_context(question: str, cfg: dict, domain: str | None = None) -> list
         ]
         header = ""
         if date_lines:
-            header = "Fonti citate (con data di stesura):\n" + "\n".join(date_lines) + "\n\n"
+            header = (
+                "Fonti citate (con data di stesura):\n" + "\n".join(date_lines) + "\n\n"
+            )
         context_files.append(
             {
                 "path": md_file.name,

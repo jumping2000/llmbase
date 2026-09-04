@@ -18,6 +18,7 @@ def _make_raw(tmp_path, slug, content, doc_date=None):
 
 def test_backfill_extracts_and_propagates(tmp_path, monkeypatch):
     import llmwiki.docdate as dd
+
     monkeypatch.setattr(
         dd, "_docdate_config", lambda b: {"enabled": True, "llm_fallback": False}
     )
@@ -31,6 +32,7 @@ def test_backfill_extracts_and_propagates(tmp_path, monkeypatch):
 
 def test_backfill_skips_existing_without_force(tmp_path, monkeypatch):
     import llmwiki.docdate as dd
+
     monkeypatch.setattr(
         dd, "_docdate_config", lambda b: {"enabled": True, "llm_fallback": False}
     )
@@ -44,6 +46,7 @@ def test_backfill_skips_existing_without_force(tmp_path, monkeypatch):
 
 def test_backfill_force_reextracts(tmp_path, monkeypatch):
     import llmwiki.docdate as dd
+
     monkeypatch.setattr(
         dd, "_docdate_config", lambda b: {"enabled": True, "llm_fallback": False}
     )
@@ -56,6 +59,7 @@ def test_backfill_force_reextracts(tmp_path, monkeypatch):
 
 def test_backfill_missing_counter(tmp_path, monkeypatch):
     import llmwiki.docdate as dd
+
     monkeypatch.setattr(
         dd, "_docdate_config", lambda b: {"enabled": True, "llm_fallback": False}
     )
@@ -67,6 +71,7 @@ def test_backfill_missing_counter(tmp_path, monkeypatch):
 
 def test_backfill_propagates_to_article(tmp_path, monkeypatch):
     import llmwiki.docdate as dd
+
     monkeypatch.setattr(
         dd, "_docdate_config", lambda b: {"enabled": True, "llm_fallback": False}
     )
@@ -75,7 +80,9 @@ def test_backfill_propagates_to_article(tmp_path, monkeypatch):
     concepts = tmp_path / "wiki" / "concepts"
     concepts.mkdir(parents=True)
     art = frontmatter.Post("Articolo")
-    art.metadata["sources"] = [{"plugin": "pdf", "url": "doc-prop.pdf", "title": "doc-prop"}]
+    art.metadata["sources"] = [
+        {"plugin": "pdf", "url": "doc-prop.pdf", "title": "doc-prop"}
+    ]
     (concepts / "concept-prop.md").write_text(frontmatter.dumps(art), encoding="utf-8")
     dispatch("kb_backfill_doc_dates", tmp_path, {"force": False})
     loaded = frontmatter.load(str(concepts / "concept-prop.md"))
@@ -85,14 +92,19 @@ def test_backfill_propagates_to_article(tmp_path, monkeypatch):
 def test_backfill_skip_still_propagates(tmp_path, monkeypatch):
     # Doc already has doc_date but its article never got it (interrupted batch).
     import llmwiki.docdate as dd
+
     monkeypatch.setattr(
         dd, "_docdate_config", lambda b: {"enabled": True, "llm_fallback": False}
     )
-    _make_raw(tmp_path, "doc-int", "Data di emissione: 01/03/2024", doc_date="2024-03-01")
+    _make_raw(
+        tmp_path, "doc-int", "Data di emissione: 01/03/2024", doc_date="2024-03-01"
+    )
     concepts = tmp_path / "wiki" / "concepts"
     concepts.mkdir(parents=True)
     art = frontmatter.Post("Articolo")
-    art.metadata["sources"] = [{"plugin": "pdf", "url": "doc-int.pdf", "title": "doc-int"}]
+    art.metadata["sources"] = [
+        {"plugin": "pdf", "url": "doc-int.pdf", "title": "doc-int"}
+    ]
     (concepts / "concept-int.md").write_text(frontmatter.dumps(art), encoding="utf-8")
     result = dispatch("kb_backfill_doc_dates", tmp_path, {"force": False})
     assert result["skipped"] == 1
