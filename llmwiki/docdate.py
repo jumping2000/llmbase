@@ -277,7 +277,7 @@ def backfill_doc_dates(base_dir: Path | None = None, force: bool = False) -> dic
 
     cfg = load_config(base_dir)
     raw_dir = Path(cfg["paths"]["raw"])
-    extracted = skipped = missing = 0
+    extracted = skipped = missing = diverged = 0
     if raw_dir.exists():
         for doc_dir in sorted(raw_dir.iterdir()):
             if not doc_dir.is_dir():
@@ -287,14 +287,20 @@ def backfill_doc_dates(base_dir: Path | None = None, force: bool = False) -> dic
                 continue
             post = frontmatter.load(str(idx))
             if post.metadata.get("doc_date") and not force:
+                # Still propagate: a previous run may have been interrupted
+                # between the raw write and article propagation.
+                propagate_doc_date(doc_dir.name, base_dir)
                 skipped += 1
                 continue
+            old_date = post.metadata.get("doc_date")
             doc_date = extract_doc_date(post.content, base_dir=base_dir)
             if doc_date:
+                if old_date and old_date != doc_date:
+                    diverged += 1
                 post.metadata["doc_date"] = doc_date
                 idx.write_text(frontmatter.dumps(post), encoding="utf-8")
                 propagate_doc_date(doc_dir.name, base_dir)
                 extracted += 1
             else:
                 missing += 1
-    return {"extracted": extracted, "skipped": skipped, "missing": missing}
+    return {"extracted": extracted, "skipped": skipped, "missing": missing, "diverged": diverged}
