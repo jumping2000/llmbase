@@ -71,3 +71,96 @@ def is_plausible(iso_date: str) -> bool:
         return False
     year = int(m.group(1))
     return _MIN_YEAR <= year <= date.today().year + 1
+
+
+# ─── Regex extraction ──────────────────────────────────────────────
+# Priority 1: explicit authoring/validation markers (full date)
+_P1_RE = re.compile(
+    r"(?:data\s+di\s+(?:emissione|validazione|revisione|stesura|aggiornamento)"
+    r"|ultima\s+modifica|last\s+updated|last\s+modified"
+    r"|date\s+of\s+issue|revision\s+date)"
+    r"\s*[:：\-–]?\s*([0-9]{1,2}[./-][0-9]{1,2}[./-][0-9]{2,4}|\d{4}-\d{2}-\d{2})",
+    re.IGNORECASE,
+)
+_REV_RE = re.compile(
+    r"\brev(?:isione)?\.?\s*\d+\s*(?:del|di|–|-|—)?\s*"
+    r"([0-9]{1,2}[./-][0-9]{1,2}[./-][0-9]{2,4})",
+    re.IGNORECASE,
+)
+# Priority 2: edition / year markers
+_P2_RE = re.compile(
+    r"\b(?:edizione|edition|anno)\s*[:：]?\s*(\d{4})\b|©\s*(\d{4})",
+    re.IGNORECASE,
+)
+# Priority 3: textual dates anywhere in the head
+_MONTHS = {
+    "january": 1,
+    "february": 2,
+    "march": 3,
+    "april": 4,
+    "may": 5,
+    "june": 6,
+    "july": 7,
+    "august": 8,
+    "september": 9,
+    "october": 10,
+    "november": 11,
+    "december": 12,
+    "gennaio": 1,
+    "febbraio": 2,
+    "marzo": 3,
+    "aprile": 4,
+    "maggio": 5,
+    "giugno": 6,
+    "luglio": 7,
+    "agosto": 8,
+    "settembre": 9,
+    "ottobre": 10,
+    "novembre": 11,
+    "dicembre": 12,
+}
+_P3_RE = re.compile(
+    r"\b(\d{1,2})\s+(" + "|".join(_MONTHS) + r")\s+(\d{4})\b"
+    r"|\b(" + "|".join(_MONTHS) + r")\s+(\d{1,2}),?\s+(\d{4})\b",
+    re.IGNORECASE,
+)
+
+_HEAD_CHARS = 3000
+
+
+def _p3_match_to_iso(m: re.Match) -> str | None:
+    d1, mon1, y1, mon2, d2, y2 = m.groups()
+    if d1:  # "1 marzo 2024"
+        return f"{int(y1):04d}-{_MONTHS[mon1.lower()]:02d}-{int(d1):02d}"
+    return f"{int(y2):04d}-{_MONTHS[mon2.lower()]:02d}-{int(d2):02d}"
+
+
+def extract_doc_date(text: str, base_dir: Path | None = None) -> str | None:
+    """Extract the document's authoring/validation date from its opening text.
+
+    Returns ISO "YYYY-MM-DD" | "YYYY-MM" | "YYYY" or None. Never raises.
+    """
+    try:
+        head = text[:_HEAD_CHARS]
+        # Priority 1
+        for m in _P1_RE.finditer(head):
+            iso = normalize_date(m.group(1))
+            if iso:
+                return iso
+        for m in _REV_RE.finditer(head):
+            iso = normalize_date(m.group(1))
+            if iso:
+                return iso
+        # Priority 2
+        for m in _P2_RE.finditer(head):
+            year = m.group(1) or m.group(2)
+            if is_plausible(year):
+                return year
+        # Priority 3
+        for m in _P3_RE.finditer(head):
+            iso = _p3_match_to_iso(m)
+            if iso and is_plausible(iso):
+                return iso
+        return None
+    except Exception:
+        return None
