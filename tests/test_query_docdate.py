@@ -29,8 +29,36 @@ def test_context_includes_source_dates(tmp_path):
     }
     ctx = _gather_context("mainframe", cfg)
     joined = "".join(c["content"] for c in ctx)
-    assert "2024-03-01" in joined
-    assert "2022-01-01" in joined
+    assert "Fonti citate (con data di stesura)" in joined
+    assert "Manuale 2024 (data: 2024-03-01)" in joined
+    assert "Manuale 2022 (data: 2022-01-01)" in joined
+
+
+def test_context_marks_undated_sources(tmp_path):
+    concepts = tmp_path / "wiki" / "concepts"
+    meta = tmp_path / "wiki" / "_meta"
+    outputs = tmp_path / "outputs"
+    for d in (concepts, meta, outputs):
+        d.mkdir(parents=True)
+    post = frontmatter.Post("## English\n\nContent.\n\n## Italiano\n\nContenuto.")
+    post.metadata["title"] = "Server"
+    post.metadata["summary"] = "Server architecture"
+    post.metadata["tags"] = ["hw"]
+    post.metadata["sources"] = [
+        {"plugin": "pdf", "url": "c.pdf", "title": "Manuale ND"},
+    ]
+    (concepts / "server.md").write_text(frontmatter.dumps(post), encoding="utf-8")
+
+    cfg = {
+        "paths": {
+            "concepts": str(concepts),
+            "meta": str(meta),
+            "outputs": str(outputs),
+        }
+    }
+    ctx = _gather_context("server", cfg)
+    joined = "".join(c["content"] for c in ctx)
+    assert "Manuale ND (data: sconosciuta)" in joined
 
 
 def test_system_prompt_has_recency_rule():
