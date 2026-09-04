@@ -135,6 +135,11 @@ docdate:
 Backfill existing documents: `llmbase backfill-doc-dates [--force]`.
 Edit from the UI: raw document preview → "Data stesura" field.
 
+Propagation to article `sources[]` is fill-only: existing `doc_date` values on
+articles are never overwritten (manual corrections always win). `backfill --force`
+re-extracts the raw date but does not re-propagate to articles that already have
+one; such cases are reported in the `diverged` counter.
+
 ## Domains
 
 Domains are first-class facets on articles. The implicit default domain is
