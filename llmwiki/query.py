@@ -611,7 +611,7 @@ def _gather_context(question: str, cfg: dict, domain: str | None = None) -> list
         context_files.append(
             {
                 "path": md_file.name,
-                "content": (header + content)[:4000],
+                "content": (header + post.content)[:4000],
             }
         )
 
