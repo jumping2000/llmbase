@@ -1194,7 +1194,10 @@ def create_web_app(base_dir: Path | None = None):
         from .docdate import normalize_date, propagate_doc_date
 
         cfg = load_config(base)
-        idx = Path(cfg["paths"]["raw"]) / slug / "index.md"
+        raw_dir = Path(cfg["paths"]["raw"])
+        idx = (raw_dir / slug / "index.md").resolve()
+        if not idx.is_relative_to(raw_dir.resolve()):
+            return jsonify({"status": "error", "message": "Not found"}), 404
         if not idx.exists():
             return jsonify({"status": "error", "message": "Not found"}), 404
         data = request.json or {}
@@ -1214,7 +1217,10 @@ def create_web_app(base_dir: Path | None = None):
             post.metadata.pop("doc_date", None)
         idx.write_text(frontmatter.dumps(post), encoding="utf-8")
         updated = propagate_doc_date(slug, base_dir=base)
-        return jsonify({"status": "ok", "doc_date": doc_date, "articles_updated": updated})
+        resp = {"status": "ok", "doc_date": doc_date, "articles_updated": updated}
+        if doc_date is None:
+            resp["note"] = "article doc_dates are not cleared (propagate is fill-only)"
+        return jsonify(resp)
 
     @app.route("/api/ingest", methods=["POST"])
     @require_auth

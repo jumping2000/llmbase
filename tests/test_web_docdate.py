@@ -51,3 +51,43 @@ def test_patch_doc_date_clear(tmp_path, monkeypatch):
     assert resp.status_code == 200
     post = frontmatter.load(str(tmp_path / "raw" / "doc-r" / "index.md"))
     assert "doc_date" not in post.metadata
+
+
+def test_patch_doc_date_traversal_blocked(tmp_path, monkeypatch):
+    monkeypatch.delenv("LLMBASE_API_SECRET", raising=False)
+    _make_raw(tmp_path, "doc-t")
+    # Create a file outside raw_dir that must NOT be writable via the endpoint
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    victim = outside / "index.md"
+    victim.write_text("victim", encoding="utf-8")
+    app = create_web_app(base_dir=tmp_path)
+    client = app.test_client()
+    resp = client.patch(
+        "/api/sources/../outside/doc-date",
+        json={"doc_date": "2024-06-15"},
+    )
+    assert resp.status_code == 404
+    assert victim.read_text(encoding="utf-8") == "victim"
+
+
+def test_patch_doc_date_propagates(tmp_path, monkeypatch):
+    monkeypatch.delenv("LLMBASE_API_SECRET", raising=False)
+    _make_raw(tmp_path, "doc-prop2")
+    concepts = tmp_path / "wiki" / "concepts"
+    concepts.mkdir(parents=True)
+    art = frontmatter.Post("Articolo")
+    art.metadata["sources"] = [
+        {"plugin": "pdf", "url": "doc-prop2.pdf", "title": "doc-prop2"}
+    ]
+    (concepts / "concept-prop2.md").write_text(frontmatter.dumps(art), encoding="utf-8")
+    app = create_web_app(base_dir=tmp_path)
+    client = app.test_client()
+    resp = client.patch(
+        "/api/sources/doc-prop2/doc-date",
+        json={"doc_date": "2024-07-01"},
+    )
+    assert resp.status_code == 200
+    assert resp.get_json()["articles_updated"] == 1
+    loaded = frontmatter.load(str(concepts / "concept-prop2.md"))
+    assert loaded.metadata["sources"][0]["doc_date"] == "2024-07-01"
