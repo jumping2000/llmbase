@@ -142,6 +142,7 @@ def ingest_url(url: str, base_dir: Path | None = None) -> Path:
         url=url,
         article_type="web_article",
         emit_source="web",
+        base_dir=base_dir,
     )
 
 
@@ -176,6 +177,7 @@ def ingest_url_browser(url: str, base_dir: Path | None = None) -> Path:
         url=url,
         article_type="browser_article",
         emit_source="browser",
+        base_dir=base_dir,
     )
 
 
@@ -200,6 +202,7 @@ def _write_ingested_article(
     url: str,
     article_type: str,
     emit_source: str,
+    base_dir: Path | None = None,
 ) -> Path:
     # Sanitize lone surrogates from upstream content before they reach disk.
     post = frontmatter.Post(strip_surrogates(content))
@@ -208,6 +211,10 @@ def _write_ingested_article(
     post.metadata["ingested_at"] = datetime.now(timezone.utc).isoformat()
     post.metadata["type"] = article_type
     post.metadata["compiled"] = False
+    from .docdate import extract_doc_date
+    doc_date = extract_doc_date(content, base_dir=base_dir)
+    if doc_date:
+        post.metadata["doc_date"] = doc_date
 
     doc_path = doc_dir / "index.md"
     doc_path.write_text(frontmatter.dumps(post), encoding="utf-8")
@@ -256,6 +263,11 @@ def ingest_file(
         post.metadata["compiled"] = False
         if domain:
             post.metadata["domain"] = domain
+        if "doc_date" not in post.metadata:
+            from .docdate import extract_doc_date
+            doc_date = extract_doc_date(post.content, base_dir=base_dir)
+            if doc_date:
+                post.metadata["doc_date"] = doc_date
         # Sanitize before persistence — same reasoning as ingest_url.
         post.content = strip_surrogates(post.content)
         if isinstance(post.metadata.get("title"), str):

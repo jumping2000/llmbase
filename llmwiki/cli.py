@@ -150,6 +150,10 @@ def ingest_browse_cmd(ctx, url):
         post.metadata["ingested_at"] = datetime.now(timezone.utc).isoformat()
         post.metadata["type"] = "browser_article"
         post.metadata["compiled"] = False
+        from .docdate import extract_doc_date
+        doc_date = extract_doc_date(article["content"], base_dir=ctx.obj["base_dir"])
+        if doc_date:
+            post.metadata["doc_date"] = doc_date
         doc_path = doc_dir / "index.md"
         doc_path.write_text(fm.dumps(post), encoding="utf-8")
         console.print(f"[green]✓[/green] Ingested via browser to: {doc_path}")

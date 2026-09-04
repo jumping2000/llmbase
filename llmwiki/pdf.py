@@ -117,6 +117,11 @@ def ingest_pdf(
         post.metadata["compiled"] = False
         if domain:
             post.metadata["domain"] = domain
+        if i == 0:  # cover chunk carries the authoring date
+            from .docdate import extract_doc_date
+            doc_date = extract_doc_date(chunk["content"], base_dir=base_dir)
+            if doc_date:
+                post.metadata["doc_date"] = doc_date
 
         doc_path = doc_dir / "index.md"
         doc_path.write_text(frontmatter.dumps(post), encoding="utf-8")
