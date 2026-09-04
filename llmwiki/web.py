@@ -1187,6 +1187,35 @@ def create_web_app(base_dir: Path | None = None):
             }
         )
 
+    @app.route("/api/sources/<path:slug>/doc-date", methods=["PATCH"])
+    @require_auth
+    def api_patch_doc_date(slug):
+        """Set or clear the raw document's doc_date and re-propagate."""
+        from .docdate import normalize_date, propagate_doc_date
+
+        cfg = load_config(base)
+        idx = Path(cfg["paths"]["raw"]) / slug / "index.md"
+        if not idx.exists():
+            return jsonify({"status": "error", "message": "Not found"}), 404
+        data = request.json or {}
+        raw = data.get("doc_date", "")
+        if raw is None or raw == "":
+            doc_date = None
+        else:
+            doc_date = normalize_date(str(raw))
+            if doc_date is None:
+                return jsonify(
+                    {"status": "error", "message": f"Invalid date: {raw}"}
+                ), 400
+        post = frontmatter.load(str(idx))
+        if doc_date:
+            post.metadata["doc_date"] = doc_date
+        else:
+            post.metadata.pop("doc_date", None)
+        idx.write_text(frontmatter.dumps(post), encoding="utf-8")
+        updated = propagate_doc_date(slug, base_dir=base)
+        return jsonify({"status": "ok", "doc_date": doc_date, "articles_updated": updated})
+
     @app.route("/api/ingest", methods=["POST"])
     @require_auth
     def api_ingest():
