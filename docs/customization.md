@@ -119,6 +119,22 @@ register(Operation(
 ))
 ```
 
+## Document dates (`docdate`)
+
+`doc_date` (ISO `YYYY-MM-DD` / `YYYY-MM` / `YYYY`) is extracted at ingest time
+from the document's opening text (regex first, LLM fallback). It lives in the
+raw document's frontmatter, is propagated to article `sources[]` at compile
+time, and query answers prefer the most recent source on conflicts.
+
+```yaml
+docdate:
+  enabled: true        # disable the whole module
+  llm_fallback: true   # regex-only when false (zero LLM cost)
+```
+
+Backfill existing documents: `llmbase backfill-doc-dates [--force]`.
+Edit from the UI: raw document preview → "Data stesura" field.
+
 ## Domains
 
 Domains are first-class facets on articles. The implicit default domain is

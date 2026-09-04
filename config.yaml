@@ -49,3 +49,7 @@ health:
 entities:
   enabled: false
   extract_interval_hours: 24
+
+docdate:
+  enabled: true
+  llm_fallback: true

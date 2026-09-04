@@ -179,6 +179,7 @@ Maintenance:
 - `llmbase lint clean`
 - `llmbase lint dedup`
 - `llmbase lint heal`
+- `llmbase backfill-doc-dates [--force]` — extract `doc_date` for existing documents
 
 Export:
 - `llmbase export article <slug>`
