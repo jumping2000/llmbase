@@ -269,6 +269,7 @@ def compile_new(
             "plugin": source_id,
             "url": post.metadata.get("source", ""),
             "title": title,
+            "doc_date": post.metadata.get("doc_date"),
         }
         # Add plugin-specific fields
         for key in ("work_id", "canon", "work", "chapter", "book"):
@@ -654,6 +655,7 @@ def _merge_into(existing_path: Path, article: dict):
                 s.get("url", ""),
                 s.get("work_id", ""),
                 s.get("title", ""),
+                s.get("doc_date", ""),
             )
 
         existing_keys = {_source_key(s) for s in existing_sources}
