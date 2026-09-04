@@ -23,3 +23,5 @@ static/dist/
 nginx/.htpasswd
 # Superpowers
 /docs/superpowers/
+# uv lockfile (generated locally; pyproject.toml is canonical)
+uv.lock
