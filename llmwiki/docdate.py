@@ -79,7 +79,7 @@ _P1_RE = re.compile(
     r"(?:data\s+di\s+(?:emissione|validazione|revisione|stesura|aggiornamento)"
     r"|ultima\s+modifica|last\s+updated|last\s+modified"
     r"|date\s+of\s+issue|revision\s+date)"
-    r"\s*[:：\-–]?\s*([0-9]{1,2}[./-][0-9]{1,2}[./-][0-9]{2,4}|\d{4}-\d{2}-\d{2})",
+    r"\s*[:：\-–]?\s*(\d{4}-\d{2}-\d{2}|[0-9]{1,2}[./-][0-9]{1,2}[./-][0-9]{2,4})",
     re.IGNORECASE,
 )
 _REV_RE = re.compile(

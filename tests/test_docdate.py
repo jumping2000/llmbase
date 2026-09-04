@@ -102,6 +102,11 @@ def test_extract_priority_specific_over_generic():
     assert extract_doc_date(text) == "2024-03-01"
 
 
+def test_extract_iso_date_after_label():
+    text = "Data di emissione: 2024-03-01\nManuale"
+    assert extract_doc_date(text) == "2024-03-01"
+
+
 def test_extract_no_date_returns_none():
     assert extract_doc_date("Un documento senza alcuna data dentro.") is None
 
