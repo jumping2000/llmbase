@@ -215,9 +215,9 @@ def extract_doc_date(text: str, base_dir: Path | None = None) -> str | None:
 def propagate_doc_date(slug: str, base_dir: Path | None = None) -> int:
     """Push the raw doc's doc_date into the sources[] of citing articles.
 
-    Matches a source_ref to the raw by (plugin, url, title) — the same
-    fields _source_key uses in compile._merge_into. Returns the number
-    of articles updated. Never overwrites an existing doc_date with None.
+    Matches a source_ref to the raw by url or plugin+title. Fills
+    doc_date only on sources that lack one; never overwrites existing
+    dates. Returns the number of articles updated.
     """
     import frontmatter
 
@@ -257,7 +257,7 @@ def propagate_doc_date(slug: str, base_dir: Path | None = None) -> int:
                         and src.get("title") == raw_title
                     )
                 )
-                if match and src.get("doc_date") != doc_date:
+                if match and not src.get("doc_date"):
                     src["doc_date"] = doc_date
                     changed = True
             if changed:

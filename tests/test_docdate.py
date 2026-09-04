@@ -314,3 +314,17 @@ def test_propagate_counts_articles_not_sources(tmp_path):
         {"plugin": "pdf", "url": "f.pdf", "title": "F"},
     ])
     assert propagate_doc_date("manuale-f", base_dir=tmp_path) == 2
+
+
+def test_propagate_does_not_overwrite_existing_different_date(tmp_path):
+    # Article cites the doc with an existing (older edition) date —
+    # propagate must NOT overwrite it even though it matches by url.
+    _make_raw(tmp_path, "manuale-g", doc_date="2024-06-01", source="g.pdf")
+    _make_article(tmp_path, "concept-g", [
+        {"plugin": "pdf", "url": "g.pdf", "title": "G", "doc_date": "2020-01-01"},
+    ])
+    n = propagate_doc_date("manuale-g", base_dir=tmp_path)
+    assert n == 0
+    import frontmatter
+    art = frontmatter.load(str(tmp_path / "wiki" / "concepts" / "concept-g.md"))
+    assert art.metadata["sources"][0]["doc_date"] == "2020-01-01"

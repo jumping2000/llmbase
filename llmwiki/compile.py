@@ -655,7 +655,7 @@ def _merge_into(existing_path: Path, article: dict):
                 s.get("url", ""),
                 s.get("work_id", ""),
                 s.get("title", ""),
-                s.get("doc_date", ""),
+                s.get("doc_date") or "",
             )
 
         existing_keys = {_source_key(s) for s in existing_sources}
