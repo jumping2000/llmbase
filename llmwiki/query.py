@@ -93,7 +93,7 @@ def query(
     *api_key* overrides the LLM credential for this call only (v0.7.4).
     Fresh un-cached client per call. ``None`` falls back to
     ``LLMBASE_API_KEY``/``OPENAI_API_KEY``. The key never reaches
-    ``_file_output`` (it takes only question/answer/format/cfg) and is
+    ``_file_output`` (it takes only question/answer/format/cfg/domain) and is
     redacted from any error logging in ``chat()``.
     """
     cfg = load_config(base_dir)
@@ -128,7 +128,9 @@ def query(
 
     # File back into wiki if requested
     output_path = (
-        _file_output(question, answer, output_format, cfg) if file_back else None
+        _file_output(question, answer, output_format, cfg, domain)
+        if file_back
+        else None
     )
 
     if return_path:
@@ -269,7 +271,9 @@ Which articles (by title) are most relevant? List up to 10, one per line, just t
         base_dir=base_dir,
     )
 
-    output_path = _file_output(question, answer, "markdown", cfg) if file_back else None
+    output_path = (
+        _file_output(question, answer, "markdown", cfg, domain) if file_back else None
+    )
 
     if return_context:
         # Extract slugs from consulted articles
@@ -658,7 +662,13 @@ that will be provided. Use plt.savefig() at the end.""",
     return instructions.get(output_format, instructions["markdown"])
 
 
-def _file_output(question: str, answer: str, output_format: str, cfg: dict) -> str:
+def _file_output(
+    question: str,
+    answer: str,
+    output_format: str,
+    cfg: dict,
+    domain: str | None = None,
+) -> str:
     """File a query output back into the wiki.
 
     Returns a *sanitized* path of the written file, relative to the project
@@ -678,6 +688,11 @@ def _file_output(question: str, answer: str, output_format: str, cfg: dict) -> s
     post.metadata["title"] = question
     post.metadata["type"] = f"query_{output_format}"
     post.metadata["created"] = datetime.now(UTC).isoformat()
+    # Stamp the domain the answer was scoped to, so the filed-back output is
+    # reachable by the same domain filter as its sources. ``None`` (no filter)
+    # writes nothing — readers already default missing domains to "generale".
+    if domain:
+        post.metadata["domain"] = domain
 
     output_path = outputs_dir / filename
     output_path.write_text(frontmatter.dumps(post), encoding="utf-8")

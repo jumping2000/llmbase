@@ -142,6 +142,7 @@ def recent_requests(
         "applied_window": window["applied_window"],
         "from_ts": _dt_to_iso(window["from_dt"]),
         "to_ts": _dt_to_iso(window["to_dt"]),
+        "malformed_record_count": 0,
         "skipped_timestamp_count": 0,
         "requests": [],
     }
@@ -386,7 +387,7 @@ def _iter_usage_records(path: Path, summary: dict | None = None):
                 line = raw_line.decode("utf-8")
             except UnicodeDecodeError:
                 if summary is not None:
-                    summary["malformed_record_count"] += 1
+                    summary["malformed_record_count"] = summary.get("malformed_record_count", 0) + 1
                 continue
             stripped = line.strip()
             if not stripped:
@@ -395,11 +396,11 @@ def _iter_usage_records(path: Path, summary: dict | None = None):
                 record = json.loads(stripped)
             except json.JSONDecodeError:
                 if summary is not None:
-                    summary["malformed_record_count"] += 1
+                    summary["malformed_record_count"] = summary.get("malformed_record_count", 0) + 1
                 continue
             if not isinstance(record, dict):
                 if summary is not None:
-                    summary["malformed_record_count"] += 1
+                    summary["malformed_record_count"] = summary.get("malformed_record_count", 0) + 1
                 continue
             yield record
 

@@ -199,6 +199,7 @@ Forma di esempio:
   "applied_window": "7d",
   "from_ts": "2026-05-01T10:45:00Z",
   "to_ts": "2026-05-08T10:45:00Z",
+  "malformed_record_count": 0,
   "skipped_timestamp_count": 0,
   "requests": [
     {

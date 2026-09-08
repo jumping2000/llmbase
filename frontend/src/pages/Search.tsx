@@ -19,6 +19,11 @@ export function Search() {
     if (q) { setQuery(q); doSearch(q); }
   }, [searchParams]);
 
+  // Re-run the last search when the domain filter changes
+  useEffect(() => {
+    if (searched) doSearch();
+  }, [current]);
+
   async function doSearch(q?: string) {
     const term = q || query;
     if (!term.trim()) return;

@@ -1,7 +1,8 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { api, type Domain } from './api';
 
-const DEFAULT_DOMAIN = 'generale';
+/** "Nessun filtro": falsy, così i client API omettono del tutto il parametro. */
+export const ALL_DOMAINS = '';
 
 interface DomainsContextValue {
   domains: Domain[];
@@ -12,14 +13,14 @@ interface DomainsContextValue {
 
 const DomainsContext = createContext<DomainsContextValue>({
   domains: [],
-  current: DEFAULT_DOMAIN,
+  current: ALL_DOMAINS,
   setCurrent: () => {},
   reload: () => {},
 });
 
 export function DomainsProvider({ children }: { children: ReactNode }) {
   const [domains, setDomains] = useState<Domain[]>([]);
-  const [current, setCurrent] = useState<string>(DEFAULT_DOMAIN);
+  const [current, setCurrent] = useState<string>(ALL_DOMAINS);
 
   const reload = () => {
     api.listDomains()

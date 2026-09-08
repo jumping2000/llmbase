@@ -242,6 +242,39 @@ def test_recent_requests_groups_attempts_by_request_id(tmp_kb):
     assert recent["requests"][1]["actual_models"] == ["gpt-4o", "gpt-4o-mini"]
 
 
+def test_recent_requests_skips_malformed_lines(tmp_kb):
+    append_usage_record(tmp_kb, {
+        "request_id": "req-1",
+        "feature": "ask",
+        "stage": "answer",
+        "requested_model": "gpt-4o",
+        "actual_model": "gpt-4o",
+        "prompt_tokens": 2,
+        "completion_tokens": 3,
+        "reasoning_tokens": 0,
+        "total_tokens": 5,
+        "finish_reason": "stop",
+        "truncated": False,
+        "attempt_index": 1,
+        "attempts_total_so_far": 1,
+        "retry": False,
+        "fallback": False,
+        "success": True,
+        "error_type": None,
+        "error_message": None,
+        "ts": "2026-05-08T10:00:00+00:00",
+    })
+    path = usage_log_path(tmp_kb)
+    with open(path, "ab") as f:
+        f.write(b'{"request_id": "req-2", "feature": "ask"\n')
+        f.write(json.dumps(["wrong-shape"]).encode("utf-8") + b"\n")
+
+    recent = recent_requests(tmp_kb, limit=10)
+
+    assert recent["malformed_record_count"] == 2
+    assert [item["request_id"] for item in recent["requests"]] == ["req-1"]
+
+
 def test_api_llm_usage_summary_returns_aggregated_json(tmp_kb, monkeypatch):
     monkeypatch.delenv("LLMBASE_API_SECRET", raising=False)
     append_usage_record(tmp_kb, {

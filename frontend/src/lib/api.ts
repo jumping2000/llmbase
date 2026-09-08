@@ -154,6 +154,7 @@ export interface LlmUsageRecentResponse {
   applied_window: LlmUsageWindow;
   from_ts: string | null;
   to_ts: string | null;
+  malformed_record_count: number;
   skipped_timestamp_count: number;
   requests: LlmUsageRecentRequest[];
 }

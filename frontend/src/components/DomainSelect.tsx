@@ -1,4 +1,4 @@
-import { useDomains } from '../lib/domains';
+import { ALL_DOMAINS, useDomains } from '../lib/domains';
 
 export default function DomainSelect() {
   const { domains, current, setCurrent } = useDomains();
@@ -8,6 +8,7 @@ export default function DomainSelect() {
       onChange={(e) => setCurrent(e.target.value)}
       aria-label="Dominio"
     >
+      <option value={ALL_DOMAINS}>Tutti i domini</option>
       {domains.map((d) => (
         <option key={d.id} value={d.id}>{d.label}</option>
       ))}
