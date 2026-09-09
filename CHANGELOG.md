@@ -18,6 +18,11 @@
 | **v0.8.2** | Nginx Basic Auth, PDF upload, Chinese removal |
 | **v0.8.1** | Initial EN/IT release |
 
+## v0.9.5
+
+- Made the worker's compile task **retry on `OSError`** — three attempts, five seconds apart — instead of giving up on the first one. A Docker bind mount that has not reattached after the host suspends surfaces as `ENOENT` on the first filesystem touch, which is `ensure_dirs()` at the top of `compile_new`; that aborted the whole cycle, and since the loop advances `last_compile` regardless of outcome, a glitch lasting seconds costs a full compile interval. Only `OSError` is retried: `chat()` already retries LLM failures internally (per-model attempts plus fallback models, over an SDK client with `max_retries=2`), so retrying those at task level would multiply the call count during an API outage.
+- Fixed the VS Code default interpreter path, which pointed at a bare relative `.venv/Scripts/python.exe` and failed to resolve; it is now anchored with `${workspaceFolder}`.
+
 ## v0.9.4
 
 - Moved **every UI string out of the React components** into `frontend/public/translations/{en,it,en-it}.json` (243 keys, flat key → string maps). The files are served at `/translations/<lang>.json` through the existing SPA static route, so the deployed copies under `static/dist/translations/` can be edited and picked up on a browser reload, without a rebuild. The versioned source of truth stays `frontend/public/translations/`.
