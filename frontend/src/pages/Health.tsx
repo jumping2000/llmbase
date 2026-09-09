@@ -6,8 +6,7 @@ import { useLang } from '../lib/lang';
 import { api, type LintResults } from '../lib/api';
 
 export function Health() {
-  const { lang } = useLang();
-  const it = lang === 'it' || lang === 'en-it';
+  const { t } = useLang();
   const [results, setResults] = useState<LintResults | null>(null);
   const [deepReport, setDeepReport] = useState('');
   const [fixes, setFixes] = useState<string[]>([]);
@@ -88,13 +87,13 @@ export function Health() {
   }
 
   const allCategories = results ? [
-    { key: 'structural', label: it ? 'Struttura' : 'Structural', icon: 'architecture', issues: results.structural, color: 'text-primary' },
-    { key: 'broken_links', label: it ? 'Link rotti' : 'Broken Links', icon: 'link_off', issues: results.broken_links, color: 'text-error' },
-    { key: 'orphans', label: it ? 'Orfani' : 'Orphans', icon: 'visibility_off', issues: results.orphans, color: 'text-secondary' },
-    { key: 'missing_metadata', label: it ? 'Metadati mancanti' : 'Missing Metadata', icon: 'label_off', issues: results.missing_metadata, color: 'text-on-surface-variant' },
-    { key: 'duplicates', label: it ? 'Duplicati' : 'Duplicates', icon: 'content_copy', issues: (results as any).duplicates || [], color: 'text-tertiary' },
-    { key: 'stubs', label: it ? 'Stub spazzatura' : 'Garbage Stubs', icon: 'delete_sweep', issues: (results as any).stubs || [], color: 'text-error' },
-    { key: 'uncategorized', label: it ? 'Non classificati' : 'Uncategorized', icon: 'category', issues: (results as any).uncategorized || [], color: 'text-on-surface-variant' },
+    { key: 'structural', label: t('health.cat.structural'), icon: 'architecture', issues: results.structural, color: 'text-primary' },
+    { key: 'broken_links', label: t('health.cat.brokenLinks'), icon: 'link_off', issues: results.broken_links, color: 'text-error' },
+    { key: 'orphans', label: t('health.cat.orphans'), icon: 'visibility_off', issues: results.orphans, color: 'text-secondary' },
+    { key: 'missing_metadata', label: t('health.cat.missingMetadata'), icon: 'label_off', issues: results.missing_metadata, color: 'text-on-surface-variant' },
+    { key: 'duplicates', label: t('health.cat.duplicates'), icon: 'content_copy', issues: (results as any).duplicates || [], color: 'text-tertiary' },
+    { key: 'stubs', label: t('health.cat.stubs'), icon: 'delete_sweep', issues: (results as any).stubs || [], color: 'text-error' },
+    { key: 'uncategorized', label: t('health.cat.uncategorized'), icon: 'category', issues: (results as any).uncategorized || [], color: 'text-on-surface-variant' },
   ] : [];
 
   const categories = allCategories.filter(c => c.issues && c.issues.length > 0);
@@ -102,10 +101,10 @@ export function Health() {
   return (
     <div className="p-8 max-w-[900px] mx-auto">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="font-headline text-3xl font-bold">{it ? 'Stato della wiki' : 'Wiki Health'}</h1>
+        <h1 className="font-headline text-3xl font-bold">{t('health.title')}</h1>
         {lastCheck && (
           <span className="text-[11px] text-outline">
-            {it ? 'Ultimo controllo' : 'Last check'}: {new Date(lastCheck).toLocaleString()}
+            {t('health.lastCheck')}: {new Date(lastCheck).toLocaleString()}
           </span>
         )}
       </div>
@@ -115,22 +114,22 @@ export function Health() {
         <button onClick={runBasic} disabled={loadingBasic}
           className="flex items-center gap-2 px-4 py-3 bg-surface-container border border-outline-variant/30 rounded-xl text-sm hover:border-primary/50 transition-colors disabled:opacity-50">
           <Icon name="health_and_safety" className="text-primary text-[18px]" />
-          {loadingBasic ? (it ? 'Controllo...' : 'Checking...') : (it ? 'Controlla' : 'Check')}
+          {loadingBasic ? t('health.checking') : t('health.check')}
         </button>
         <button onClick={runClean} disabled={loadingClean}
           className="flex items-center gap-2 px-4 py-3 bg-surface-container border border-outline-variant/30 rounded-xl text-sm hover:border-error/50 transition-colors disabled:opacity-50">
           <Icon name="delete_sweep" className="text-error text-[18px]" />
-          {loadingClean ? (it ? 'Pulizia...' : 'Cleaning...') : (it ? 'Pulisci' : 'Clean')}
+          {loadingClean ? t('health.cleaning') : t('health.clean')}
         </button>
         <button onClick={runFix} disabled={loadingFix}
           className="flex items-center gap-2 px-4 py-3 bg-primary/10 border border-primary/20 rounded-xl text-sm hover:bg-primary/20 transition-colors disabled:opacity-50">
           <Icon name="auto_fix_high" className="text-primary text-[18px]" />
-          {loadingFix ? (it ? 'Correzione...' : 'Fixing...') : (it ? 'Correzione automatica' : 'Auto Fix')}
+          {loadingFix ? t('health.fixing') : t('health.autoFix')}
         </button>
         <button onClick={runDeep} disabled={loadingDeep}
           className="flex items-center gap-2 px-4 py-3 bg-surface-container border border-outline-variant/30 rounded-xl text-sm hover:border-secondary/50 transition-colors disabled:opacity-50">
           <Icon name="psychology" className="text-secondary text-[18px]" />
-          {loadingDeep ? (it ? 'Analisi...' : 'Analyzing...') : (it ? 'Analisi profonda' : 'Deep Analysis')}
+          {loadingDeep ? t('health.analyzing') : t('health.deepAnalysis')}
         </button>
       </div>
 
@@ -138,7 +137,7 @@ export function Health() {
       {cleanResult && (
         <div className="bg-tertiary-container/20 border border-tertiary/20 rounded-xl px-5 py-3 mb-6 text-sm">
           <Icon name="check_circle" className="text-tertiary text-[16px] mr-2" />
-          {it ? `Ripuliti ${cleanResult.removed} articoli spazzatura` : `Cleaned ${cleanResult.removed} garbage article(s)`}
+          {t('health.cleaned', { count: cleanResult.removed })}
           {cleanResult.slugs.length > 0 && (
             <span className="text-outline ml-2">({cleanResult.slugs.slice(0, 5).join(', ')})</span>
           )}
@@ -149,7 +148,7 @@ export function Health() {
       {fixes.length > 0 && (
         <div className="bg-surface-container rounded-xl border border-outline-variant/20 mb-6 p-4">
           <h3 className="text-xs uppercase tracking-widest text-on-surface-variant mb-2">
-            {it ? 'Correzioni applicate' : 'Fixes Applied'} ({fixes.length})
+            {t('health.fixesApplied')} ({fixes.length})
           </h3>
           <div className="space-y-1 max-h-40 overflow-y-auto">
             {fixes.map((f, i) => (
@@ -187,8 +186,8 @@ export function Health() {
             />
             <span className="text-sm">
               {results.total_issues === 0
-                ? (it ? 'Tutti i controlli sono passati. La wiki e in salute.' : 'All checks passed! Wiki is healthy.')
-                : (it ? `Trovati ${results.total_issues} problemi` : `${results.total_issues} issue${results.total_issues > 1 ? 's' : ''} found`)
+                ? t('health.allPassed')
+                : t('health.issuesFound', { count: results.total_issues })
               }
             </span>
           </div>
@@ -205,7 +204,7 @@ export function Health() {
                   <div key={i} className="px-5 py-2.5 text-sm text-on-surface-variant">{issue}</div>
                 ))}
                 {c.issues.length > 50 && (
-                  <div className="px-5 py-2.5 text-xs text-outline">...and {c.issues.length - 50} more</div>
+                  <div className="px-5 py-2.5 text-xs text-outline">{t('health.andMore', { count: c.issues.length - 50 })}</div>
                 )}
               </div>
             </div>
@@ -226,7 +225,7 @@ export function Health() {
         <div className="mt-6">
           <h2 className="font-headline text-xl font-semibold mb-3 flex items-center gap-2">
             <Icon name="psychology" className="text-secondary" />
-            {it ? 'Analisi profonda' : 'Deep Analysis'}
+            {t('health.deepAnalysis')}
           </h2>
           <div className="bg-surface-container rounded-xl p-6 border border-outline-variant/20">
             <Markdown content={deepReport} />
@@ -237,7 +236,7 @@ export function Health() {
       {!results && !loadingBasic && !deepReport && !loadingDeep && (
         <div className="text-center py-16 text-on-surface-variant">
           <Icon name="health_and_safety" className="text-5xl mb-3 block" />
-          <p>{it ? 'Esegui un controllo per vedere lo stato della wiki' : 'Run a health check to see wiki status'}</p>
+          <p>{t('health.empty')}</p>
         </div>
       )}
     </div>

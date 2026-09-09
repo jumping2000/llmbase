@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { api } from '../lib/api';
 import { useDomains } from '../lib/domains';
+import { useLang } from '../lib/lang';
 import { Icon } from './Icon';
 
 export default function DomainManager() {
   const { domains, reload } = useDomains();
+  const { t } = useLang();
   const [selected, setSelected] = useState('generale');
   const [label, setLabel] = useState('');
   const [error, setError] = useState('');
@@ -26,7 +28,7 @@ export default function DomainManager() {
   };
 
   const remove = async () => {
-    if (!window.confirm(`Eliminare il dominio "${selected}"? I documenti tornano a "generale".`)) return;
+    if (!window.confirm(t('domains.confirmDelete', { domain: selected }))) return;
     setError('');
     try {
       await api.deleteDomain(selected);
@@ -38,7 +40,7 @@ export default function DomainManager() {
   };
 
   const rename = async () => {
-    const next = window.prompt('Nuovo nome', selectedDomain?.label ?? selected);
+    const next = window.prompt(t('domains.renamePrompt'), selectedDomain?.label ?? selected);
     if (next === null || !next.trim()) return;
     setError('');
     try {
@@ -69,7 +71,7 @@ export default function DomainManager() {
           className="flex items-center gap-1 px-2.5 py-2 text-xs rounded-lg border border-outline-variant/30 bg-surface-container text-on-surface-variant hover:text-primary hover:border-primary/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Icon name="edit" className="text-[14px]" />
-          Rinomina
+          {t('domains.rename')}
         </button>
         <button
           onClick={remove}
@@ -77,7 +79,7 @@ export default function DomainManager() {
           className="flex items-center gap-1 px-2.5 py-2 text-xs rounded-lg border border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-300 hover:bg-rose-500/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Icon name="delete" className="text-[14px]" />
-          Elimina
+          {t('domains.delete')}
         </button>
       </div>
 
@@ -88,7 +90,7 @@ export default function DomainManager() {
           onKeyDown={(e) => {
             if (e.key === 'Enter') create();
           }}
-          placeholder="Nuovo dominio (es. Lavoro)"
+          placeholder={t('domains.newPlaceholder')}
           className="flex-1 bg-surface-high border border-outline-variant/30 rounded-lg px-3 py-2 text-sm text-on-surface placeholder:text-outline focus:outline-none focus:border-primary/50"
         />
         <button
@@ -97,7 +99,7 @@ export default function DomainManager() {
           className="flex items-center gap-1 px-4 py-2 rounded-lg text-sm bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Icon name="add" className="text-[16px]" />
-          Crea
+          {t('domains.create')}
         </button>
       </div>
 

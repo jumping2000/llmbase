@@ -59,21 +59,21 @@ function CategoryNode({ cat, depth, expandedCats, toggleCat, navigate, lang }: {
 }
 
 const NAV = [
-  { to: '/', icon: 'dashboard', label: 'Dashboard' },
-  { to: '/wiki', icon: 'auto_stories', label: 'Wiki' },
-  { to: '/search', icon: 'search', label: 'Search' },
-  { to: '/qa', icon: 'forum', label: 'Q&A' },
-  { to: '/graph', icon: 'hub', label: 'Graph' },
-  { to: '/explore', icon: 'explore', label: 'Explore' },
-  { to: '/trails', icon: 'route', label: 'Trails' },
-  { to: '/ingest', icon: 'download', label: 'Ingest' },
-  { to: '/health', icon: 'health_and_safety', label: 'Health' },
+  { to: '/', icon: 'dashboard', key: 'nav.dashboard' },
+  { to: '/wiki', icon: 'auto_stories', key: 'nav.wiki' },
+  { to: '/search', icon: 'search', key: 'nav.search' },
+  { to: '/qa', icon: 'forum', key: 'nav.qa' },
+  { to: '/graph', icon: 'hub', key: 'nav.graph' },
+  { to: '/explore', icon: 'explore', key: 'nav.explore' },
+  { to: '/trails', icon: 'route', key: 'nav.trails' },
+  { to: '/ingest', icon: 'download', key: 'nav.ingest' },
+  { to: '/health', icon: 'health_and_safety', key: 'nav.health' },
 ];
 
 export function Layout() {
   const navigate = useNavigate();
   const { theme, toggle } = useTheme();
-  const { lang, setLang } = useLang();
+  const { lang, setLang, t } = useLang();
   const [branding, setBranding] = useState<Branding>(getBranding());
   const [articles, setArticles] = useState<Article[]>([]);
   const [taxonomy, setTaxonomy] = useState<TaxonomyCategory[]>([]);
@@ -170,19 +170,16 @@ export function Layout() {
     if (compileStatus.status === 'running') {
       return {
         icon: 'hourglass_top',
-        text: lang === 'it' || lang === 'en-it' ? 'Compilazione in corso' : 'Compile running',
+        text: t('layout.compileRunning'),
         tone: 'border-primary/30 bg-primary-container/30 text-primary',
         pulse: true,
         title: compileStatus.started_at,
       };
     }
     if (compileStatus.status === 'completed') {
-      const count = compileStatus.articles_created ?? 0;
       return {
         icon: 'check_circle',
-        text: lang === 'it' || lang === 'en-it'
-          ? `Compilato: ${count}`
-          : `Compiled: ${count}`,
+        text: t('layout.compileCompleted', { count: compileStatus.articles_created ?? 0 }),
         tone: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
         pulse: false,
         title: compileStatus.finished_at,
@@ -191,7 +188,7 @@ export function Layout() {
     if (compileStatus.status === 'failed') {
       return {
         icon: 'error',
-        text: lang === 'it' || lang === 'en-it' ? 'Compile fallito' : 'Compile failed',
+        text: t('layout.compileFailed'),
         tone: 'border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-300',
         pulse: false,
         title: compileStatus.error,
@@ -199,7 +196,7 @@ export function Layout() {
     }
     return {
       icon: 'help',
-      text: lang === 'it' || lang === 'en-it' ? 'Stato compile sconosciuto' : 'Compile state unknown',
+      text: t('layout.compileUnknown'),
       tone: 'border-outline-variant/40 bg-surface-high text-on-surface-variant',
       pulse: false,
       title: compileStatus.error,
@@ -230,14 +227,14 @@ export function Layout() {
                 }`
               }>
               <Icon name={n.icon} className="text-[20px]" />
-              {sidebarOpen && n.label}
+              {sidebarOpen && t(n.key)}
             </NavLink>
           ))}
 
           {sidebarOpen && taxonomy.length > 0 && (
             <>
               <div className="text-[11px] text-on-surface-variant tracking-widest uppercase px-3.5 pt-5 pb-1.5">
-                {articles.length} articles
+                {t('layout.articleCount', { count: articles.length })}
               </div>
               {taxonomy.map(cat => (
                 <CategoryNode key={cat.id} cat={cat} depth={0}
@@ -272,7 +269,7 @@ export function Layout() {
         <header className="h-14 bg-surface-container border-b border-outline-variant/30 flex items-center px-5 gap-3 flex-shrink-0 card-shadow">
           <div className="flex-1 relative">
             <Icon name="search" className="absolute left-3 top-1/2 -translate-y-1/2 text-outline text-[18px]" />
-            <input type="text" placeholder={lang === 'it' || lang === 'en-it' ? 'Cerca in tutta la base documentale... ⌘K' : 'Search across documents... ⌘K'}
+            <input type="text" placeholder={t('layout.searchPlaceholder')}
               className="w-full bg-surface-high border border-outline-variant/40 rounded-lg pl-10 pr-4 py-2 text-sm text-on-surface placeholder:text-outline outline-none focus:border-primary/60 transition-colors"
               value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter' && searchQuery.trim()) navigate(`/search?q=${encodeURIComponent(searchQuery)}`); }} />
@@ -308,9 +305,7 @@ export function Layout() {
           {/* Theme toggle */}
           <button onClick={toggle}
             className="p-2 rounded-lg hover:bg-surface-high text-on-surface-variant transition-colors"
-            title={lang === 'it' || lang === 'en-it'
-              ? `Passa alla modalita ${theme === 'dark' ? 'chiara' : 'scura'}`
-              : `Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}>
+            title={theme === 'dark' ? t('layout.switchToLight') : t('layout.switchToDark')}>
             <Icon name={theme === 'dark' ? 'light_mode' : 'dark_mode'} className="text-[20px]" />
           </button>
 
@@ -343,7 +338,7 @@ export function Layout() {
           }}
             className="flex items-center gap-2 px-4 py-2 bg-primary text-on-primary rounded-lg text-sm font-medium hover:opacity-90 transition-opacity">
             <Icon name="auto_awesome" className="text-[18px]" />
-            {lang === 'it' || lang === 'en-it' ? 'Compila' : 'Compile'}
+            {t('layout.compile')}
           </button>
         </header>
 

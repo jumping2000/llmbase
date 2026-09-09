@@ -27,8 +27,7 @@ const FALLBACK_TONES: ToneOption[] = [
 ];
 
 export function QA() {
-  const { lang } = useLang();
-  const it = lang === 'it' || lang === 'en-it';
+  const { t } = useLang();
   const [question, setQuestion] = useState('');
   const [answer, setAnswer] = useState('');
   const [promotion, setPromotion] = useState<PromotionInfo | null>(null);
@@ -78,8 +77,8 @@ export function QA() {
       } else if (recording) {
         recordStep({ type: 'query', question, answer: res.answer });
       }
-    } catch (e) {
-      setAnswer(it ? 'Errore: impossibile ottenere una risposta. Controlla la connessione API.' : 'Error: Failed to get response. Check API connection.');
+    } catch {
+      setAnswer(t('qa.error'));
     }
     setLoading(false);
   }
@@ -87,14 +86,14 @@ export function QA() {
   return (
     <div className="p-8 max-w-[800px] mx-auto">
       <div className="mb-6">
-        <p className="text-xs uppercase tracking-widest text-on-surface-variant mb-1">Editorial Intelligence</p>
-        <h1 className="font-headline text-3xl font-bold">{it ? 'Cura le intuizioni.' : 'Curate Insights.'}</h1>
+        <p className="text-xs uppercase tracking-widest text-on-surface-variant mb-1">{t('qa.eyebrow')}</p>
+        <h1 className="font-headline text-3xl font-bold">{t('qa.title')}</h1>
       </div>
 
       {/* Input */}
       <div className="bg-surface-container rounded-xl border border-outline-variant/30 p-5 mb-6">
         <textarea
-          placeholder={it ? 'Chiedi a LLMBase qualcosa sulla tua wiki curata...' : 'Ask LLMBase anything about your curated wiki...'}
+          placeholder={t('qa.placeholder')}
           className="w-full bg-transparent text-on-surface placeholder:text-outline outline-none resize-none text-base font-body"
           rows={3}
           value={question}
@@ -110,11 +109,11 @@ export function QA() {
                 onChange={e => setFileBack(e.target.checked)}
                 className="rounded border-outline-variant"
               />
-              {it ? 'Archivia negli output' : 'File to wiki'}
+              {t('qa.fileBack')}
             </label>
             <label
               className="flex items-center gap-2 text-sm text-on-surface-variant cursor-pointer"
-              title={it ? 'L\'LLM decide se vale la pena promuovere la risposta a nuovo concetto' : 'LLM decides whether to promote into a new concept'}
+              title={t('qa.promoteTooltip')}
             >
               <input
                 type="checkbox"
@@ -122,23 +121,23 @@ export function QA() {
                 onChange={e => setPromote(e.target.checked)}
                 className="rounded border-outline-variant"
               />
-              {it ? 'Promuovi a concetto' : 'Promote to concept'}
+              {t('qa.promote')}
             </label>
             {/* Tone selector */}
             <div className="flex items-center gap-1">
-              {tones.map(t => (
+              {tones.map(toneOpt => (
                 <button
-                  key={t.id}
-                  onClick={() => setTone(t.id)}
-                  title={t.label}
+                  key={toneOpt.id}
+                  onClick={() => setTone(toneOpt.id)}
+                  title={toneOpt.label}
                   className={`flex items-center gap-1 px-2 py-1 rounded-md text-xs transition-colors ${
-                    tone === t.id
+                    tone === toneOpt.id
                       ? 'bg-primary/15 text-primary font-medium'
                       : 'text-on-surface-variant hover:bg-surface-container-highest/50'
                   }`}
                 >
-                  <Icon name={t.icon} className="text-[14px]" />
-                  <span className="hidden sm:inline">{t.label}</span>
+                  <Icon name={toneOpt.icon} className="text-[14px]" />
+                  <span className="hidden sm:inline">{toneOpt.label}</span>
                 </button>
               ))}
             </div>
@@ -149,7 +148,7 @@ export function QA() {
             className="flex items-center gap-1.5 px-5 py-2 bg-primary text-on-primary rounded-lg text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
           >
             <Icon name="psychology" className="text-[16px]" />
-            {loading ? (it ? 'Ricerca in corso...' : 'Researching...') : (it ? 'Chiedi' : 'Ask')}
+            {loading ? t('qa.researching') : t('qa.ask')}
           </button>
         </div>
       </div>
@@ -165,7 +164,7 @@ export function QA() {
         <div className="bg-surface-container rounded-xl p-6 border border-outline-variant/20 mb-6">
           <div className="flex items-center gap-2 mb-4">
             <Icon name="auto_awesome" className="text-primary text-[18px]" />
-            <span className="text-xs uppercase tracking-widest text-on-surface-variant">The Synthesis</span>
+            <span className="text-xs uppercase tracking-widest text-on-surface-variant">{t('qa.synthesis')}</span>
           </div>
           <Markdown content={answer} />
           {promotion && (
@@ -175,7 +174,7 @@ export function QA() {
                   <Icon name="bookmark_added" className="text-primary text-[16px] mt-0.5" />
                   <div>
                     <div className="text-on-surface">
-                      {it ? 'Promosso a concetto' : 'Promoted to concept'}
+                      {t('qa.promoted')}
                       {': '}
                       <a
                         href={`/wiki/${promotion.slug}`}
@@ -185,7 +184,7 @@ export function QA() {
                       </a>
                       {promotion.merged && (
                         <span className="ml-2 text-xs text-on-surface-variant">
-                          {it ? '(unito a un concetto esistente)' : '(merged into existing)'}
+                          {t('qa.mergedIntoExisting')}
                         </span>
                       )}
                     </div>
@@ -198,7 +197,7 @@ export function QA() {
                 <div className="flex items-start gap-2 text-sm text-on-surface-variant">
                   <Icon name="info" className="text-[16px] mt-0.5" />
                   <div>
-                    {it ? 'Non promosso' : 'Not promoted'}
+                    {t('qa.notPromoted')}
                     {promotion.reason && <span>: {promotion.reason}</span>}
                   </div>
                 </div>
@@ -211,7 +210,7 @@ export function QA() {
       {/* History */}
       {history.length > 1 && (
         <div className="mt-8">
-          <h3 className="text-xs uppercase tracking-widest text-on-surface-variant mb-3">Previous Queries</h3>
+          <h3 className="text-xs uppercase tracking-widest text-on-surface-variant mb-3">{t('qa.previousQueries')}</h3>
           <div className="space-y-2">
             {history.slice(1).map((h, i) => (
               <div

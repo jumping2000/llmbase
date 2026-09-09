@@ -5,8 +5,7 @@ import { useLang } from '../lib/lang';
 
 export function TrailRecorder() {
   const { recording, currentTrail, startTrail, stopTrail } = useTrail();
-  const { lang } = useLang();
-  const it = lang === 'it' || lang === 'en-it';
+  const { t } = useLang();
   const [name, setName] = useState('');
   const [showInput, setShowInput] = useState(false);
 
@@ -16,11 +15,11 @@ export function TrailRecorder() {
         <div className="w-2 h-2 rounded-full bg-red-400 animate-pulse" />
         <div className="text-sm">
           <div className="font-medium">{currentTrail.name}</div>
-          <div className="text-xs opacity-80">{currentTrail.steps.length} {it ? 'passi' : 'steps'}</div>
+          <div className="text-xs opacity-80">{t('trails.stepCount', { count: currentTrail.steps.length })}</div>
         </div>
         <button onClick={stopTrail}
           className="ml-2 px-2 py-1 text-xs bg-on-primary/20 rounded-lg hover:bg-on-primary/30">
-          {it ? 'Ferma' : 'Stop'}
+          {t('trails.stop')}
         </button>
       </div>
     );
@@ -31,7 +30,7 @@ export function TrailRecorder() {
       <div className="fixed bottom-6 right-6 bg-surface-container border border-outline-variant/30 rounded-xl px-4 py-3 shadow-lg flex items-center gap-2 z-50">
         <input
           type="text"
-          placeholder={it ? 'Nome del percorso...' : 'Trail name...'}
+          placeholder={t('trails.namePlaceholder')}
           value={name}
           onChange={e => setName(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter') { startTrail(name); setShowInput(false); setName(''); } }}
@@ -40,7 +39,7 @@ export function TrailRecorder() {
         />
         <button onClick={() => { startTrail(name); setShowInput(false); setName(''); }}
           className="px-2 py-1 text-xs bg-primary text-on-primary rounded-lg">
-          {it ? 'Avvia' : 'Start'}
+          {t('trails.start')}
         </button>
         <button onClick={() => setShowInput(false)}
           className="text-on-surface-variant text-xs">
@@ -53,7 +52,7 @@ export function TrailRecorder() {
   return (
     <button onClick={() => setShowInput(true)}
       className="fixed bottom-6 right-6 bg-surface-container border border-outline-variant/30 rounded-full w-12 h-12 flex items-center justify-center shadow-lg hover:border-primary/50 transition-colors z-50"
-      title={it ? 'Avvia un percorso di ricerca' : 'Start Research Trail'}>
+      title={t('trails.startTooltip')}>
       <Icon name="route" className="text-primary text-[20px]" />
     </button>
   );

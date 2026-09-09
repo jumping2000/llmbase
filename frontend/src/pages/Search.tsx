@@ -4,9 +4,11 @@ import { Icon } from '../components/Icon';
 import { Loading } from '../components/Loading';
 import { api, type SearchResult } from '../lib/api';
 import { useDomains } from '../lib/domains';
+import { useLang } from '../lib/lang';
 
 export function Search() {
   const navigate = useNavigate();
+  const { t } = useLang();
   const [searchParams] = useSearchParams();
   const [query, setQuery] = useState(searchParams.get('q') || '');
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -38,7 +40,7 @@ export function Search() {
 
   return (
     <div className="p-8 max-w-[800px] mx-auto">
-      <h1 className="font-headline text-3xl font-bold mb-6">Search</h1>
+      <h1 className="font-headline text-3xl font-bold mb-6">{t('search.title')}</h1>
 
       {/* Search input */}
       <div className="flex gap-3 mb-8">
@@ -46,7 +48,7 @@ export function Search() {
           <Icon name="search" className="absolute left-4 top-1/2 -translate-y-1/2 text-outline text-[20px]" />
           <input
             type="text"
-            placeholder="Search the knowledge base..."
+            placeholder={t('search.placeholder')}
             className="w-full bg-surface-container border border-outline-variant/40 rounded-xl pl-12 pr-4 py-3 text-base text-on-surface placeholder:text-outline outline-none focus:border-primary/60"
             value={query}
             onChange={e => setQuery(e.target.value)}
@@ -58,16 +60,16 @@ export function Search() {
           onClick={() => doSearch()}
           className="px-6 py-3 bg-primary text-on-primary rounded-xl font-medium hover:opacity-90 transition-opacity"
         >
-          Search
+          {t('search.button')}
         </button>
       </div>
 
       {/* Results */}
-      {loading && <Loading text="Searching..." />}
+      {loading && <Loading text={t('search.searching')} />}
 
       {searched && !loading && (
         <p className="text-sm text-on-surface-variant mb-4">
-          Found {results.length} result{results.length !== 1 ? 's' : ''} for "{query}"
+          {t('search.resultsFound', { count: results.length, query })}
         </p>
       )}
 
@@ -104,7 +106,7 @@ export function Search() {
       {searched && !loading && results.length === 0 && (
         <div className="text-center py-16 text-on-surface-variant">
           <Icon name="search_off" className="text-5xl mb-3 block" />
-          <p>No results found. Try different keywords.</p>
+          <p>{t('search.noResults')}</p>
         </div>
       )}
     </div>

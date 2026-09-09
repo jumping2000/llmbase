@@ -4,6 +4,7 @@ import { ArticleCard } from '../components/ArticleCard';
 import { Shimmer } from '../components/Loading';
 import { api, type Article, type Collection } from '../lib/api';
 import { useDomains } from '../lib/domains';
+import { useLang } from '../lib/lang';
 
 export function Wiki() {
   const [articles, setArticles] = useState<Article[]>([]);
@@ -14,7 +15,11 @@ export function Wiki() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [assignDomain, setAssignDomain] = useState('');
   const [assignMessage, setAssignMessage] = useState('');
+  // Tracked separately from the message text: the styling below used to sniff
+  // for the "Errore" prefix, which no longer works once the text is translated.
+  const [assignFailed, setAssignFailed] = useState(false);
   const { domains } = useDomains();
+  const { t } = useLang();
 
   const loadArticles = async () => {
     try {
@@ -50,13 +55,15 @@ export function Wiki() {
   const handleBulkAssign = async () => {
     if (selected.size === 0 || !assignDomain) return;
     setAssignMessage('');
+    setAssignFailed(false);
     try {
       const res = await api.bulkAssignDomain([...selected], assignDomain);
       setSelected(new Set());
-      setAssignMessage(`Aggiornati ${res.updated.length} articoli al dominio "${assignDomain}".`);
+      setAssignMessage(t('wiki.assignSuccess', { count: res.updated.length, domain: assignDomain }));
       await loadArticles();
     } catch (e) {
-      setAssignMessage(`Errore: ${e}`);
+      setAssignFailed(true);
+      setAssignMessage(t('wiki.assignError', { error: String(e) }));
     }
   };
 
@@ -77,7 +84,7 @@ export function Wiki() {
     <div className="flex h-full">
       {/* Collection sidebar */}
       <div className="w-[220px] border-r border-outline-variant/30 p-4 flex-shrink-0 overflow-y-auto hidden md:block">
-        <h3 className="text-xs uppercase tracking-widest text-on-surface-variant mb-3">Collections</h3>
+        <h3 className="text-xs uppercase tracking-widest text-on-surface-variant mb-3">{t('wiki.collections')}</h3>
         <div
           className={`px-3 py-2 rounded-lg text-sm cursor-pointer mb-1 transition-colors ${
             !selectedCollection ? 'bg-primary-container/30 text-primary font-medium' : 'text-on-surface-variant hover:bg-surface-high'
@@ -85,7 +92,7 @@ export function Wiki() {
           onClick={() => setSelectedCollection(null)}
         >
           <Icon name="apps" className="text-[16px] mr-2 align-middle" />
-          All ({articles.length})
+          {t('wiki.all')} ({articles.length})
         </div>
         {collections.map(c => (
           <div
@@ -106,10 +113,12 @@ export function Wiki() {
           <div className="flex items-center justify-between mb-6">
             <div>
               <h1 className="font-headline text-3xl font-bold">
-                {activeCollection ? activeCollection.label : 'Wiki'}
+                {activeCollection ? activeCollection.label : t('wiki.title')}
               </h1>
               {activeCollection && (
-                <p className="text-sm text-on-surface-variant mt-1">{activeCollection.count} articles</p>
+                <p className="text-sm text-on-surface-variant mt-1">
+                  {t('wiki.articleCount', { count: activeCollection.count })}
+                </p>
               )}
             </div>
 
@@ -120,7 +129,7 @@ export function Wiki() {
                 value={selectedCollection || ''}
                 onChange={e => setSelectedCollection(e.target.value || null)}
               >
-                <option value="">All</option>
+                <option value="">{t('wiki.all')}</option>
                 {collections.map(c => (
                   <option key={c.id} value={c.id}>{c.label} ({c.count})</option>
                 ))}
@@ -133,7 +142,7 @@ export function Wiki() {
             <Icon name="filter_list" className="absolute left-3 top-1/2 -translate-y-1/2 text-outline text-[18px]" />
             <input
               type="text"
-              placeholder="Filter articles..."
+              placeholder={t('wiki.filterPlaceholder')}
               className="w-full bg-surface-container border border-outline-variant/40 rounded-lg pl-10 pr-4 py-2 text-sm text-on-surface placeholder:text-outline outline-none focus:border-primary/60"
               value={filter}
               onChange={e => setFilter(e.target.value)}
@@ -144,14 +153,14 @@ export function Wiki() {
           {selected.size > 0 && (
             <div className="flex flex-wrap items-center gap-3 mb-4 p-3 rounded-lg bg-primary-container/15 border border-primary/20">
               <span className="text-sm text-on-surface-variant">
-                {selected.size} selezionat{selected.size === 1 ? 'o' : 'i'}
+                {t('wiki.selectedCount', { count: selected.size })}
               </span>
               <select
                 value={assignDomain}
                 onChange={e => setAssignDomain(e.target.value)}
                 className="bg-surface-high border border-outline-variant/40 rounded-lg px-3 py-2 text-sm"
               >
-                <option value="">Scegli dominio…</option>
+                <option value="">{t('wiki.chooseDomain')}</option>
                 {domains.map(d => (
                   <option key={d.id} value={d.id}>{d.label}</option>
                 ))}
@@ -161,19 +170,19 @@ export function Wiki() {
                 disabled={!assignDomain}
                 className="px-4 py-2 bg-primary text-on-primary rounded-lg text-sm font-medium hover:opacity-90 disabled:opacity-50"
               >
-                Assegna a dominio
+                {t('wiki.assignToDomain')}
               </button>
               <button
                 onClick={() => setSelected(new Set())}
                 className="text-sm text-on-surface-variant hover:text-on-surface"
               >
-                Annulla
+                {t('common.cancel')}
               </button>
             </div>
           )}
 
           {assignMessage && (
-            <div className={`rounded-lg px-4 py-3 mb-4 text-sm ${assignMessage.startsWith('Errore') ? 'bg-error-container/20 text-error' : 'bg-tertiary-container/20 text-tertiary'}`}>
+            <div className={`rounded-lg px-4 py-3 mb-4 text-sm ${assignFailed ? 'bg-error-container/20 text-error' : 'bg-tertiary-container/20 text-tertiary'}`}>
               {assignMessage}
             </div>
           )}
@@ -193,7 +202,7 @@ export function Wiki() {
                   checked={selected.has(a.slug)}
                   onChange={() => toggleSelect(a.slug)}
                   className="absolute top-3 right-3 w-4 h-4 accent-primary cursor-pointer"
-                  aria-label={`Seleziona ${a.title}`}
+                  aria-label={t('wiki.selectArticle', { title: a.title })}
                 />
               </div>
             ))}
@@ -202,7 +211,7 @@ export function Wiki() {
           {!loading && filtered.length === 0 && (
             <div className="text-center py-16 text-on-surface-variant">
               <Icon name="search_off" className="text-5xl mb-3 block" />
-              <p>No articles match your filter.</p>
+              <p>{t('wiki.noMatch')}</p>
             </div>
           )}
         </div>

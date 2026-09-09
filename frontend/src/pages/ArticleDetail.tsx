@@ -14,8 +14,7 @@ export function ArticleDetail() {
   const [article, setArticle] = useState<Article | null>(null);
   const [allArticles, setAllArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
-  const { lang } = useLang();
-  const it = lang === 'it' || lang === 'en-it';
+  const { lang, t } = useLang();
   const { recordStep } = useTrail();
 
   // Auto-record article visit to trail
@@ -68,12 +67,12 @@ export function ArticleDetail() {
   const related = useMemo(() => {
     if (!article?.tags) return [];
     return allArticles.filter(a =>
-      a.slug !== slug && a.tags?.some(t => article.tags.includes(t))
+      a.slug !== slug && a.tags?.some(tag => article.tags.includes(tag))
     ).slice(0, 5);
   }, [article, allArticles, slug]);
 
-  if (loading) return <Loading text={it ? 'Caricamento articolo...' : 'Loading article...'} />;
-  if (!article) return <div className="p-8 text-center text-on-surface-variant">{it ? 'Articolo non trovato' : 'Article not found'}</div>;
+  if (loading) return <Loading text={t('article.loading')} />;
+  if (!article) return <div className="p-8 text-center text-on-surface-variant">{t('article.notFound')}</div>;
 
   return (
     <div className="flex">
@@ -81,7 +80,7 @@ export function ArticleDetail() {
       <div className="flex-1 p-8 max-w-[780px] mx-auto">
         {/* Breadcrumb */}
         <div className="flex items-center gap-2 text-sm text-on-surface-variant mb-6">
-          <span className="cursor-pointer hover:text-primary" onClick={() => navigate('/wiki')}>Wiki</span>
+          <span className="cursor-pointer hover:text-primary" onClick={() => navigate('/wiki')}>{t('wiki.title')}</span>
           <span>/</span>
           <span className="text-on-surface">{article.title}</span>
         </div>
@@ -98,7 +97,7 @@ export function ArticleDetail() {
               {article.domain}
             </span>
           )}
-          {article.tags?.map(t => <Tag key={t} label={t} />)}
+          {article.tags?.map(tag => <Tag key={tag} label={tag} />)}
         </div>
 
         <hr className="border-outline-variant/30 mb-8" />
@@ -111,7 +110,7 @@ export function ArticleDetail() {
           <div className="mt-10 pt-6 border-t border-outline-variant/30">
             <h3 className="text-xs uppercase tracking-widest text-on-surface-variant mb-3 flex items-center gap-2">
               <Icon name="menu_book" className="text-[14px]" />
-              {it ? 'Fonti' : 'Sources'}
+              {t('article.sources')}
             </h3>
             <div className="space-y-2">
               {article.sources.map((src: { plugin?: string; url?: string; title?: string; work_id?: string }, i: number) => (
@@ -126,7 +125,7 @@ export function ArticleDetail() {
                       {src.work_id && <span className="text-outline ml-1">({src.work_id})</span>}
                     </a>
                   ) : (
-                    <span className="text-on-surface-variant">{src.title || (it ? 'Fonte sconosciuta' : 'Unknown source')}</span>
+                    <span className="text-on-surface-variant">{src.title || t('article.unknownSource')}</span>
                   )}
                 </div>
               ))}
@@ -140,7 +139,7 @@ export function ArticleDetail() {
         {/* TOC */}
         {headings.length > 0 && (
           <div className="mb-8">
-            <h4 className="text-xs uppercase tracking-widest text-on-surface-variant mb-3">{it ? 'In questa pagina' : 'On this page'}</h4>
+            <h4 className="text-xs uppercase tracking-widest text-on-surface-variant mb-3">{t('article.onThisPage')}</h4>
             <nav className="space-y-1">
               {headings.map((h, i) => (
                 <a
@@ -161,7 +160,7 @@ export function ArticleDetail() {
           <div className="mb-8">
             <h4 className="text-xs uppercase tracking-widest text-on-surface-variant mb-3 flex items-center gap-1.5">
               <Icon name="link" className="text-[12px]" />
-              {it ? 'Citato da' : 'Cited by'} ({article.backlinks.length})
+              {t('article.citedBy')} ({article.backlinks.length})
             </h4>
             <div className="space-y-1.5">
               {article.backlinks.map(bl => (
@@ -180,7 +179,7 @@ export function ArticleDetail() {
         {/* Related */}
         {related.length > 0 && (
           <div className="mb-8">
-            <h4 className="text-xs uppercase tracking-widest text-on-surface-variant mb-3">{it ? 'Correlati' : 'Related'}</h4>
+            <h4 className="text-xs uppercase tracking-widest text-on-surface-variant mb-3">{t('article.related')}</h4>
             <div className="space-y-1.5">
               {related.map(a => (
                 <div

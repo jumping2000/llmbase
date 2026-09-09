@@ -2,6 +2,8 @@
 
 | Versione | Highlights |
 |----------|-----------|
+| **v0.9.4** | UI strings externalised to JSON translation files |
+| **v0.9.3** | "All domains" filter, domain-stamped Q&A outputs |
 | **v0.9.2** | Document authoring dates (`doc_date`), recency-aware answers |
 | **v0.9.1** | Domains UX (dropdown, badges), misc fixes |
 | **v0.9.0** | Domini, bot Telegram, email ingestion |
@@ -9,10 +11,28 @@
 | **v0.8.8** | Docker config read-only mount |
 | **v0.8.7** | LLM token tracking, error handling |
 | **v0.8.6** | Compile snippet UI, async fix |
-| **v0.8.5–v0.8.4** | CI/CD workflow updates |
+| **v0.8.5** | CI/CD workflow updates |
+| **v0.8.4** | CI/CD workflow updates |
 | **v0.8.3** | Worker seed URL learning |
 | **v0.8.2** | Nginx Basic Auth, PDF upload, Chinese removal |
 | **v0.8.1** | Initial EN/IT release |
+
+## v0.9.4
+
+- Moved **every UI string out of the React components** into `frontend/public/translations/{en,it,en-it}.json` (243 keys, flat key → string maps). The files are served at `/translations/<lang>.json` through the existing SPA static route, so the deployed copies under `static/dist/translations/` can be edited and picked up on a browser reload, without a rebuild. The versioned source of truth stays `frontend/public/translations/`.
+- Added a `t(key, vars?)` helper on `useLang()`: `{name}` interpolation, `_one` / `_other` plural selection driven by `count`, and a missing key rendering as the key itself plus a console warning — so a hand-edit that drops an entry is visible instead of silent.
+- Replaced ~121 inline `it ? 'x' : 'y'` ternaries and ~60 single-language literals; removed the duplicated `const it = lang === 'it' || lang === 'en-it'` flag from 8 components. `isItalianUI()` is now actually used, in `Explore.tsx`, where the flag still selects a localized *data* field rather than UI text.
+- Added `en-it.json` as a third file so the bilingual mode's chrome can diverge from Italian; it currently mirrors `it.json`, preserving the previous behaviour.
+- Fixed two latent bugs the translation surfaced: the Wiki and Ingest status banners picked their error styling by sniffing an `"Error"` / `"Errore"` prefix out of the message text, which breaks as soon as the text is translated; both now track an explicit boolean.
+- Fixed stale era labels in the Explore timeline when switching between `it` and `en-it`: the d3 effect depended on the italian flag, which does not change across that pair.
+- Added `tests/test_translations.py`: guards the three files against key drift and against unpaired `_one` / `_other` plural forms.
+
+## v0.9.3
+
+- Added an **"All domains"** option to the top-bar domain selector, and made it the initial value. The selector previously defaulted to `generale` and always sent it, so search and ask silently excluded every article assigned to a custom domain — on a knowledge base where all articles carry a domain, that hid nearly the whole corpus.
+- Made the Search page re-run the current search when the domain filter changes; results used to stay stale until the query was resubmitted.
+- Stamped the queried `domain` into filed-back Q&A outputs at creation time (`_file_output`), so an answer produced under a domain filter is reachable by that same filter. With no filter active nothing is written, exactly as before. Pre-existing files in `wiki/outputs/` are unaffected — outputs remain outside the reach of `bulk_assign_domain`, which only resolves paths under `concepts/`.
+- Fixed `malformed_record_count` in `llm_usage.recent_requests`: the counter was incremented without being initialised in the recent-requests payload. Added it to the response and to the API reference (EN/IT).
 
 ## v0.9.2
 

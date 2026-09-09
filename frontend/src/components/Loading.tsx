@@ -1,9 +1,12 @@
-export function Loading({ text = 'Loading...' }: { text?: string }) {
+import { useLang } from '../lib/lang';
+
+export function Loading({ text }: { text?: string }) {
+  const { t } = useLang();
   return (
     <div className="flex items-center justify-center py-20">
       <div className="text-center">
         <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-        <p className="text-sm text-on-surface-variant">{text}</p>
+        <p className="text-sm text-on-surface-variant">{text ?? t('common.loading')}</p>
       </div>
     </div>
   );

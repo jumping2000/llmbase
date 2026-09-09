@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import * as d3 from 'd3';
 import { Icon } from '../components/Icon';
 import { Shimmer } from '../components/Loading';
-import { useLang } from '../lib/lang';
+import { useLang, isItalianUI } from '../lib/lang';
 import { api } from '../lib/api';
 
 type Tab = 'timeline' | 'people' | 'map';
@@ -35,8 +35,8 @@ function parseYear(dateStr?: string): number | null {
 
 export function Explore() {
   const navigate = useNavigate();
-  const { lang } = useLang();
-  const it = lang === 'it' || lang === 'en-it';
+  const { lang, t } = useLang();
+  const it = isItalianUI(lang);
   const [tab, setTab] = useState<Tab>('timeline');
   const [people, setPeople] = useState<Person[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
@@ -135,10 +135,10 @@ export function Explore() {
 
     // ─── Era background bands ──────────────────────────────
     const eras = [
-      { label: it ? 'Antichita' : 'Ancient', start: -800, end: -200, color: '#1e3a5f' },
-      { label: it ? 'Classico' : 'Classical', start: -200, end: 200, color: '#1a3d2e' },
-      { label: it ? 'Medioevo' : 'Medieval', start: 200, end: 1000, color: '#3d2e1a' },
-      { label: it ? 'Prima eta moderna' : 'Early Modern', start: 1000, end: 1800, color: '#2e1a3d' },
+      { label: t('explore.era.ancient'), start: -800, end: -200, color: '#1e3a5f' },
+      { label: t('explore.era.classical'), start: -200, end: 200, color: '#1a3d2e' },
+      { label: t('explore.era.medieval'), start: 200, end: 1000, color: '#3d2e1a' },
+      { label: t('explore.era.earlyModern'), start: 1000, end: 1800, color: '#2e1a3d' },
     ];
 
     const eraG = svg.append('g').attr('class', 'eras');
@@ -318,31 +318,33 @@ export function Explore() {
 
     svg.call(zoom);
 
-  }, [tab, timelineItems, it, navigate]);
+    // `t` is in here so the chart redraws its era labels on any language
+    // change — `it` alone misses the it ↔ en-it switch.
+  }, [tab, timelineItems, it, t, navigate]);
 
   const tabs: { id: Tab; label: string; icon: string }[] = [
-    { id: 'timeline', label: it ? 'Timeline' : 'Timeline', icon: 'timeline' },
-    { id: 'people', label: it ? 'Persone' : 'People', icon: 'groups' },
-    { id: 'map', label: it ? 'Mappa' : 'Map', icon: 'map' },
+    { id: 'timeline', label: t('explore.tab.timeline'), icon: 'timeline' },
+    { id: 'people', label: t('explore.tab.people'), icon: 'groups' },
+    { id: 'map', label: t('explore.tab.map'), icon: 'map' },
   ];
 
   const isEmpty = people.length === 0 && events.length === 0 && places.length === 0;
 
   return (
     <div className="p-8 max-w-[1100px] mx-auto">
-      <h1 className="font-headline text-3xl font-bold mb-6">{it ? 'Esplora' : 'Explore'}</h1>
+      <h1 className="font-headline text-3xl font-bold mb-6">{t('explore.title')}</h1>
 
       {/* Tabs */}
       <div className="flex gap-1 mb-6 border-b border-outline-variant/30">
-        {tabs.map(t => (
-          <button key={t.id} onClick={() => setTab(t.id)}
+        {tabs.map(tabOpt => (
+          <button key={tabOpt.id} onClick={() => setTab(tabOpt.id)}
             className={`flex items-center gap-2 px-4 py-2.5 text-sm transition-colors border-b-2 ${
-              tab === t.id
+              tab === tabOpt.id
                 ? 'border-primary text-primary font-medium'
                 : 'border-transparent text-on-surface-variant hover:text-on-surface'
             }`}>
-            <Icon name={t.icon} className="text-[16px]" />
-            {t.label}
+            <Icon name={tabOpt.icon} className="text-[16px]" />
+            {tabOpt.label}
           </button>
         ))}
       </div>
@@ -352,7 +354,7 @@ export function Explore() {
       {!loading && isEmpty && (
         <div className="text-center py-16 text-on-surface-variant">
           <Icon name="explore" className="text-5xl mb-3 block" />
-          <p className="mb-4">{it ? 'Nessuna entita estratta. Abilita entities nella configurazione.' : 'No entities extracted yet. Enable entities in config.'}</p>
+          <p className="mb-4">{t('explore.noEntities')}</p>
           <code className="text-xs bg-surface-container px-3 py-1.5 rounded-lg">entities: {'{'} enabled: true {'}'}</code>
         </div>
       )}
@@ -367,12 +369,12 @@ export function Explore() {
                   className={`px-3 py-1 text-xs rounded-full transition-colors ${
                     filter === f ? 'bg-primary/15 text-primary' : 'bg-surface-container text-on-surface-variant'
                   }`}>
-                  {f === 'all' ? (it ? 'Tutti' : 'All') :
-                   f === 'people' ? (it ? 'Persone' : 'People') : (it ? 'Eventi' : 'Events')}
+                  {f === 'all' ? t('explore.filter.all') :
+                   f === 'people' ? t('explore.filter.people') : t('explore.filter.events')}
                 </button>
               ))}
             </div>
-            <span className="text-[10px] text-outline">{it ? 'Rotella per zoom, trascina per spostarti' : 'Scroll to zoom, drag to pan'}</span>
+            <span className="text-[10px] text-outline">{t('explore.zoomHint')}</span>
           </div>
 
           <div className="relative bg-[#141414] rounded-xl border border-outline-variant/15 overflow-hidden">
@@ -389,7 +391,7 @@ export function Explore() {
 
           {timelineItems.length === 0 && (
             <div className="text-center py-8 text-on-surface-variant text-sm">
-              {it ? 'Nessuna entita con date interpretabili.' : 'No entities with parseable dates.'}
+              {t('explore.noParseableDates')}
             </div>
           )}
         </div>
@@ -409,7 +411,7 @@ export function Explore() {
                 <span>{p.dates || '—'}</span>
                 <span>{p.role}</span>
               </div>
-              <div className="mt-2 text-[10px] text-outline">{p.articles.length} {it ? 'articoli correlati' : 'related articles'}</div>
+              <div className="mt-2 text-[10px] text-outline">{t('explore.relatedArticles', { count: p.articles.length })}</div>
             </div>
           ))}
         </div>
@@ -419,11 +421,11 @@ export function Explore() {
       {!loading && tab === 'map' && (
         <div className="bg-surface-container rounded-xl p-8 border border-outline-variant/20 text-center">
           <Icon name="map" className="text-5xl text-on-surface-variant mb-3 block" />
-          <p className="text-on-surface-variant mb-2">{it ? 'Vista mappa' : 'Map View'}</p>
+          <p className="text-on-surface-variant mb-2">{t('explore.mapView')}</p>
           <p className="text-xs text-outline">
             {places.length > 0
-              ? `${places.length} ${it ? 'luoghi estratti' : 'places extracted'}`
-              : (it ? 'Richiede coordinate nei dati delle entita' : 'Requires coordinates in entity data')}
+              ? t('explore.placesExtracted', { count: places.length })
+              : t('explore.mapNeedsCoords')}
           </p>
           {places.length > 0 && (
             <div className="mt-4 space-y-2 max-w-md mx-auto text-left">
@@ -444,7 +446,7 @@ export function Explore() {
       {/* Stats banner */}
       {!isEmpty && (
         <div className="mt-8 text-center text-xs text-outline">
-          {it ? 'Estrazione entita' : 'Entity extraction'}: {people.length} {it ? 'persone' : 'people'}, {events.length} {it ? 'eventi' : 'events'}, {places.length} {it ? 'luoghi' : 'places'} — {it ? 'da' : 'from'} {articleCount} {it ? 'articoli' : 'articles'}
+          {t('explore.extractionSummary', { people: people.length, events: events.length, places: places.length, articles: articleCount })}
         </div>
       )}
     </div>
