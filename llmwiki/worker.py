@@ -191,17 +191,29 @@ def _task_learn(base: Path, source: str, batch_size: int):
 def _task_compile(base: Path):
     """Compile any unprocessed raw documents."""
     logger.info("[compile] Checking for uncompiled documents...")
-    try:
-        from .compile import compile_new, rebuild_index
-        articles = compile_new(base, batch_size=5)
-        if articles:
-            logger.info(f"[compile] Created {len(articles)} new articles")
-            rebuild_index(base)
-            logger.info("[compile] Index rebuilt")
-        else:
-            logger.debug("[compile] Nothing to compile")
-    except Exception as e:
-        logger.error(f"[compile] Error: {e}")
+    for attempt in range(1, 4):
+        try:
+            from .compile import compile_new, rebuild_index
+            articles = compile_new(base, batch_size=5)
+            if articles:
+                logger.info(f"[compile] Created {len(articles)} new articles")
+                rebuild_index(base)
+                logger.info("[compile] Index rebuilt")
+            else:
+                logger.debug("[compile] Nothing to compile")
+            return
+        except OSError as e:
+            # A bind mount not yet reattached after a host suspend surfaces
+            # as ENOENT on the first filesystem touch. Only retry these —
+            # chat() already retries LLM failures internally.
+            if attempt == 3:
+                logger.error(f"[compile] Error: {e}")
+                return
+            logger.warning(f"[compile] Filesystem error (attempt {attempt}/3), retrying in 5s: {e}")
+            time.sleep(5)
+        except Exception as e:
+            logger.error(f"[compile] Error: {e}")
+            return
 
 
 def _task_taxonomy(base: Path):

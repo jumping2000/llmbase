@@ -2,6 +2,7 @@
 
 | Versione | Highlights |
 |----------|-----------|
+| **v0.9.5** | Some minor fixes |
 | **v0.9.4** | UI strings externalised to JSON translation files |
 | **v0.9.3** | "All domains" filter, domain-stamped Q&A outputs |
 | **v0.9.2** | Document authoring dates (`doc_date`), recency-aware answers |
