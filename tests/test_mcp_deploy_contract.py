@@ -33,6 +33,12 @@ def test_nginx_default_conf_has_mcp_block():
     assert "auth_basic off" in text
 
 
+def test_dockerfile_forces_utf8_mode():
+    # Defence in depth for the locale-encoding bug: the image must not
+    # depend on the base image happening to set LANG=C.UTF-8.
+    assert "ENV PYTHONUTF8=1" in (ROOT / "Dockerfile").read_text(encoding="utf-8")
+
+
 def test_nginx_default_conf_has_no_legacy_mcp_upstream_variable():
     # Regression guard: the old envsubst template referenced $mcp_http_url,
     # which nginx cannot resolve at startup (emerg: unknown variable).

@@ -6,6 +6,14 @@ COPY frontend/ ./
 RUN npx vite build
 
 FROM python:3.12-slim
+
+# Force UTF-8 regardless of the base image's locale. Today the container
+# gets UTF-8 only because python:3.12-slim happens to set LANG=C.UTF-8 —
+# by accident, not by contract. A base-image bump or a LANG override at
+# deploy time would silently send every text read back to the platform
+# default, and the healthcheck (`llmbase stats`) reads the whole wiki.
+ENV PYTHONUTF8=1
+
 WORKDIR /app
 
 # Install Python dependencies
