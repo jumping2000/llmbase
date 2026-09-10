@@ -119,6 +119,29 @@ register(Operation(
 ))
 ```
 
+## Date dei documenti (`docdate`)
+
+`doc_date` (ISO `YYYY-MM-DD` / `YYYY-MM` / `YYYY`) viene estratta al momento
+dell'ingest dal testo iniziale del documento (prima le regex, poi il fallback
+LLM). Vive nel frontmatter del documento raw, viene propagata ai `sources[]`
+degli articoli in fase di compile, e in caso di conflitto le risposte alle
+query privilegiano la fonte più recente.
+
+```yaml
+docdate:
+  enabled: true        # disattiva l'intero modulo
+  llm_fallback: true   # se false usa solo le regex (costo LLM nullo)
+```
+
+Backfill dei documenti esistenti: `llmbase backfill-doc-dates [--force]`.
+Modifica da UI: anteprima del documento raw → campo "Data stesura".
+
+La propagazione verso i `sources[]` degli articoli avviene solo per
+riempimento: i valori `doc_date` già presenti sugli articoli non vengono mai
+sovrascritti (le correzioni manuali vincono sempre). `backfill --force`
+riestrae la data dal raw ma non ripropaga agli articoli che ne hanno già una;
+questi casi vengono riportati nel contatore `diverged`.
+
 ## Domini
 
 I domini sono faccette di primo livello sugli articoli. Il dominio di default
