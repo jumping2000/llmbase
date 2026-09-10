@@ -34,9 +34,12 @@ downstream project activates it by registering the lifecycle hooks itself.
 from llmwiki.hooks import register
 from llmwiki import sync
 
-register("ingested", lambda source, work_id, **kw: sync.push_ingested(source, work_id))
+register("ingested", lambda source, title, path, **kw: sync.push_ingested(source, path, title=title))
 register("compiled", lambda source, work_id, **kw: sync.mark_compiled(source, work_id))
 ```
+
+The `"ingested"` event does not carry a `work_id` — a downstream project must
+derive its own stable id, here from `path`. `"compiled"` does carry `work_id`.
 
 Configuration is entirely by environment variable, and the module is a no-op
 when they are unset:

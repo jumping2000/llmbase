@@ -35,9 +35,12 @@ progetto a valle lo attiva registrando gli hook di ciclo di vita.
 from llmwiki.hooks import register
 from llmwiki import sync
 
-register("ingested", lambda source, work_id, **kw: sync.push_ingested(source, work_id))
+register("ingested", lambda source, title, path, **kw: sync.push_ingested(source, path, title=title))
 register("compiled", lambda source, work_id, **kw: sync.mark_compiled(source, work_id))
 ```
+
+L'evento `"ingested"` non porta un `work_id`: un progetto a valle deve
+derivarne uno proprio, qui da `path`. `"compiled"` porta invece `work_id`.
 
 La configurazione avviene interamente per variabile d'ambiente, e il modulo non
 fa nulla se non sono impostate:
