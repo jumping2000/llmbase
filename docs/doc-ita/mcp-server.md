@@ -69,11 +69,13 @@ Nginx inoltra `/mcp` allo stesso upstream di `/` e passa l'header `X-API-Key`.
 | `MCP_API_KEY` | *(vuoto)* | Chiave per autenticare le richieste `/mcp` via header `X-API-Key`. Vuoto = nessuna auth. |
 | `MCP_TRANSPORT` | `stdio` | Trasporto per il launcher standalone `llmbase mcp`: `stdio` oppure `streamable-http`. Qualsiasi altro valore viene rifiutato all'avvio. |
 | `MCP_HTTP_PORT` | `8100` | Porta usata quando il launcher standalone gira con `streamable-http`. |
-| `MCP_HTTP_URL` | *(vuoto)* | URL base annunciato dal launcher standalone; se impostata deve essere un `http://…` o `https://…` valido. |
+| `MCP_HTTP_URL` | *(vuoto)* | Override opzionale dell'URL HTTP MCP per il launcher standalone; se impostata deve essere un `http://…` o `https://…` valido, ma il valore non è attualmente consumato da alcun trasporto. |
 
-Queste tre variabili sono ancora lette e onorate da `llmbase mcp`
+Queste tre variabili sono ancora lette e validate da `llmbase mcp`
 (`llmwiki/mcp_config.py`), ma valgono solo per il launcher standalone: l'app
-ASGI unificata le ignora. Avviare il launcher con
+ASGI unificata le ignora. `MCP_TRANSPORT` seleziona il trasporto,
+`MCP_HTTP_PORT` viene passata al server streamable-http, e `MCP_HTTP_URL`
+viene validata e poi non utilizzata. Avviare il launcher con
 `MCP_TRANSPORT=streamable-http` è deprecato ed emette un `DeprecationWarning`:
 servi `/mcp` dall'app ASGI unificata (`uvicorn asgi:app`). Il deploy Docker
 Compose descritto sopra non ne ha bisogno.
