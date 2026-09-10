@@ -1,8 +1,8 @@
 """Operations contract — single source of truth for CLI / HTTP / MCP.
 
 Every knowledge-base operation is declared exactly once, here. The CLI
-(`tools/cli.py`), the agent HTTP server (`tools/agent_api.py`), and the
-MCP server (`tools/mcp_server.py`) all dispatch through this registry.
+(`llmwiki/cli.py`), the agent HTTP server (`llmwiki/agent_api.py`), and the
+MCP server (`llmwiki/mcp_server.py`) all dispatch through this registry.
 
 Adding or modifying an op — change it here and all three surfaces update.
 
