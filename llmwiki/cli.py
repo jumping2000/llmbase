@@ -580,7 +580,7 @@ def stats(ctx):
     total_words = 0
     if concepts_dir.exists():
         for f in concepts_dir.glob("*.md"):
-            total_words += len(f.read_text().split())
+            total_words += len(f.read_text(encoding="utf-8").split())
 
     table = Table(title="Knowledge Base Stats")
     table.add_column("Metric", style="cyan")

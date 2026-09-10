@@ -337,7 +337,7 @@ def create_web_app(base_dir: Path | None = None):
         total_words = 0
         if concepts_dir.exists():
             for f in concepts_dir.glob("*.md"):
-                total_words += len(f.read_text().split())
+                total_words += len(f.read_text(encoding="utf-8").split())
 
         # Count wiki-links
         import re
@@ -346,7 +346,7 @@ def create_web_app(base_dir: Path | None = None):
         if concepts_dir.exists():
             link_re = re.compile(r"\[\[[^\]]+\]\]")
             for f in concepts_dir.glob("*.md"):
-                link_count += len(link_re.findall(f.read_text()))
+                link_count += len(link_re.findall(f.read_text(encoding="utf-8")))
 
         # Health score
         try:

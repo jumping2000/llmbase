@@ -306,7 +306,7 @@ def _op_stats(base_dir: Path) -> dict:
     total_words = 0
     if concepts_dir.exists():
         for f in concepts_dir.glob("*.md"):
-            total_words += len(f.read_text().split())
+            total_words += len(f.read_text(encoding="utf-8").split())
     return {
         "articles": article_count,
         "raw_documents": raw_count,
