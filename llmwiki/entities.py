@@ -261,7 +261,7 @@ def get_entities(base_dir: Path | None = None) -> dict:
     path = meta_dir / "entities.json"
     if path.exists():
         try:
-            return json.loads(path.read_text())
+            return json.loads(path.read_text(encoding="utf-8"))
         except (json.JSONDecodeError, OSError):
             logger.warning("[entities] Corrupted entities.json, returning empty")
     return {"people": [], "events": [], "places": []}

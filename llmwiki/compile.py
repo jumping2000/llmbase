@@ -210,7 +210,7 @@ def compile_new(
     # Load compiled-sources log to avoid recompiling on volume reset
     compiled_log_path = meta_dir / "compiled_sources.json"
     if compiled_log_path.exists():
-        compiled_sources = set(json.loads(compiled_log_path.read_text()))
+        compiled_sources = set(json.loads(compiled_log_path.read_text(encoding="utf-8")))
     else:
         compiled_sources = set()
 
@@ -457,7 +457,7 @@ def _load_index(meta_dir: Path) -> list[dict]:
     """Load existing index."""
     index_path = meta_dir / "index.json"
     if index_path.exists():
-        return json.loads(index_path.read_text())
+        return json.loads(index_path.read_text(encoding="utf-8"))
     return []
 
 

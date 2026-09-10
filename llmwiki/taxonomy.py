@@ -429,7 +429,7 @@ def build_taxonomy(base_dir: Path | None = None, lang: str = "en-it") -> list[di
     cache_path = meta_dir / "taxonomy.json"
 
     if cache_path.exists():
-        cached = json.loads(cache_path.read_text())
+        cached = json.loads(cache_path.read_text(encoding="utf-8"))
         raw_tree = cached.get("categories", [])
     else:
         # No cache yet — use fast fallback (no LLM)
@@ -475,7 +475,7 @@ def assign_new_articles(base_dir: Path | None = None):
     if not tax_path.exists():
         return
 
-    taxonomy = json.loads(tax_path.read_text())
+    taxonomy = json.loads(tax_path.read_text(encoding="utf-8"))
     categories = taxonomy.get("categories", [])
     if not categories:
         return
@@ -564,7 +564,7 @@ def load_taxonomy(base_dir: Path | None = None) -> dict:
     meta_dir = Path(cfg["paths"]["meta"])
     path = meta_dir / "taxonomy.json"
     if path.exists():
-        return json.loads(path.read_text())
+        return json.loads(path.read_text(encoding="utf-8"))
     return {"categories": []}
 
 

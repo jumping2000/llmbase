@@ -197,7 +197,7 @@ def check_orphans(cfg: dict, articles: list[dict] | None = None) -> list[str]:
     if not backlinks_path.exists():
         return ["Backlinks map not built yet"]
 
-    backlinks = json.loads(backlinks_path.read_text())
+    backlinks = json.loads(backlinks_path.read_text(encoding="utf-8"))
     linked_slugs = set(backlinks.keys())
 
     if articles is None:

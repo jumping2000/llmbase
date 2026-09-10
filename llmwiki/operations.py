@@ -282,7 +282,7 @@ def _op_backlinks(base_dir: Path, slug: str) -> dict:
             "cited_by": [],
             "note": "run `llmbase compile index` first",
         }
-    data = json.loads(bl_path.read_text())
+    data = json.loads(bl_path.read_text(encoding="utf-8"))
     return {"slug": slug, "cited_by": data.get(slug, [])}
 
 

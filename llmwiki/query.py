@@ -710,7 +710,7 @@ def _file_output(
 def _load_index(meta_dir: Path) -> list[dict]:
     index_path = meta_dir / "index.json"
     if index_path.exists():
-        return json.loads(index_path.read_text())
+        return json.loads(index_path.read_text(encoding="utf-8"))
     return []
 
 

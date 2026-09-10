@@ -79,7 +79,7 @@ def export_article(slug: str, base_dir: Path | None = None) -> dict | None:
     bl_path = meta_dir / "backlinks.json"
     if bl_path.exists():
         try:
-            bl_data = json.loads(bl_path.read_text())
+            bl_data = json.loads(bl_path.read_text(encoding="utf-8"))
             for bl_slug in bl_data.get(slug, []):
                 bl_article = concepts_dir / f"{bl_slug}.md"
                 if bl_article.exists():

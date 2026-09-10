@@ -99,7 +99,7 @@ class KnowledgeBase:
         health_path = meta_dir / "health.json"
         if not health_path.exists():
             return {"status": "ok", "report": None, "message": "No health check has run yet"}
-        report = json.loads(health_path.read_text())
+        report = json.loads(health_path.read_text(encoding="utf-8"))
         return {"status": "ok", "report": report}
 
     def get_xici(self, lang: str = "en-it") -> dict:

@@ -210,7 +210,7 @@ def get_xici(base_dir: Path | None = None, lang: str = "en-it") -> dict:
     meta_dir = Path(cfg["paths"]["meta"])
     path = meta_dir / f"xici-{lang}.json"
     if path.exists():
-        return json.loads(path.read_text())
+        return json.loads(path.read_text(encoding="utf-8"))
     return {
         "text": "",
         "themes": [],

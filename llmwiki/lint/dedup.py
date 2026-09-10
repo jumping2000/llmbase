@@ -143,7 +143,7 @@ def _refresh_taxonomy_after_merge(base_dir: Path | None = None):
     if not tax_path.exists():
         return
 
-    taxonomy = json.loads(tax_path.read_text())
+    taxonomy = json.loads(tax_path.read_text(encoding="utf-8"))
     existing_slugs = {f.stem for f in concepts_dir.glob("*.md")}
 
     # Collect all slugs currently in taxonomy

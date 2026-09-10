@@ -352,7 +352,7 @@ def create_web_app(base_dir: Path | None = None):
         try:
             health_path = Path(cfg["paths"]["meta"]) / "health.json"
             if health_path.exists():
-                health = json.loads(health_path.read_text())
+                health = json.loads(health_path.read_text(encoding="utf-8"))
                 total_issues = health.get("results", {}).get("total_issues", 0)
                 health_score = max(0, 100 - total_issues) if article_count > 0 else 0
             else:
@@ -742,7 +742,7 @@ def create_web_app(base_dir: Path | None = None):
         if not bl_path.exists():
             return []
         try:
-            data = json.loads(bl_path.read_text())
+            data = json.loads(bl_path.read_text(encoding="utf-8"))
         except (json.JSONDecodeError, OSError):
             return []
         slugs = data.get(slug, [])
@@ -824,7 +824,7 @@ def create_web_app(base_dir: Path | None = None):
         path = Path(cfg["paths"]["meta"]) / "trails.json"
         if path.exists():
             try:
-                return json.loads(path.read_text())
+                return json.loads(path.read_text(encoding="utf-8"))
             except (json.JSONDecodeError, OSError):
                 pass
         return {"trails": []}
@@ -1684,7 +1684,7 @@ def create_web_app(base_dir: Path | None = None):
         health_path = meta_dir / "health.json"
         if not health_path.exists():
             return jsonify({"report": None})
-        report = json.loads(health_path.read_text())
+        report = json.loads(health_path.read_text(encoding="utf-8"))
         return jsonify({"report": report})
 
     @app.route("/api/wiki/export")
