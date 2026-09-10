@@ -106,13 +106,23 @@ The list below is illustrative, not exhaustive. The actual MCP tool surface is g
 - `kb_export_article`
 - `kb_export_tag`
 - `kb_export_graph`
+- `kb_export`
 - `kb_rebuild_index`
+- `kb_backfill_doc_dates`
 - `kb_xici`
 - `kb_domains_list`
 - `kb_domains_create`
 - `kb_domains_rename`
 - `kb_domains_delete`
 - `kb_domains_bulk_assign`
+
+`kb_export` is the unified export: it takes a required `type` (`article`, `tag`
+or `graph`) plus a `slug`, and an optional `depth` (default `2`, graph only).
+Its own tool description marks it as legacy and points at
+`kb_export_article` / `kb_export_tag` / `kb_export_graph`, which are the
+preferred entry points. `kb_backfill_doc_dates` extracts `doc_date` for raw
+documents missing it and propagates the value to citing articles; `force=true`
+re-extracts dates that are already present.
 
 ## Domain filtering
 

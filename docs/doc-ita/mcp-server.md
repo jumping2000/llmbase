@@ -106,13 +106,23 @@ L'elenco seguente è illustrativo, non esaustivo. La superficie reale degli stru
 - `kb_export_article`
 - `kb_export_tag`
 - `kb_export_graph`
+- `kb_export`
 - `kb_rebuild_index`
+- `kb_backfill_doc_dates`
 - `kb_xici`
 - `kb_domains_list`
 - `kb_domains_create`
 - `kb_domains_rename`
 - `kb_domains_delete`
 - `kb_domains_bulk_assign`
+
+`kb_export` è l'export unificato: richiede un `type` obbligatorio (`article`,
+`tag` o `graph`) e uno `slug`, più un `depth` opzionale (default `2`, solo per
+`graph`). La sua stessa descrizione lo marca come legacy e rimanda a
+`kb_export_article` / `kb_export_tag` / `kb_export_graph`, che restano i punti
+d'ingresso preferiti. `kb_backfill_doc_dates` estrae `doc_date` per i documenti
+raw che ne sono privi e propaga il valore agli articoli che li citano;
+`force=true` riestrae anche le date già presenti.
 
 ## Filtro per dominio
 
