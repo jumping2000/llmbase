@@ -250,7 +250,7 @@ def heal_urly_slugs(base_dir: Path | None = None) -> list[str]:
     if rename_map:
         link_pattern = re.compile(r"\[\[([^\]|]+)(\|[^\]]+)?\]\]")
         for md_file in concepts_dir.glob("*.md"):
-            text = md_file.read_text()
+            text = md_file.read_text(encoding="utf-8")
             def _sub(m: re.Match) -> str:
                 target = m.group(1).strip()
                 pipe = m.group(2) or ""
@@ -337,7 +337,7 @@ def fix_broken_links(base_dir: Path | None = None, max_stubs: int = 10) -> list[
     from ..compile import sanitize_slug
 
     for md_file in concepts_dir.glob("*.md"):
-        content = md_file.read_text()
+        content = md_file.read_text(encoding="utf-8")
         for match in link_pattern.finditer(content):
             raw_target = match.group(1).strip()
             # Skip if resolvable via aliases

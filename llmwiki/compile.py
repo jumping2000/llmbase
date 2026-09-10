@@ -234,7 +234,11 @@ def compile_new(
                     f.suffix in (".txt", ".py", ".json", ".csv")
                     and f.name != "index.md"
                 ):
-                    content += f"\n\n## File: {f.name}\n\n```\n{f.read_text(errors='ignore')[:5000]}\n```"
+                    # Sidecar files come from arbitrary uploads, so their
+                    # encoding is not ours to guarantee. Decode as UTF-8 and
+                    # drop what does not fit: this is best-effort LLM context,
+                    # and a hard failure here would abort the whole batch.
+                    content += f"\n\n## File: {f.name}\n\n```\n{f.read_text(encoding='utf-8', errors='ignore')[:5000]}\n```"
 
         # Ask LLM to extract concepts and write articles
         existing_text = (

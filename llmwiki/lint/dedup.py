@@ -190,7 +190,7 @@ def _refresh_taxonomy_after_merge(base_dir: Path | None = None):
 def _rewrite_links(concepts_dir: Path, old_slug: str, new_slug: str):
     """Rewrite all [[old_slug]] references to [[new_slug]] across the wiki."""
     for md_file in concepts_dir.glob("*.md"):
-        content = md_file.read_text()
+        content = md_file.read_text(encoding="utf-8")
         # Match [[old_slug]] and [[old_slug|display text]]
         new_content = re.sub(
             rf"\[\[{re.escape(old_slug)}(\|[^\]]+)?\]\]",
