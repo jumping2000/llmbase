@@ -54,6 +54,7 @@ The web server exposes a JSON HTTP API alongside the frontend.
 - `POST /api/domains/<domain_id>/rename`
 - `DELETE /api/domains/<domain_id>`
 - `POST /api/articles/bulk-domain`
+- `PATCH /api/sources/<slug>/doc-date`
 
 When `LLMBASE_API_SECRET` is set, write endpoints require authentication.
 Some operational read endpoints are also auth-gated because they expose job state or internal activity:
