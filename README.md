@@ -180,6 +180,7 @@ Maintenance:
 - `llmbase lint dedup`
 - `llmbase lint heal`
 - `llmbase backfill-doc-dates [--force]` — extract `doc_date` for existing documents (regex + LLM fallback); `--force` re-extracts and reports divergences from article dates
+- `llmbase stats` — show knowledge base statistics
 
 Export:
 - `llmbase export article <slug>`
@@ -187,9 +188,17 @@ Export:
 - `llmbase export graph <slug> [--depth N]`
 
 Services:
-- `llmbase web`
-- `llmbase serve`
-- `llmbase mcp`
+- `llmbase web` — start the full web UI (browsing, search, Q&A)
+- `llmbase serve` — start the agent-facing HTTP API server
+- `llmbase search serve [--port N]` — start the search web UI
+- `llmbase mcp` — start the MCP server
+
+Operations contract:
+- `llmbase ops list` — list all registered operations
+- `llmbase ops call <name> --json-args '<json>'` — invoke an operation by name with JSON arguments
+
+`ops list` and `ops call` expose the registry in `llmwiki/operations.py` directly
+— the same contract that backs the CLI, the HTTP API and the MCP tools.
 
 ## Configuration Notes
 
