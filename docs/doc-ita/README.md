@@ -14,3 +14,5 @@ I file mantengono gli stessi nomi della documentazione inglese sotto `docs/`, co
 - [Sviluppo plugin](plugin-development.md)
 - [Fonti di riferimento](reference-sources.md)
 - [Auto-guarigione](self-healing.md)
+- [Bot Telegram](telegram.md)
+- [Ingestione Email](email-ingestion.md)
