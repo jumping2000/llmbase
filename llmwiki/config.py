@@ -15,7 +15,7 @@ def load_config(base_dir: Path | None = None) -> dict:
         cfg = _defaults(base_dir)
         cfg["base_dir"] = str(Path(base_dir).resolve())
         return cfg
-    with open(config_path) as f:
+    with open(config_path, encoding="utf-8") as f:
         cfg = yaml.safe_load(f)
     # Resolve relative paths against base_dir
     for key in ("raw", "wiki", "outputs", "meta", "concepts"):

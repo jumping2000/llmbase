@@ -341,7 +341,7 @@ class StageLock:
         breaker_path.parent.mkdir(parents=True, exist_ok=True)
         # ``a`` so the file is created if missing; we never write to
         # it. Closing the fd drops the lock automatically.
-        with open(breaker_path, "a") as bf:
+        with open(breaker_path, "a", encoding="utf-8") as bf:
             # Blocking LOCK_EX: wait for any concurrent breaker to
             # finish. Codex v0.7.7 round 7 flagged ``LOCK_NB`` as a
             # liveness hazard — bounded outer retries combined with
