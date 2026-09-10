@@ -243,7 +243,7 @@ Which articles (by title) are most relevant? List up to 10, one per line, just t
         if entry["title"].lower() in relevant_titles.lower():
             article_path = concepts_dir / f"{entry['slug']}.md"
             if article_path.exists():
-                content = article_path.read_text()
+                content = article_path.read_text(encoding="utf-8")
                 context_files.append({"path": entry["title"], "content": content})
 
     # If LLM matching missed, fall back to keyword matching
@@ -573,7 +573,7 @@ def _gather_context(question: str, cfg: dict, domain: str | None = None) -> list
         context_files.append(
             {
                 "path": "_index.md",
-                "content": index_path.read_text()[:3000],
+                "content": index_path.read_text(encoding="utf-8")[:3000],
             }
         )
 
@@ -582,7 +582,7 @@ def _gather_context(question: str, cfg: dict, domain: str | None = None) -> list
     scored = []
 
     for md_file in concepts_dir.glob("*.md"):
-        content = md_file.read_text()
+        content = md_file.read_text(encoding="utf-8")
         post = frontmatter.load(str(md_file))
 
         if domain and post.metadata.get("domain", "generale") != domain:
@@ -623,7 +623,7 @@ def _gather_context(question: str, cfg: dict, domain: str | None = None) -> list
 
     # Also check outputs
     for md_file in outputs_dir.glob("*.md"):
-        content = md_file.read_text()
+        content = md_file.read_text(encoding="utf-8")
         text_words = set(re.findall(r"\w+", content[:500].lower()))
         if len(question_words & text_words) > 1:
             context_files.append(
