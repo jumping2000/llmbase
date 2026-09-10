@@ -2,6 +2,7 @@
 
 | Versione | Highlights |
 |----------|-----------|
+| **v0.9.6** | Doc/code alignment audit, Windows encoding fix |
 | **v0.9.5** | Some minor fixes |
 | **v0.9.4** | UI strings externalised to JSON translation files |
 | **v0.9.3** | "All domains" filter, domain-stamped Q&A outputs |
@@ -17,6 +18,21 @@
 | **v0.8.3** | Worker seed URL learning |
 | **v0.8.2** | Nginx Basic Auth, PDF upload, Chinese removal |
 | **v0.8.1** | Initial EN/IT release |
+
+## v0.9.6
+
+- **Documentation audited against the code.** Every documented surface was diffed
+mechanically against its source of truth — HTTP routes against `llmwiki/web.py`,
+MCP tools against the `operations.py` registry, CLI commands against the `click`
+tree, `LLMBASE_*` variables against their reads — in all three directions:
+documented-but-absent, present-but-undocumented, and diverging signature. Ten
+misalignments were found and fixed.
+- **Text reads no longer depend on the platform locale.** `Path.read_text()` without
+`encoding=` resolves its codec from the locale: UTF-8 on Linux, cp1252 on Windows.
+The package writes UTF-8 everywhere — all 38 `write_text()` calls pass it — but read
+it back without specifying one at 31 sites, so `kb_stats`, `llmbase stats` and
+`GET /api/stats` all failed on Windows against 11 of 226 wiki articles. The bug dated
+to April and survived because CI runs on `ubuntu-latest` only.
 
 ## v0.9.5
 

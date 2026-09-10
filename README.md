@@ -36,7 +36,7 @@ The repository currently targets English and Italian output across compilation, 
 |  :5555 (Gunicorn)   |  |  (direct module     |  |  :8100              |
 |  Full REST API      |  |   calls)            |  |  stdio / HTTP       |
 |  (UI + CRUD + Lint) |  |                     |  |                     |
-+----------+----------+  +----------+----------+  +----------+-----------+
++----------+----------+  +----------+----------+  +----------+----------+
            |                        |                        |
            | partial                | direct                 | full
            v                        v                        v
@@ -139,7 +139,7 @@ docker compose -f compose.build.yaml up -d --build
 If you run `docker compose up` in the foreground, stopping that process also stops the stack.
 In that case Docker may report `nginx exited with code 0`, which is a normal graceful shutdown rather than a proxy failure.
 
-The compose topology starts four services: `nginx`, `llmbase`, `llmbase-worker`, and `llmbase-mcp`.
+The compose topology starts four services: `nginx`, `llmbase`, `llmbase-worker`.
 The dedicated worker container keeps background jobs out of the Gunicorn web processes.
 The MCP service exposes the knowledge base to AI clients over the Model Context Protocol.
 
