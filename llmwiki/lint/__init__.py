@@ -26,6 +26,15 @@ from .fixes import (
     fix_broken_links,
 )
 
+from .orphans import (
+    list_orphans,
+    suggest_link_sources,
+    insert_see_also,
+    link_orphan,
+    fix_orphans,
+    orphan_slugs,
+)
+
 from .dedup import (
     merge_duplicates,
     _find_duplicate_candidates,
@@ -38,5 +47,7 @@ __all__ = [
     "check_uncategorized", "check_duplicates",
     "normalize_tags", "fix_dirty_tags", "clean_garbage",
     "fix_uncategorized", "fix_broken_links",
+    "list_orphans", "suggest_link_sources", "insert_see_also",
+    "link_orphan", "fix_orphans", "orphan_slugs",
     "merge_duplicates", "_find_duplicate_candidates",
 ]

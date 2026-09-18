@@ -103,6 +103,9 @@ L'elenco seguente è illustrativo, non esaustivo. La superficie reale degli stru
 - `kb_compile`
 - `kb_lint`
 - `kb_lint_fix`
+- `kb_orphans`
+- `kb_orphan_link`
+- `kb_orphans_fix`
 - `kb_llm_usage_summary`
 - `kb_llm_usage_recent`
 - `kb_export_article`

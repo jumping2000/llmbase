@@ -18,6 +18,7 @@ This repository is configured around a compact set of customization points.
 | `llmwiki.compile` | `SECTION_HEADERS` | Controls article section layout |
 | `llmwiki.query` | `TONE_INSTRUCTIONS` | Adds or overrides response tones |
 | `llmwiki.search` | `SEARCH_TOKENIZER` | Replaces default tokenization |
+| `llmwiki.lint.orphans` | `SEE_ALSO_LABELS` / `SEE_ALSO_PATTERNS` | Wording of the see-also line inserted when linking orphans |
 | `llmwiki.taxonomy` | `TAXONOMY_LABEL_KEYS` | Changes taxonomy label languages |
 | `llmwiki.taxonomy` | `TAXONOMY_GENERATOR` | Replaces the built-in taxonomy generator |
 | `llmwiki.web` | `EXTRA_ROUTES` | Adds custom HTTP routes before app creation |

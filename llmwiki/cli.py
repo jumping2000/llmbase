@@ -467,6 +467,46 @@ def lint_clean_cmd(ctx):
         console.print(f"  [green]✓[/green] Removed: {r}")
 
 
+@lint.command("orphans")
+@click.option("--limit", default=50, show_default=True, help="How many orphans to list")
+@click.option("--fix", "do_fix", is_flag=True, help="Insert the suggested links")
+@click.option("--max-links", default=10, show_default=True, help="Cap for --fix")
+@click.pass_context
+def lint_orphans_cmd(ctx, limit, do_fix, max_links):
+    """List orphan articles (no incoming links) and their linking candidates."""
+    from .lint import fix_orphans, list_orphans
+
+    items = list_orphans(ctx.obj["base_dir"], limit=limit)
+    if not items:
+        console.print("[green]No orphan articles.[/green]")
+        return
+
+    table = Table(title=f"Orphan articles ({len(items)})")
+    table.add_column("orphan", style="cyan")
+    table.add_column("best source")
+    table.add_column("shared tags")
+    for item in items:
+        best = item["candidates"][0] if item["candidates"] else None
+        table.add_row(
+            item["slug"],
+            best["slug"] if best else "[dim]—[/dim]",
+            ", ".join(best["shared_tags"]) if best else "[dim]no candidate[/dim]",
+        )
+    console.print(table)
+
+    if not do_fix:
+        console.print("\n[dim]Run with --fix to insert the links.[/dim]")
+        return
+
+    result = fix_orphans(ctx.obj["base_dir"], max_links=max_links)
+    for f in result["fixes"]:
+        console.print(f"  [green]✓[/green] {f}")
+    for s in result["skipped"]:
+        console.print(f"  [yellow]![/yellow] {s['slug']}: {s['reason']}")
+    if result["capped"]:
+        console.print(f"\n[dim]Stopped at --max-links {max_links}; run again for more.[/dim]")
+
+
 @lint.command("dedup")
 @click.pass_context
 def lint_dedup_cmd(ctx):

@@ -32,6 +32,7 @@ Il server web espone un'API HTTP JSON insieme al frontend.
 - `GET /api/wiki/export`
 - `GET /api/xici`
 - `GET /api/domains`
+- `GET /api/lint/orphans`
 - `POST /api/lint`
 
 ## Endpoint di scrittura
@@ -43,6 +44,8 @@ Il server web espone un'API HTTP JSON insieme al frontend.
 - `POST /api/upload`
 - `POST /api/compile`
 - `POST /api/lint/fix`
+- `POST /api/lint/orphans/link`
+- `POST /api/lint/orphans/fix`
 - `POST /api/wiki/clean`
 - `POST /api/taxonomy/update`
 - `POST /api/index/rebuild`

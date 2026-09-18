@@ -1687,6 +1687,68 @@ def create_web_app(base_dir: Path | None = None):
         report = json.loads(health_path.read_text(encoding="utf-8"))
         return jsonify({"report": report})
 
+    @app.route("/api/lint/orphans")
+    def api_orphans():
+        """List orphan articles with the sources that could cite them."""
+        from . import operations as _ops
+
+        limit = min(max(request.args.get("limit", 100, type=int), 1), 500)
+        candidates = min(max(request.args.get("candidates", 5, type=int), 0), 20)
+        return jsonify(
+            _ops.dispatch("kb_orphans", base, {"limit": limit, "candidates": candidates})
+        )
+
+    @app.route("/api/lint/orphans/link", methods=["POST"])
+    @require_auth
+    def api_orphan_link():
+        """Insert a wiki-link to one orphan. Omit `source` to auto-pick it.
+
+        Synchronous on purpose, unlike /api/lint/fix: there is no LLM call
+        here, just one rewrite plus a reindex, and the UI refreshes its list
+        from the response.
+        """
+        from . import operations as _ops
+
+        data = request.json or {}
+        slug = (data.get("slug") or "").strip()
+        source = (data.get("source") or "").strip() or None
+        if not slug:
+            return jsonify({"status": "error", "message": "slug is required"}), 400
+
+        try:
+            result = _ops.dispatch("kb_orphan_link", base, {"slug": slug, "source": source})
+        except RuntimeError as e:
+            return jsonify({"status": "busy", "message": str(e)}), 409
+
+        if not result.get("changed"):
+            reason = result.get("reason")
+            if reason in ("source_not_found", "target_not_found"):
+                code = 404
+            elif reason in ("invalid_slug", "self_link"):
+                code = 400
+            else:
+                code = 200
+            return jsonify({"status": "noop", **result}), code
+        return jsonify({"status": "ok", **result})
+
+    @app.route("/api/lint/orphans/fix", methods=["POST"])
+    @require_auth
+    def api_orphans_fix():
+        """Link orphans automatically, capped server-side."""
+        from . import operations as _ops
+
+        try:
+            max_links = int((request.json or {}).get("max_links", 10))
+        except (TypeError, ValueError):
+            max_links = 10
+        max_links = min(max(max_links, 1), 50)
+
+        try:
+            result = _ops.dispatch("kb_orphans_fix", base, {"max_links": max_links})
+        except RuntimeError as e:
+            return jsonify({"status": "busy", "message": str(e)}), 409
+        return jsonify({"status": "ok", **result})
+
     @app.route("/api/wiki/export")
     def api_wiki_export():
         """Export all wiki articles as JSON (for backup/sync)."""

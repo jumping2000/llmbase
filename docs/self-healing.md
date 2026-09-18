@@ -10,7 +10,8 @@ Self-healing in LLMBase is the combination of lint checks, auto-fixes, cleanup, 
 4. `llmbase lint normalize-tags`
 5. `llmbase lint clean`
 6. `llmbase lint dedup`
-7. `llmbase lint heal`
+7. `llmbase lint orphans`
+8. `llmbase lint heal`
 
 ## What gets detected
 
@@ -24,6 +25,14 @@ Self-healing in LLMBase is the combination of lint checks, auto-fixes, cleanup, 
 - uncategorized articles
 
 `llmbase lint deep` runs a separate LLM-based review focused on inconsistencies, missing data, weak connections, and new article candidates.
+
+## Orphan articles
+
+`llmbase lint orphans` lists articles with no incoming links together with the articles that could cite them, ranked by shared tags (no LLM call). With `--fix` it inserts the wiki-link: a `See also:` line at the end of the `## English` section and `Vedi anche:` at the end of `## Italiano`, appending to the line when one already exists. The `--max-links` cap (10 by default) bounds how many articles a single run rewrites.
+
+The same actions are available from the UI's Health page — either picking the source article yourself or letting the server choose — and through `GET /api/lint/orphans`, `POST /api/lint/orphans/link` and `POST /api/lint/orphans/fix`.
+
+This fix stays **out** of `llmbase lint fix` / `lint heal`: linking orphans rewrites existing articles, so it must be triggered explicitly.
 
 ## Duplicate handling
 

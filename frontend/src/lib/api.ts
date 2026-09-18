@@ -68,7 +68,33 @@ export interface LintResults {
   broken_links: string[];
   orphans: string[];
   missing_metadata: string[];
+  dirty_tags?: string[];
+  duplicates?: string[];
+  stubs?: string[];
+  uncategorized?: string[];
   total_issues: number;
+}
+
+export interface OrphanCandidate {
+  slug: string;
+  title: string;
+  shared_tags: string[];
+}
+
+export interface OrphanEntry {
+  slug: string;
+  title: string;
+  is_stub: boolean;
+  candidates: OrphanCandidate[];
+}
+
+export interface OrphanLinkResult {
+  status: string;
+  source: string | null;
+  target: string;
+  changed: boolean;
+  sections: string[];
+  reason: string | null;
 }
 
 export interface CompileStatus {
@@ -346,4 +372,12 @@ export const api = {
   cleanWiki: () => post<{ removed: number; slugs: string[] }>('/api/wiki/clean', {}),
   getHealth: () => get<{ report: { checked_at: string; results: LintResults; fixes_applied: string[] } | null }>('/api/health'),
   rebuildIndex: () => post<{ article_count: number }>('/api/index/rebuild', {}),
+  getOrphans: (limit = 100, candidates = 5) =>
+    get<{ orphans: OrphanEntry[]; count: number }>(`/api/lint/orphans${buildQuery({ limit, candidates })}`),
+  linkOrphan: (slug: string, source?: string) =>
+    post<OrphanLinkResult>('/api/lint/orphans/link', { slug, source: source ?? null }),
+  fixOrphans: (max_links = 10) =>
+    post<{ fixes: string[]; fix_count: number; skipped: { slug: string; reason: string }[] }>(
+      '/api/lint/orphans/fix', { max_links }
+    ),
 };

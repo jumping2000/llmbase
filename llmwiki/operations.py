@@ -394,6 +394,25 @@ def _op_lint_fix(base_dir: Path) -> dict:
     return {"fixes": fixes, "fix_count": len(fixes)}
 
 
+def _op_orphans(base_dir: Path, limit: int = 100, candidates: int = 5) -> dict:
+    from .lint.orphans import list_orphans
+
+    items = list_orphans(base_dir, limit=limit, candidates=candidates)
+    return {"orphans": items, "count": len(items)}
+
+
+def _op_orphan_link(base_dir: Path, slug: str, source: str | None = None) -> dict:
+    from .lint.orphans import link_orphan
+
+    return link_orphan(slug, source, base_dir)
+
+
+def _op_orphans_fix(base_dir: Path, max_links: int = 10) -> dict:
+    from .lint.orphans import fix_orphans
+
+    return fix_orphans(base_dir, max_links=max_links)
+
+
 def _op_export(base_dir: Path, type: str, slug: str, depth: int = 2) -> dict:
     """Legacy unified export dispatcher (pre-0.6.0 MCP clients)."""
     if type == "article":
@@ -713,6 +732,49 @@ _CANONICAL: list[Operation] = [
         description="Auto-fix lint issues (metadata, broken links, duplicates, categories).",
         handler=_op_lint_fix,
         params={"type": "object", "properties": {}},
+        writes=True,
+        category="write",
+    ),
+    Operation(
+        name="kb_orphans",
+        description="List orphan articles (no incoming links) with suggested linking sources.",
+        handler=_op_orphans,
+        params={
+            "type": "object",
+            "properties": {
+                "limit": {"type": "integer", "default": 100},
+                "candidates": {"type": "integer", "default": 5},
+            },
+        },
+        category="read",
+    ),
+    Operation(
+        name="kb_orphan_link",
+        description="Insert a wiki-link to an orphan article inside a source article. "
+                    "Omit source to pick the best candidate automatically.",
+        handler=_op_orphan_link,
+        params={
+            "type": "object",
+            "properties": {
+                "slug": {"type": "string", "description": "The orphan article"},
+                "source": {
+                    "type": ["string", "null"],
+                    "description": "Article that will cite it; auto-picked when omitted",
+                },
+            },
+            "required": ["slug"],
+        },
+        writes=True,
+        category="write",
+    ),
+    Operation(
+        name="kb_orphans_fix",
+        description="Link orphan articles automatically, up to max_links.",
+        handler=_op_orphans_fix,
+        params={
+            "type": "object",
+            "properties": {"max_links": {"type": "integer", "default": 10}},
+        },
         writes=True,
         category="write",
     ),

@@ -2,7 +2,7 @@
 
 | Versione | Highlights |
 |----------|-----------|
-| **v0.9.7** | Markdown download for articles and Q&A answers |
+| **v0.9.7** | Markdown download, actionable orphan articles |
 | **v0.9.6** | Doc/code alignment audit, Windows encoding fix |
 | **v0.9.5** | Some minor fixes |
 | **v0.9.4** | UI strings externalised to JSON translation files |
@@ -33,6 +33,23 @@ an `# H1`, the answer body, and — when the query was a deep-research ask — a
 (`[[slug]] Title`), wikilink-style so it can be pasted back into the KB. The
 `consulted` list returned by `/api/ask` was previously read once for trail
 recording and discarded; it is now kept in state.
+- **Orphan articles became actionable.** `check_orphans` has always reported articles
+nobody links to — 67 of 226 on a real KB — but nothing could act on the report: the
+Health page printed the raw strings and no fixer touched them. The Orphans section now
+lists, per article, the existing articles that could cite it, ranked by shared tags
+(no LLM call), and offers both routes the same write: pick the source yourself, or let
+the server take the best candidate. A new `llmwiki/lint/orphans.py` inserts the
+wiki-link as a `See also:` / `Vedi anche:` line at the end of each language section,
+reusing the convention already present in the corpus and appending to that line when it
+exists. Reachable as `llmbase lint orphans [--fix]`, three `kb_orphan*` MCP tools, and
+`GET /api/lint/orphans` plus two POST routes.
+- Kept orphan linking **out** of `auto_fix()`: it rewrites existing articles, so the
+global "Repair" button and the background worker must not trigger it. A test asserts
+`auto_fix` never mentions orphans so the separation cannot erode.
+- The insertion edits the article body with a targeted regex rather than
+`_split_sections`/`_assemble_sections`, whose round-trip drops `---` rules inside
+sections and renormalizes spacing and section order; a regression test pins that.
+Re-linking is a no-op down to the byte, so a double click costs nothing.
 - Fixed a bug this surfaced: reopening a question from "Previous queries" restored
 its question/answer but left the *previous* answer's "Promoted to concept" panel
 on screen, since that state was never part of the swap — it could point at an

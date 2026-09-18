@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react';
 import { Icon } from '../components/Icon';
 import { Markdown } from '../components/Markdown';
 import { Shimmer } from '../components/Loading';
+import { OrphanFixList } from '../components/OrphanFixList';
 import { useLang } from '../lib/lang';
-import { api, type LintResults } from '../lib/api';
+import { api, ApiError, type LintResults, type OrphanEntry } from '../lib/api';
 
 export function Health() {
   const { t } = useLang();
@@ -16,23 +17,88 @@ export function Health() {
   const [loadingFix, setLoadingFix] = useState(false);
   const [loadingClean, setLoadingClean] = useState(false);
   const [cleanResult, setCleanResult] = useState<{ removed: number; slugs: string[] } | null>(null);
+  const [orphans, setOrphans] = useState<OrphanEntry[]>([]);
+  const [busySlug, setBusySlug] = useState<string | null>(null);
+  const [orphanMsg, setOrphanMsg] = useState('');
+  const [fixingOrphans, setFixingOrphans] = useState(false);
+
+  async function loadOrphans() {
+    try {
+      const res = await api.getOrphans();
+      setOrphans(res.orphans);
+    } catch { /* */ }
+  }
+
+  /** Store lint results, and fetch linking candidates only if orphans exist —
+   *  they cost a full corpus scan. */
+  function applyResults(r: LintResults) {
+    setResults(r);
+    if (r.orphans?.length) loadOrphans();
+    else setOrphans([]);
+  }
 
   // Load cached health report on mount
   useEffect(() => {
     api.getHealth().then(res => {
       if (res.report) {
-        setResults(res.report.results);
+        applyResults(res.report.results);
         setFixes(res.report.fixes_applied || []);
         setLastCheck(res.report.checked_at);
       }
     }).catch(() => {});
   }, []);
 
+  /** Refresh both the counters and the orphan list after a write. */
+  async function refreshAfterLink() {
+    try {
+      const check = await api.lint(false);
+      if (check.results) applyResults(check.results);
+    } catch { /* */ }
+  }
+
+  async function handleLink(slug: string, source?: string) {
+    setBusySlug(slug);
+    setOrphanMsg('');
+    try {
+      const res = await api.linkOrphan(slug, source);
+      setOrphanMsg(
+        res.changed
+          ? t('health.orphans.linked', { slug, source: res.source ?? '' })
+          : t(`health.orphans.reason.${res.reason}`)
+      );
+      await refreshAfterLink();
+    } catch (e) {
+      setOrphanMsg(
+        e instanceof ApiError && e.status === 409
+          ? t('health.orphans.busy')
+          : t('health.orphans.error')
+      );
+    }
+    setBusySlug(null);
+  }
+
+  async function handleFixOrphans() {
+    setFixingOrphans(true);
+    setOrphanMsg('');
+    try {
+      const res = await api.fixOrphans(10);
+      setOrphanMsg(t('health.orphans.fixed', { count: res.fix_count }));
+      await refreshAfterLink();
+    } catch (e) {
+      setOrphanMsg(
+        e instanceof ApiError && e.status === 409
+          ? t('health.orphans.busy')
+          : t('health.orphans.error')
+      );
+    }
+    setFixingOrphans(false);
+  }
+
   async function runBasic() {
     setLoadingBasic(true);
     try {
       const res = await api.lint(false);
-      if (res.results) setResults(res.results);
+      if (res.results) applyResults(res.results);
     } catch { /* */ }
     setLoadingBasic(false);
   }
@@ -54,7 +120,7 @@ export function Health() {
         // Synchronous response (local dev)
         setFixes(res.fixes);
         const check = await api.lint(false);
-        if (check.results) setResults(check.results);
+        if (check.results) applyResults(check.results);
       } else {
         // Async response (production) — pipeline running in background
         setFixes([res.message || 'Auto-fix pipeline started in background. Refresh in 1-2 minutes.']);
@@ -62,7 +128,7 @@ export function Health() {
         setTimeout(async () => {
           try {
             const check = await api.lint(false);
-            if (check.results) setResults(check.results);
+            if (check.results) applyResults(check.results);
             const health = await api.getHealth();
             if (health.report?.fixes_applied) setFixes(health.report.fixes_applied);
           } catch { /* */ }
@@ -81,7 +147,7 @@ export function Health() {
       setCleanResult(res);
       // Re-run check
       const check = await api.lint(false);
-      if (check.results) setResults(check.results);
+      if (check.results) applyResults(check.results);
     } catch { /* */ }
     setLoadingClean(false);
   }
@@ -91,9 +157,9 @@ export function Health() {
     { key: 'broken_links', label: t('health.cat.brokenLinks'), icon: 'link_off', issues: results.broken_links, color: 'text-error' },
     { key: 'orphans', label: t('health.cat.orphans'), icon: 'visibility_off', issues: results.orphans, color: 'text-secondary' },
     { key: 'missing_metadata', label: t('health.cat.missingMetadata'), icon: 'label_off', issues: results.missing_metadata, color: 'text-on-surface-variant' },
-    { key: 'duplicates', label: t('health.cat.duplicates'), icon: 'content_copy', issues: (results as any).duplicates || [], color: 'text-tertiary' },
-    { key: 'stubs', label: t('health.cat.stubs'), icon: 'delete_sweep', issues: (results as any).stubs || [], color: 'text-error' },
-    { key: 'uncategorized', label: t('health.cat.uncategorized'), icon: 'category', issues: (results as any).uncategorized || [], color: 'text-on-surface-variant' },
+    { key: 'duplicates', label: t('health.cat.duplicates'), icon: 'content_copy', issues: results.duplicates || [], color: 'text-tertiary' },
+    { key: 'stubs', label: t('health.cat.stubs'), icon: 'delete_sweep', issues: results.stubs || [], color: 'text-error' },
+    { key: 'uncategorized', label: t('health.cat.uncategorized'), icon: 'category', issues: results.uncategorized || [], color: 'text-on-surface-variant' },
   ] : [];
 
   const categories = allCategories.filter(c => c.issues && c.issues.length > 0);
@@ -199,14 +265,31 @@ export function Health() {
                 <Icon name={c.icon} className={`text-[16px] ${c.color}`} />
                 {c.label} ({c.issues.length})
               </h3>
-              <div className="bg-surface-container rounded-xl border border-outline-variant/20 divide-y divide-outline-variant/10 max-h-60 overflow-y-auto">
-                {c.issues.slice(0, 50).map((issue: string, i: number) => (
-                  <div key={i} className="px-5 py-2.5 text-sm text-on-surface-variant">{issue}</div>
-                ))}
-                {c.issues.length > 50 && (
-                  <div className="px-5 py-2.5 text-xs text-outline">{t('health.andMore', { count: c.issues.length - 50 })}</div>
-                )}
-              </div>
+              {c.key === 'orphans' ? (
+                <>
+                  <div className="flex items-center gap-3 mb-2">
+                    <button
+                      onClick={handleFixOrphans}
+                      disabled={fixingOrphans || orphans.length === 0}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-secondary/10 text-secondary hover:bg-secondary/20 transition-colors disabled:opacity-40"
+                    >
+                      <Icon name="bolt" className="text-[15px]" />
+                      {fixingOrphans ? t('health.orphans.working') : t('health.orphans.autoAll', { count: 10 })}
+                    </button>
+                    {orphanMsg && <span className="text-xs text-on-surface-variant">{orphanMsg}</span>}
+                  </div>
+                  <OrphanFixList orphans={orphans} busySlug={busySlug} onLink={handleLink} />
+                </>
+              ) : (
+                <div className="bg-surface-container rounded-xl border border-outline-variant/20 divide-y divide-outline-variant/10 max-h-60 overflow-y-auto">
+                  {c.issues.slice(0, 50).map((issue: string, i: number) => (
+                    <div key={i} className="px-5 py-2.5 text-sm text-on-surface-variant">{issue}</div>
+                  ))}
+                  {c.issues.length > 50 && (
+                    <div className="px-5 py-2.5 text-xs text-outline">{t('health.andMore', { count: c.issues.length - 50 })}</div>
+                  )}
+                </div>
+              )}
             </div>
           ))}
         </>
