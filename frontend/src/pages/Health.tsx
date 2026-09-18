@@ -37,15 +37,31 @@ export function Health() {
     else setOrphans([]);
   }
 
-  // Load cached health report on mount
+  // Show the cached health report first so the page is never blank, then
+  // replace it with a live check: health.json is written by `lint heal` and
+  // the worker, so it can be hours old and report issues already fixed —
+  // counts that no longer exist, above an orphan list built from live data.
+  // A full lint is ~0.25s on a 200-article KB, cheap enough to always redo.
   useEffect(() => {
-    api.getHealth().then(res => {
-      if (res.report) {
-        applyResults(res.report.results);
-        setFixes(res.report.fixes_applied || []);
-        setLastCheck(res.report.checked_at);
-      }
-    }).catch(() => {});
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await api.getHealth();
+        if (!cancelled && res.report) {
+          setResults(res.report.results);
+          setFixes(res.report.fixes_applied || []);
+          setLastCheck(res.report.checked_at);
+        }
+      } catch { /* */ }
+      try {
+        const check = await api.lint(false);
+        if (!cancelled && check.results) {
+          applyResults(check.results);
+          setLastCheck(new Date().toISOString());
+        }
+      } catch { /* */ }
+    })();
+    return () => { cancelled = true; };
   }, []);
 
   /** Refresh both the counters and the orphan list after a write. */

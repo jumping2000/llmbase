@@ -2,7 +2,7 @@
 
 | Versione | Highlights |
 |----------|-----------|
-| **v0.9.7** | Markdown download, actionable orphan articles |
+| **v0.9.7** | Markdown download, actionable orphans, taxonomy tag loop fixed |
 | **v0.9.6** | Doc/code alignment audit, Windows encoding fix |
 | **v0.9.5** | Some minor fixes |
 | **v0.9.4** | UI strings externalised to JSON translation files |
@@ -33,6 +33,31 @@ an `# H1`, the answer body, and — when the query was a deep-research ask — a
 (`[[slug]] Title`), wikilink-style so it can be pasted back into the KB. The
 `consulted` list returned by `/api/ask` was previously read once for trail
 recording and discarded; it is now kept in state.
+- **Broke the taxonomy's tag feedback loop.** `_sync_taxonomy_to_tags` writes a
+`category:<id>` tag into every classified article, and `_fallback_taxonomy` — the
+tag-frequency path used whenever LLM generation fails — counted those tags like any
+other and promoted one to a category id. The next sync then wrote it back as
+`category:category:middleware`, one prefix deeper per run. 38 of 206 articles already
+carried the doubled tag and the taxonomy held two rival categories, `middleware` (128)
+and `category:middleware` (38). Category inference now ignores the taxonomy's own
+output, through a single `is_category_tag()` helper applied at the four points that fed
+the loop: the fallback, the two-phase tag summary, the profile/matching pass in
+`assign_new_articles`, and the article list sent to the LLM.
+- Made the sync self-healing rather than adding a one-off migration: articles no longer
+present in the tree get their stale `category:*` tags stripped, so a tag can't outlive
+the category that produced it. `_apply_category_tags` now writes only when the tag list
+actually changes — the pass covers the whole corpus, and rewriting 200 unchanged files
+per rebuild was pure churn.
+- Fixed a token cap that cancelled its own intent: `tax_tokens = min(max_tokens * 2,
+16384)` sat next to a comment explaining that thinking models need double the room, but
+`config.yaml` already sets `max_tokens: 16384`, so the doubling never happened. Taxonomy
+generation had failed 99 times out of 172, and on 119 of 124 measurable failures the
+model's reasoning tokens had met or exceeded the completion budget, returning empty
+content. First run after the fix succeeded and produced an 82-node hierarchy.
+- Added `tests/test_taxonomy.py` — the module had no test at all. Both headline tests
+were checked against a replica of the old code first, to confirm they actually reproduce
+the drift (`other` → `category:other` → `category:category:other`) rather than passing
+either way.
 - **Orphan articles became actionable.** `check_orphans` has always reported articles
 nobody links to — 67 of 226 on a real KB — but nothing could act on the report: the
 Health page printed the raw strings and no fixer touched them. The Orphans section now

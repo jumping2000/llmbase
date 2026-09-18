@@ -46,6 +46,31 @@ TAXONOMY_LABEL_KEYS: list[str] = ["en", "it"]
 TAXONOMY_GENERATOR = None
 
 
+# Prefix of the tags the taxonomy writes back into articles (see
+# _apply_category_tags). They are taxonomy *output*, not user vocabulary.
+CATEGORY_TAG_PREFIX = "category:"
+
+
+def is_category_tag(tag: object) -> bool:
+    """True for a `category:*` tag written by the taxonomy itself.
+
+    Category inference must ignore these: feeding a category id back in as if
+    it were a topic tag is what produced `category:category:middleware`.
+    """
+    return isinstance(tag, str) and tag.lower().startswith(CATEGORY_TAG_PREFIX)
+
+
+def _taxonomy_tokens(cfg: dict) -> int:
+    """Completion budget for taxonomy calls — double the usual.
+
+    Thinking models spend most of their budget reasoning and return empty
+    content when it runs out, which is the single largest cause of failed
+    taxonomy generations. This used to be capped at 16384, the same value
+    config.yaml already sets for max_tokens, so the doubling never happened.
+    """
+    return cfg["llm"]["max_tokens"] * 2
+
+
 TAXONOMY_SYSTEM_PROMPT = """You are a knowledge base architect. Your job is to analyze a collection
 of wiki articles and produce a deep, well-structured hierarchical taxonomy (like a library catalog
 or an academic classification system).
@@ -183,12 +208,13 @@ def _generate_single_pass(articles: list[dict], cfg: dict, base_dir: Path | None
     """Small KB: send all articles to LLM in one prompt."""
     article_lines = []
     for a in articles:
-        tags_str = ", ".join(a["tags"][:5]) if a["tags"] else "none"
+        # Don't show the LLM our own category:* tags as if they were topics.
+        topic_tags = [t for t in (a["tags"] or []) if not is_category_tag(t)]
+        tags_str = ", ".join(topic_tags[:5]) if topic_tags else "none"
         article_lines.append(f'- {a["slug"]} | {a["title"]} | {tags_str}')
     articles_text = "\n".join(article_lines)
     prompt = TAXONOMY_PROMPT_TEMPLATE.format(count=len(articles), articles=articles_text)
-    # Use 2x max_tokens for taxonomy — thinking models need extra room
-    tax_tokens = min(cfg["llm"]["max_tokens"] * 2, 16384)
+    tax_tokens = _taxonomy_tokens(cfg)
     response = chat(
         prompt,
         system=TAXONOMY_SYSTEM_PROMPT,
@@ -215,9 +241,9 @@ def _generate_two_phase(articles: list[dict], cfg: dict, base_dir: Path | None =
     title_samples: dict[str, list[str]] = {}
     for a in articles:
         for t in a.get("tags", []):
-            t_lower = t.lower()
-            if t_lower.startswith("category:"):
+            if is_category_tag(t) or not isinstance(t, str):
                 continue
+            t_lower = t.lower()
             tag_counter[t_lower] += 1
             title_samples.setdefault(t_lower, [])
             if len(title_samples[t_lower]) < 2:
@@ -269,7 +295,7 @@ match_title_keywords = keywords in article TITLES that indicate this category.
 Output ONLY the JSON array."""
 
     logger.info(f"[taxonomy] Phase 1: generating category structure from {len(tag_counter)} tags...")
-    tax_tokens = min(cfg["llm"]["max_tokens"] * 2, 16384)
+    tax_tokens = _taxonomy_tokens(cfg)
     response = chat(
         phase1_prompt,
         system=TAXONOMY_SYSTEM_PROMPT,
@@ -335,9 +361,9 @@ def _assign_articles_to_tree(tree: list[dict], articles: list[dict]):
         # Tag matching (fallback)
         if best_score < 100:
             for tag in a.get("tags", []):
-                t = tag.lower()
-                if t.startswith("category:"):
+                if is_category_tag(tag) or not isinstance(tag, str):
                     continue
+                t = tag.lower()
                 if t in tag_to_node:
                     node, depth = tag_to_node[t]
                     score = depth
@@ -379,10 +405,21 @@ def _sync_taxonomy_to_tags(tree: list[dict], concepts_dir: Path, path: list[str]
 
     Example: an article under "Science > Physics" gets:
       tags: [...existing..., "category:buddhism", "category:buddhism/practice"]
-    """
-    if path is None:
-        path = []
 
+    Articles that are no longer in the tree have their stale `category:*`
+    tags stripped, so a tag can never outlive the category that produced it.
+    """
+    tagged: set[str] = set()
+    _walk_taxonomy_tags(tree, concepts_dir, path or [], tagged)
+
+    if concepts_dir.exists():
+        for article_path in sorted(concepts_dir.glob("*.md")):
+            if article_path.stem not in tagged:
+                _apply_category_tags(concepts_dir, article_path.stem, [])
+
+
+def _walk_taxonomy_tags(tree: list[dict], concepts_dir: Path, path: list[str], tagged: set[str]):
+    """Recurse the tree applying category tags, recording which slugs we hit."""
     for node in tree:
         node_id = node.get("id", "")
         current_path = path + [node_id] if node_id else path
@@ -390,28 +427,37 @@ def _sync_taxonomy_to_tags(tree: list[dict], concepts_dir: Path, path: list[str]
         # Tag articles at this node
         for slug in node.get("article_slugs", []):
             _apply_category_tags(concepts_dir, slug, current_path)
+            tagged.add(slug)
 
         # Recurse into children
-        _sync_taxonomy_to_tags(node.get("children", []), concepts_dir, current_path)
+        _walk_taxonomy_tags(node.get("children", []), concepts_dir, current_path, tagged)
 
 
 def _apply_category_tags(concepts_dir: Path, slug: str, category_path: list[str]):
-    """Add category:xxx tags to an article, removing old category tags."""
+    """Set an article's category:xxx tags, replacing any it already carries.
+
+    An empty `category_path` just strips them. Writes only when the tag list
+    actually changes — this runs over the whole corpus on every taxonomy
+    rebuild, and rewriting 200 unchanged files each time is pure churn.
+    """
     article_path = concepts_dir / f"{slug}.md"
     if not article_path.exists():
         return
 
     post = frontmatter.load(str(article_path))
-    tags = post.metadata.get("tags", [])
+    old_tags = post.metadata.get("tags", []) or []
 
     # Remove old category tags
-    tags = [t for t in tags if not t.startswith("category:")]
+    tags = [t for t in old_tags if not is_category_tag(t)]
 
     # Add new category tags (each level of the path)
     for i in range(len(category_path)):
-        cat_tag = "category:" + "/".join(category_path[:i + 1])
+        cat_tag = CATEGORY_TAG_PREFIX + "/".join(category_path[:i + 1])
         if cat_tag not in tags:
             tags.append(cat_tag)
+
+    if tags == list(old_tags):
+        return
 
     post.metadata["tags"] = tags
     article_path.write_text(frontmatter.dumps(post), encoding="utf-8")
@@ -504,7 +550,11 @@ def assign_new_articles(base_dir: Path | None = None):
                 article_path = concepts_dir / f"{slug}.md"
                 if article_path.exists():
                     post = frontmatter.load(str(article_path))
-                    tags.update(t.lower() for t in post.metadata.get("tags", []))
+                    tags.update(
+                        t.lower()
+                        for t in post.metadata.get("tags", [])
+                        if isinstance(t, str) and not is_category_tag(t)
+                    )
             cat_profiles[cat_id] = (tags, n)
             _build_profiles(n.get("children", []))
     _build_profiles(categories)
@@ -515,7 +565,11 @@ def assign_new_articles(base_dir: Path | None = None):
         if not article_path.exists():
             continue
         post = frontmatter.load(str(article_path))
-        article_tags = set(t.lower() for t in post.metadata.get("tags", []))
+        article_tags = set(
+            t.lower()
+            for t in post.metadata.get("tags", [])
+            if isinstance(t, str) and not is_category_tag(t)
+        )
 
         if not article_tags:
             # No tags — put in "Other"
@@ -704,7 +758,13 @@ def _fallback_taxonomy(articles: list[dict]) -> list[dict]:
     tag_counter = Counter()
     article_tags = {}
     for a in articles:
-        tags = [t.lower().replace(" ", "-") for t in a.get("tags", [])]
+        # Skip the taxonomy's own category:* tags: using one as a category id
+        # makes the next sync write category:category:x, and so on each run.
+        tags = [
+            t.lower().replace(" ", "-")
+            for t in a.get("tags", [])
+            if isinstance(t, str) and not is_category_tag(t)
+        ]
         article_tags[a["slug"]] = tags
         for t in tags:
             tag_counter[t] += 1
