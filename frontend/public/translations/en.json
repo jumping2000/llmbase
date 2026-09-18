@@ -1,5 +1,6 @@
 {
   "article.citedBy": "Cited by",
+  "article.download": "Download Markdown",
   "article.loading": "Loading article...",
   "article.notFound": "Article not found",
   "article.onThisPage": "On this page",
@@ -198,6 +199,8 @@
   "nav.trails": "Trails",
   "nav.wiki": "Wiki",
   "qa.ask": "Ask",
+  "qa.consultedSources": "Consulted sources",
+  "qa.download": "Download Markdown",
   "qa.error": "Error: Failed to get response. Check API connection.",
   "qa.eyebrow": "Editorial Intelligence",
   "qa.fileBack": "File to wiki",

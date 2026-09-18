@@ -6,6 +6,7 @@ import { Loading } from '../components/Loading';
 import { Icon } from '../components/Icon';
 import { useLang, localizeTitle, extractLangContent } from '../lib/lang';
 import { useTrail } from '../lib/trail';
+import { downloadText } from '../lib/download';
 import { api, type Article } from '../lib/api';
 
 export function ArticleDetail() {
@@ -74,6 +75,15 @@ export function ArticleDetail() {
   if (loading) return <Loading text={t('article.loading')} />;
   if (!article) return <div className="p-8 text-center text-on-surface-variant">{t('article.notFound')}</div>;
 
+  // Save what is on screen: the selected language only, titled and summarized.
+  function downloadMarkdown() {
+    if (!article) return;
+    const parts = [`# ${localizeTitle(article.title, lang)}`];
+    if (article.summary) parts.push(`> ${article.summary}`);
+    parts.push(displayContent);
+    downloadText(`${article.slug}.md`, parts.join('\n\n') + '\n');
+  }
+
   return (
     <div className="flex">
       {/* Article content */}
@@ -98,6 +108,14 @@ export function ArticleDetail() {
             </span>
           )}
           {article.tags?.map(tag => <Tag key={tag} label={tag} />)}
+          <button
+            onClick={downloadMarkdown}
+            title={t('article.download')}
+            className="ml-auto flex items-center gap-1 px-2 py-0.5 text-xs rounded-full text-on-surface-variant hover:text-primary transition-colors"
+          >
+            <Icon name="download" className="text-[13px]" />
+            {t('article.download')}
+          </button>
         </div>
 
         <hr className="border-outline-variant/30 mb-8" />

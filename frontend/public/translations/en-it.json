@@ -1,5 +1,6 @@
 {
   "article.citedBy": "Citato da",
+  "article.download": "Scarica in Markdown",
   "article.loading": "Caricamento articolo...",
   "article.notFound": "Articolo non trovato",
   "article.onThisPage": "In questa pagina",
@@ -198,6 +199,8 @@
   "nav.trails": "Percorsi",
   "nav.wiki": "Wiki",
   "qa.ask": "Chiedi",
+  "qa.consultedSources": "Fonti consultate",
+  "qa.download": "Scarica in Markdown",
   "qa.error": "Errore: impossibile ottenere una risposta. Controlla la connessione API.",
   "qa.eyebrow": "Intelligenza editoriale",
   "qa.fileBack": "Archivia negli output",

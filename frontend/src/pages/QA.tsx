@@ -6,6 +6,7 @@ import { api } from '../lib/api';
 import { useLang } from '../lib/lang';
 import { useTrail } from '../lib/trail';
 import { useDomains } from '../lib/domains';
+import { downloadText, slugifyFilename } from '../lib/download';
 
 interface PromotionInfo {
   promoted: boolean;
@@ -15,7 +16,8 @@ interface PromotionInfo {
   path?: string;
   merged?: boolean;
 }
-interface QAPair { question: string; answer: string; promotion?: PromotionInfo; }
+interface ConsultedArticle { slug: string; title: string; }
+interface QAPair { question: string; answer: string; promotion?: PromotionInfo; consulted: ConsultedArticle[]; }
 interface ToneOption { id: string; label: string; label_zh: string; icon: string; }
 
 const FALLBACK_TONES: ToneOption[] = [
@@ -31,6 +33,7 @@ export function QA() {
   const [question, setQuestion] = useState('');
   const [answer, setAnswer] = useState('');
   const [promotion, setPromotion] = useState<PromotionInfo | null>(null);
+  const [consulted, setConsulted] = useState<ConsultedArticle[]>([]);
   const [loading, setLoading] = useState(false);
   const [fileBack, setFileBack] = useState(true);
   const [promote, setPromote] = useState(true);
@@ -50,12 +53,15 @@ export function QA() {
     setLoading(true);
     setAnswer('');
     setPromotion(null);
+    setConsulted([]);
     try {
       const res = await api.ask(question, deep, fileBack, tone, promote, current);
       setAnswer(res.answer);
       const promo = res.promotion ?? null;
       setPromotion(promo);
-      setHistory(prev => [{ question, answer: res.answer, promotion: promo ?? undefined }, ...prev]);
+      const sources = res.consulted ?? [];
+      setConsulted(sources);
+      setHistory(prev => [{ question, answer: res.answer, promotion: promo ?? undefined, consulted: sources }, ...prev]);
 
       // Trail recording: deep research or regular question
       if (deep && res.consulted && res.consulted.length > 0) {
@@ -81,6 +87,23 @@ export function QA() {
       setAnswer(t('qa.error'));
     }
     setLoading(false);
+  }
+
+  function downloadMarkdown() {
+    // The textarea accepts newlines, which would break both the YAML title and the H1.
+    const title = question.trim().replace(/\s+/g, ' ');
+    const parts = [
+      ['---', `title: "${title.replace(/"/g, '\\"')}"`, `date: ${new Date().toISOString().slice(0, 10)}`, `tone: ${tone}`, '---'].join('\n'),
+      `# ${title}`,
+      answer,
+    ];
+    if (consulted.length > 0) {
+      parts.push(
+        `---\n## ${t('qa.consultedSources')}\n` +
+        consulted.map(a => `- [[${a.slug}]] ${a.title}`).join('\n')
+      );
+    }
+    downloadText(`${slugifyFilename(question)}.md`, parts.join('\n\n') + '\n');
   }
 
   return (
@@ -165,6 +188,14 @@ export function QA() {
           <div className="flex items-center gap-2 mb-4">
             <Icon name="auto_awesome" className="text-primary text-[18px]" />
             <span className="text-xs uppercase tracking-widest text-on-surface-variant">{t('qa.synthesis')}</span>
+            <button
+              onClick={downloadMarkdown}
+              title={t('qa.download')}
+              className="ml-auto flex items-center gap-1 px-2 py-0.5 text-xs rounded-full text-on-surface-variant hover:text-primary transition-colors"
+            >
+              <Icon name="download" className="text-[13px]" />
+              {t('qa.download')}
+            </button>
           </div>
           <Markdown content={answer} />
           {promotion && (
@@ -216,7 +247,7 @@ export function QA() {
               <div
                 key={i}
                 className="bg-surface-low rounded-lg p-3 cursor-pointer hover:bg-surface-container transition-colors"
-                onClick={() => { setQuestion(h.question); setAnswer(h.answer); }}
+                onClick={() => { setQuestion(h.question); setAnswer(h.answer); setConsulted(h.consulted); setPromotion(h.promotion ?? null); }}
               >
                 <p className="text-sm text-on-surface truncate">{h.question}</p>
               </div>

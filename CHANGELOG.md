@@ -2,6 +2,7 @@
 
 | Versione | Highlights |
 |----------|-----------|
+| **v0.9.7** | Markdown download for articles and Q&A answers |
 | **v0.9.6** | Doc/code alignment audit, Windows encoding fix |
 | **v0.9.5** | Some minor fixes |
 | **v0.9.4** | UI strings externalised to JSON translation files |
@@ -18,6 +19,25 @@
 | **v0.8.3** | Worker seed URL learning |
 | **v0.8.2** | Nginx Basic Auth, PDF upload, Chinese removal |
 | **v0.8.1** | Initial EN/IT release |
+
+## v0.9.7
+
+- Added a **"Download Markdown"** button to the article page: saves the currently
+displayed language (EN, IT, or the combined EN/IT view) as a `.md` file, titled
+and summarized, entirely client-side — the article body already arrives as raw
+markdown from `/api/articles/<slug>`, so no new backend route was needed.
+- Added the same button to the Q&A answer panel. The saved file carries a small
+YAML front-matter (question as `title`, `date`, selected `tone`), the question as
+an `# H1`, the answer body, and — when the query was a deep-research ask — a
+"Consulted sources" section listing the articles the LLM drew on
+(`[[slug]] Title`), wikilink-style so it can be pasted back into the KB. The
+`consulted` list returned by `/api/ask` was previously read once for trail
+recording and discarded; it is now kept in state.
+- Fixed a bug this surfaced: reopening a question from "Previous queries" restored
+its question/answer but left the *previous* answer's "Promoted to concept" panel
+on screen, since that state was never part of the swap — it could point at an
+unrelated article. History entries now carry their own promotion outcome and it
+is restored together with the rest of the pair.
 
 ## v0.9.6
 
