@@ -477,7 +477,6 @@ def create_web_app(base_dir: Path | None = None):
     def api_articles():
         cfg = load_config(base)
         concepts_dir = Path(cfg["paths"]["concepts"])
-        meta_dir = Path(cfg["paths"]["meta"])
 
         limit_raw = request.args.get("limit")
         cursor = request.args.get("cursor")

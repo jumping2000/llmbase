@@ -39,6 +39,14 @@ from llmwiki.pipeline import log as pipeline_log
 from llmwiki.pipeline.lock import StageLock
 
 
+pytestmark = pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="POSIX-only: pipeline locking needs fcntl.flock, and these tests "
+           "probe liveness with os.kill(pid, 0) — which terminates the target "
+           "process on Windows",
+)
+
+
 # ── helpers ───────────────────────────────────────────────────────────
 
 def _find_dead_pid() -> int:

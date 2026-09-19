@@ -185,6 +185,32 @@ export interface LlmUsageRecentResponse {
   requests: LlmUsageRecentRequest[];
 }
 
+// Entity objects are unvalidated LLM output — the backend only checks that
+// people/events/places are lists — so every descriptive field is optional.
+// `articles` stays required: Explore.tsx reads it without guarding.
+export interface EntityPerson {
+  name: string;
+  name_local?: string;
+  dates?: string;
+  role?: string;
+  articles: string[];
+}
+
+export interface EntityEvent {
+  name: string;
+  name_local?: string;
+  date?: string;
+  description?: string;
+  articles: string[];
+}
+
+export interface EntityPlace {
+  name: string;
+  name_local?: string;
+  coords?: [number, number] | null;
+  articles: string[];
+}
+
 function buildQuery(params: Record<string, string | number | undefined>): string {
   const query = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
@@ -341,8 +367,8 @@ export const api = {
   saveTrailStep: (trailId: string | null, step: TrailStep, name?: string) =>
     post<{ trail: Trail }>('/api/trails', { trail_id: trailId, step, name }),
   deleteTrail: (id: string) => post<{ status: string }>(`/api/trails/${id}/delete`, {}),
-  getEntities: () => get<{ people: any[]; events: any[]; places: any[]; article_count?: number }>('/api/entities'),
-  extractEntities: () => post<{ people: any[]; events: any[]; places: any[] }>('/api/entities/extract', {}),
+  getEntities: () => get<{ people: EntityPerson[]; events: EntityEvent[]; places: EntityPlace[]; article_count?: number }>('/api/entities'),
+  extractEntities: () => post<{ people: EntityPerson[]; events: EntityEvent[]; places: EntityPlace[] }>('/api/entities/extract', {}),
   getXiCi: (lang: string) => get<XiCi>(`/api/xici?lang=${lang}`),
   generateXiCi: (lang: string) => post<XiCi>('/api/xici/generate', { lang }),
   getSources: () => get<{ documents: RawDoc[] }>('/api/sources').then(d => d.documents),

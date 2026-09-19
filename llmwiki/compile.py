@@ -203,8 +203,6 @@ def compile_new(
         _preview_titles = [p.parent.name for p in batch[:5]]
     emit("before_compile", batch_size=len(batch), titles=_preview_titles)
 
-    # Load existing index for context
-    index = _load_index(meta_dir)
     existing_concepts = _list_existing_concepts(concepts_dir)
 
     # Load compiled-sources log to avoid recompiling on volume reset
@@ -455,14 +453,6 @@ def _find_uncompiled(raw_dir: Path) -> list[Path]:
                     uncompiled.append(md_file)
                     break
     return uncompiled
-
-
-def _load_index(meta_dir: Path) -> list[dict]:
-    """Load existing index."""
-    index_path = meta_dir / "index.json"
-    if index_path.exists():
-        return json.loads(index_path.read_text(encoding="utf-8"))
-    return []
 
 
 def _list_existing_concepts(concepts_dir: Path) -> list[str]:

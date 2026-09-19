@@ -83,7 +83,7 @@ def normalize_text(s: str, level: NormalizeLevel = "punct_spaces") -> str:
       Punctuation: ``—–―…!.,;:?()[]{}"'``
 
     JS equivalents:
-      punct        — ``/[—–―…!.,;:?()\[\]{}"']+/g``
+      punct        — ``/[—–―…!.,;:?()\\[\\]{}"']+/g``
       punct_spaces — same class plus ``\\s``
 
     Raises:

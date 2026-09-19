@@ -29,8 +29,8 @@ from __future__ import annotations
 
 import logging
 import os
-from datetime import datetime, timezone
-from typing import Iterable
+from collections.abc import Iterable
+from datetime import UTC, datetime
 
 import requests
 
@@ -129,7 +129,7 @@ def push_ingested(source: str, work_id: str, title: str = "") -> bool:
             "source": source,
             "work_id": work_id,
             "title": title or None,
-            "ingested_at": datetime.now(timezone.utc).isoformat(),
+            "ingested_at": datetime.now(UTC).isoformat(),
         }
         resp = requests.post(
             f"{base_url}/rest/v1/{table}?on_conflict=source,work_id",
@@ -164,7 +164,7 @@ def push_ingested_batch(rows: Iterable[dict]) -> int:
     try:
         upsert_headers = dict(headers)
         upsert_headers["Prefer"] = "resolution=merge-duplicates,return=minimal"
-        now_iso = datetime.now(timezone.utc).isoformat()
+        now_iso = datetime.now(UTC).isoformat()
         body = [
             {
                 "source": r["source"],
@@ -205,7 +205,7 @@ def mark_compiled(source: str, work_id: str) -> bool:
     try:
         upsert_headers = dict(headers)
         upsert_headers["Prefer"] = "resolution=merge-duplicates,return=minimal"
-        now_iso = datetime.now(timezone.utc).isoformat()
+        now_iso = datetime.now(UTC).isoformat()
         body = {
             "source": source,
             "work_id": work_id,

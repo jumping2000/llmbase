@@ -1,6 +1,9 @@
 name: LLMwiki CI/CD Pipeline
 
 on:
+  push:
+    branches: [main, dev_en-it]
+  pull_request:
   release:
     types: [published]
   workflow_dispatch:
@@ -68,37 +71,33 @@ jobs:
         with:
           ref: ${{ needs.prepare.outputs.sha }}
 
-      - name: Setup Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
         with:
-          python-version: ${{ matrix.python-version }}
-          cache: 'pip'
+          enable-cache: true
 
       - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          # Installa il pacchetto in modalità editabile con le dipendenze dev
-          pip install -e ".[dev]"
+        run: uv sync --extra dev --python ${{ matrix.python-version }}
 
       - name: Run linting with Ruff
         run: |
           # Controlla la cartella llmwiki/ come specificato
-          ruff check llmwiki/ --output-format=github || true
+          uv run ruff check llmwiki/ --output-format=github
 
       - name: Run tests with pytest
         run: |
           # Test su cartella tests/ e copertura su llmwiki/
-          pytest -v \
+          uv run pytest -v \
             --cov=llmwiki \
             --cov-report=xml \
-            --cov-report=term-missing \
-            -x || echo "No tests found or tests failed"
+            --cov-report=term-missing
 
       - name: Test CLI
         run: |
           # llmbase è il nome del comando definito in [project.scripts]
-          llmbase --help
-          llmbase stats || echo "Status check expected to fail without data"
+          uv run llmbase --help
+          # Smoke check contro una KB che in CI non esiste — non è un gate.
+          uv run llmbase stats || echo "Status check expected to fail without data"
 
       - name: Create test summary
         if: always()
@@ -111,12 +110,49 @@ jobs:
           echo "| CLI | ${{ job.status }} |" >> $GITHUB_STEP_SUMMARY
 
   # ========================================================================
-  # JOB 3: BUILD DOCKER
+  # JOB 3: FRONTEND
+  # ========================================================================
+  frontend:
+    name: Frontend Lint & Build
+    runs-on: ubuntu-latest
+    needs: prepare
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          # Allineato a node:20-slim del Dockerfile, che builda il bundle spedito.
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Lint
+        working-directory: frontend
+        run: npm run lint
+
+      - name: Build
+        working-directory: frontend
+        # tsc -b && vite build: unico type check della pipeline — il Dockerfile
+        # esegue `npx vite build`, che salta tsc.
+        run: npm run build
+
+  # ========================================================================
+  # JOB 4: BUILD DOCKER
   # ========================================================================
   build-docker:
     name: Build & Push Docker
     runs-on: ubuntu-latest
-    needs: [prepare, test]
+    needs: [prepare, test, frontend]
+    if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
     permissions:
       contents: write
       packages: write
@@ -234,13 +270,14 @@ jobs:
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
 
   # ========================================================================
-  # JOB 4: NOTIFICATION
+  # JOB 5: NOTIFICATION
   # ========================================================================
   notify:
     name: Send Email Notification
     runs-on: ubuntu-latest
     needs: [prepare, test, build-docker]
-    if: always()
+    # Solo su release: le PR da fork non hanno i secret SMTP.
+    if: always() && (github.event_name == 'release' || github.event_name == 'workflow_dispatch')
 
     steps:
       - name: Prepare email content

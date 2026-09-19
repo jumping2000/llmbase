@@ -5,39 +5,36 @@ Re-exports all public functions for backward compatibility:
 """
 
 from .checks import (
-    lint,
-    lint_deep,
-    check_structural,
     check_broken_links,
-    check_orphans,
-    check_missing_metadata,
     check_dirty_tags,
+    check_duplicates,
+    check_missing_metadata,
+    check_orphans,
+    check_structural,
     check_stubs,
     check_uncategorized,
-    check_duplicates,
+    lint,
+    lint_deep,
 )
-
+from .dedup import (
+    _find_duplicate_candidates,
+    merge_duplicates,
+)
 from .fixes import (
     auto_fix,
-    normalize_tags,
-    fix_dirty_tags,
     clean_garbage,
-    fix_uncategorized,
     fix_broken_links,
+    fix_dirty_tags,
+    fix_uncategorized,
+    normalize_tags,
 )
-
 from .orphans import (
-    list_orphans,
-    suggest_link_sources,
+    fix_orphans,
     insert_see_also,
     link_orphan,
-    fix_orphans,
+    list_orphans,
     orphan_slugs,
-)
-
-from .dedup import (
-    merge_duplicates,
-    _find_duplicate_candidates,
+    suggest_link_sources,
 )
 
 __all__ = [

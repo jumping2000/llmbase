@@ -29,13 +29,13 @@ Example::
 """
 
 import logging
-import time
 import threading
+import time
 import traceback
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
-from .config import load_config, ensure_dirs
+from .config import ensure_dirs, load_config
 
 logger = logging.getLogger("llmbase.worker")
 
@@ -218,7 +218,7 @@ def _task_compile(base: Path):
 
 def _task_taxonomy(base: Path):
     """Regenerate taxonomy from current articles (unless locked)."""
-    from .taxonomy import load_taxonomy, generate_taxonomy
+    from .taxonomy import generate_taxonomy, load_taxonomy
 
     # Respect locked taxonomy — don't overwrite manually curated categories
     existing = load_taxonomy(base)
@@ -263,8 +263,8 @@ def _task_health_check(base: Path):
     """Run lint checks and auto-fix broken links."""
     logger.info("[health] Running health checks...")
     try:
-        from .lint import lint, auto_fix
-        import json
+
+        from .lint import auto_fix, lint
 
         # Run checks
         results = lint(base)
@@ -293,7 +293,7 @@ def _save_health_report(base: Path, results: dict, fixes: list[str]):
     meta_dir.mkdir(parents=True, exist_ok=True)
 
     report = {
-        "checked_at": datetime.now(timezone.utc).isoformat(),
+        "checked_at": datetime.now(UTC).isoformat(),
         "results": results,
         "fixes_applied": fixes,
     }

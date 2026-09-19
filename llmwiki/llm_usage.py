@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import os
 from contextlib import contextmanager
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from .config import ensure_dirs, load_config
@@ -215,7 +215,7 @@ def recent_requests(
     requests = sorted(
         groups.values(),
         key=lambda item: (
-            item["_sort_dt"] or datetime.min.replace(tzinfo=timezone.utc),
+            item["_sort_dt"] or datetime.min.replace(tzinfo=UTC),
             item["_last_index"],
         ),
         reverse=True,
@@ -370,14 +370,14 @@ def _parse_record_ts(value) -> datetime | None:
     except ValueError:
         return None
     if dt.tzinfo is None:
-        return dt.replace(tzinfo=timezone.utc)
-    return dt.astimezone(timezone.utc)
+        return dt.replace(tzinfo=UTC)
+    return dt.astimezone(UTC)
 
 
 def _dt_to_iso(value: datetime | None) -> str | None:
     if value is None:
         return None
-    return value.astimezone(timezone.utc).isoformat()
+    return value.astimezone(UTC).isoformat()
 
 
 def _iter_usage_records(path: Path, summary: dict | None = None):
@@ -445,4 +445,4 @@ def _now_iso() -> str:
 
 
 def _now_dt() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)

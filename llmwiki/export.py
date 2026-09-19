@@ -11,9 +11,9 @@ from pathlib import Path
 
 import frontmatter
 
-from .config import load_config, ensure_dirs
 from . import compile as _compile_mod
 from .compile import _split_sections
+from .config import load_config
 
 
 def export_article(slug: str, base_dir: Path | None = None) -> dict | None:
@@ -147,7 +147,6 @@ def export_graph(slug: str, depth: int = 2, base_dir: Path | None = None) -> dic
 
     Traverses outgoing wiki-links and backlinks to build a subgraph.
     """
-    cfg = load_config(base_dir)
     # Resolve root slug to canonical
     from .resolve import load_aliases, resolve_link
     _cfg = load_config(base_dir)

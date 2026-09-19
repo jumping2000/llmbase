@@ -15,8 +15,9 @@ export function Trails() {
   const [stepExpanded, setStepExpanded] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    api.getTrails().then(setTrails).catch(() => {});
-    setLoading(false);
+    api.getTrails()
+      .then(t => { setTrails(t); setLoading(false); })
+      .catch(() => setLoading(false));
   }, []);
 
   const deleteTrail = (id: string) => {

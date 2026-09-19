@@ -11,12 +11,12 @@ structure, connections, and significance of the collected knowledge.
 
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import frontmatter
 
-from .config import load_config, ensure_dirs
+from .config import ensure_dirs, load_config
 from .llm import chat
 
 logger = logging.getLogger("llmbase.xici")
@@ -140,7 +140,7 @@ def generate_xici(base_dir: Path | None = None, lang: str = "en-it") -> dict:
             "text": en_text,
             "themes": themes,
             "lang": "en",
-            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "generated_at": datetime.now(UTC).isoformat(),
             "article_count": len(articles),
         }
         _save_xici(cfg, "en", en_result)
@@ -153,7 +153,7 @@ def generate_xici(base_dir: Path | None = None, lang: str = "en-it") -> dict:
             "text": en_text,
             "themes": themes,
             "lang": "en",
-            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "generated_at": datetime.now(UTC).isoformat(),
             "article_count": len(articles),
         }
 
@@ -191,7 +191,7 @@ def generate_xici(base_dir: Path | None = None, lang: str = "en-it") -> dict:
         "text": text,
         "themes": themes,
         "lang": lang,
-        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "generated_at": datetime.now(UTC).isoformat(),
         "article_count": len(articles),
     }
 

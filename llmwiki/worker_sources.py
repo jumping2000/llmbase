@@ -7,7 +7,7 @@ persists completion/failure state alongside other worker metadata.
 from __future__ import annotations
 
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from .atomic import atomic_write_json
@@ -90,7 +90,7 @@ def _parse_datetime(raw: str | None):
     except ValueError:
         return None
     if value.tzinfo is None:
-        return value.replace(tzinfo=timezone.utc)
+        return value.replace(tzinfo=UTC)
     return value
 
 
@@ -100,7 +100,7 @@ def _can_retry(meta: dict, *, now: datetime | None = None) -> bool:
     if last_attempt is None:
         return True
 
-    current = now or datetime.now(timezone.utc)
+    current = now or datetime.now(UTC)
     delay_minutes = BASE_BACKOFF_MINUTES * max(1, 2 ** max(0, attempts - 1))
     delay_minutes = min(delay_minutes, MAX_BACKOFF_HOURS * 60)
     retry_after = last_attempt + timedelta(minutes=delay_minutes)
@@ -119,7 +119,7 @@ def _pick_seed_urls(
         return []
 
     picked = []
-    current = now or datetime.now(timezone.utc)
+    current = now or datetime.now(UTC)
     for url in seed_urls:
         if url in done:
             continue
@@ -144,7 +144,7 @@ def learn_from_seed_urls(batch_size, base_dir, **kwargs):
     done = state.setdefault("done", {})
     failed = state.setdefault("failed", {})
 
-    current = datetime.now(timezone.utc)
+    current = datetime.now(UTC)
     current_iso = current.isoformat()
     seed_urls = _load_seed_urls(base)
     picked = _pick_seed_urls(seed_urls, done, failed, int(batch_size), now=current)

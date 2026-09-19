@@ -6,9 +6,8 @@ from pathlib import Path
 
 import frontmatter
 
-from ..config import load_config, ensure_dirs
+from ..config import ensure_dirs, load_config
 from ..llm import chat
-
 
 SYSTEM_PROMPT = """You are a knowledge base quality analyst. Your job is to review wiki articles
 and identify issues, inconsistencies, and opportunities for improvement.

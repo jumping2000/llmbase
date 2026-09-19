@@ -130,6 +130,9 @@ export function Layout() {
       document.title = b.name || 'LLMBase';
     });
     api.getArticles().then(setArticles).catch(() => {});
+    // refreshCompileStatus awaits before any setState; the rule flags the
+    // call site because it cannot see through the async boundary.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void refreshCompileStatus();
     return () => stopCompilePolling();
   }, []);

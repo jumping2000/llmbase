@@ -26,7 +26,8 @@ from __future__ import annotations
 
 import hashlib
 import re
-from typing import Iterator, TypedDict
+from collections.abc import Iterator
+from typing import TypedDict
 
 # Invisible / control / bidi / zero-width / ideographic-space / BOM.
 _INVISIBLE_RE = re.compile(
@@ -77,7 +78,7 @@ class Section(TypedDict):
     anchor: str
     start: int
     end: int
-    children: list["Section"]
+    children: list[Section]
 
 
 def normalize_title(title: str) -> str:

@@ -18,18 +18,25 @@ crash mid-write leaves the next appender starting on a new offset
 
 This module is package-internal. Downstream should go through
 ``run_stage()`` / ``StageContext.log()``, not here directly.
+
+POSIX only — importing this package on Windows works, but ``append``
+raises ``RuntimeError`` (no ``fcntl``).
 """
 
 from __future__ import annotations
 
-import fcntl
 import hashlib
 import json
 import os
 import re
-from datetime import datetime, timezone
+from collections.abc import Iterator
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Iterator
+
+try:
+    import fcntl
+except ImportError:  # pragma: no cover - Windows path
+    fcntl = None  # type: ignore[assignment]
 
 
 # Stage names become directory segments under ``.pipeline/``; any
@@ -70,8 +77,13 @@ def append(base_dir: Path, stage: str, key: str, event: dict) -> None:
     never observe an interleaved line. On crash before ``write()``
     completes, append is a no-op (the bytes were never flushed);
     on crash *after* ``write()`` but before ``fsync()``, the line is
-    either fully visible or fully absent on next boot.
+    either fully visible or fully absent on next boot. (POSIX only;
+    raises ``RuntimeError`` where ``fcntl`` is absent.)
     """
+    if fcntl is None:  # pragma: no cover - Windows path
+        raise RuntimeError(
+            "llmwiki.pipeline requires fcntl (POSIX); there is no Windows port"
+        )
     path = _log_path(base_dir, stage, key)
     path.parent.mkdir(parents=True, exist_ok=True)
     record = dict(event)
@@ -180,4 +192,4 @@ def _key_hash(key: str) -> str:
 
 def _now_iso() -> str:
     """Monkeypatch target for tests needing deterministic timestamps."""
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()

@@ -12,7 +12,7 @@ from pathlib import Path
 
 import frontmatter
 
-from .config import load_config, ensure_dirs
+from .config import ensure_dirs, load_config
 from .llm import chat
 
 logger = logging.getLogger("llmbase.entities")

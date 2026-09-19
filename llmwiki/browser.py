@@ -1,9 +1,8 @@
 """Browser integration via opencli for web content fetching and reading."""
 
 import json
-import subprocess
 import shutil
-from pathlib import Path
+import subprocess
 
 
 def is_opencli_available() -> bool:

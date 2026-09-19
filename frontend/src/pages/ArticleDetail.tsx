@@ -14,7 +14,10 @@ export function ArticleDetail() {
   const navigate = useNavigate();
   const [article, setArticle] = useState<Article | null>(null);
   const [allArticles, setAllArticles] = useState<Article[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Derived, not set: a slug change must show the loader on the same render
+  // that clears the old article, and an absent slug must not leave it stuck.
+  const [loadedSlug, setLoadedSlug] = useState<string | null>(null);
+  const loading = loadedSlug !== (slug ?? null);
   const { lang, t } = useLang();
   const { recordStep } = useTrail();
 
@@ -27,7 +30,6 @@ export function ArticleDetail() {
 
   useEffect(() => {
     if (!slug) return;
-    setLoading(true);
     Promise.all([
       api.getArticle(slug).catch(async () => {
         // If direct slug fails, try alias resolution via backend
@@ -47,8 +49,8 @@ export function ArticleDetail() {
       }
       setArticle(a);
       setAllArticles(all);
-      setLoading(false);
-    }).catch(() => setLoading(false));
+      setLoadedSlug(slug);
+    }).catch(() => setLoadedSlug(slug));
   }, [slug]);
 
   const displayContent = useMemo(() => {

@@ -24,8 +24,13 @@ export function Mermaid({ source }: { source: string }) {
 
   useEffect(() => {
     let cancelled = false;
+    // Clearing the previous diagram is the purpose of this effect — a stale
+    // SVG must not survive a source/theme change. Two setState calls, no
+    // loop; the cost is one extra render per change.
+    /* eslint-disable react-hooks/set-state-in-effect */
     setError('');
     setSvg('');
+    /* eslint-enable react-hooks/set-state-in-effect */
     (async () => {
       try {
         const mermaid = await loadMermaid();

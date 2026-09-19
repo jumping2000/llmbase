@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "llmwiki"
-version = "0.9.7"
+version = "0.9.8"
 description = "LLM-powered personal knowledge base — raw data goes in, an LLM compiles it into a structured, interlinked wiki"
 readme = "README.md"
 license = {text = "MIT"}
@@ -48,7 +48,7 @@ all = ["llmwiki[pdf,chart,mcp,watch]"]
 dev = [
     "pytest>=8.0.0",
     "pytest-cov>=4.1.0",
-    "ruff>=0.3.0",
+    "ruff>=0.16.6,<0.17",
 ]
 
 [project.urls]
@@ -62,6 +62,26 @@ llmbase = "llmwiki.cli:main"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.ruff]
+# Mirrors requires-python. Stated explicitly so the rule set does not shift
+# if requires-python is ever relaxed.
+target-version = "py311"
+# Soft target only. E501 is deliberately NOT selected: 45 lines in llmwiki/
+# are already longer than this and reflowing them is not part of this change.
+line-length = 120
+
+[tool.ruff.lint]
+# Explicit, closed rule set. CI fails on this, so it contains only rules the
+# tree is actually clean against. Ruff's own defaults broadened in 0.16 and
+# pull in BLE001 (61) / S110 (7) / S112 (3) / SIM* (13) — out of scope here,
+# and selecting them would make the gate dishonest.
+#   E7  pycodestyle statement errors      E9  syntax / IO errors
+#   F   pyflakes                          I   import sorting
+#   W   whitespace, invalid escapes       UP  pyupgrade
+# Deliberately absent: E4 (E402 — the in-function imports here are a
+# load-time choice), B, C4, SIM, S, BLE, RUF.
+select = ["E7", "E9", "F", "I", "W", "UP"]
 
 [tool.setuptools.packages.find]
 include = ["llmwiki*"]

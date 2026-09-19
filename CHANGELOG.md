@@ -2,6 +2,7 @@
 
 | Versione | Highlights |
 |----------|-----------|
+| **v0.9.8** | Test suite runs on Windows, taxonomy data-loss guards, lint gate in CI |
 | **v0.9.7** | Markdown download, actionable orphans, taxonomy tag loop fixed |
 | **v0.9.6** | Doc/code alignment audit, Windows encoding fix |
 | **v0.9.5** | Some minor fixes |
@@ -19,6 +20,98 @@
 | **v0.8.3** | Worker seed URL learning |
 | **v0.8.2** | Nginx Basic Auth, PDF upload, Chinese removal |
 | **v0.8.1** | Initial EN/IT release |
+
+## v0.9.8
+
+- **The test suite could not run at all on Windows.** `llmwiki/pipeline/log.py` and
+`lock.py` imported `fcntl` at module level, so `tests/test_pipeline.py` failed during
+*collection* — which aborts the whole run, not just that file. The other 565 tests never
+executed unless you passed `--ignore`. Both imports are now guarded the way
+`llm_usage.py` already guards its own, and `append()` / `StageLock.acquire()` raise an
+explicit `RuntimeError` where `fcntl` is absent: the stage lock is correctness-critical,
+so it must refuse rather than degrade into the silent no-op that is fine for a usage log.
+- Marked `tests/test_pipeline.py` `skipif(sys.platform == "win32")` instead of porting the
+package. `llmwiki/pipeline/` has **no importer in production** — not `web.py`, `cli.py`,
+`operations.py`, `worker.py` or `mcp_server.py` — it is library code for a downstream
+consumer, exercised only by its own tests. A functional port is also unsafe: `lock.py`
+probes liveness with `os.kill(pid, 0)`, and on Windows CPython's `os.kill` calls
+`TerminateProcess`, so that "probe" actually kills the target; the test helper
+`_find_dead_pid` loops it downward from 999999. The imports deliberately stay above the
+mark, so on Windows the import itself is the smoke test that the package stays loadable.
+- **Stopped a taxonomy run from destroying the corpus.** `generate_taxonomy` wrote
+`taxonomy.json` and *then* ran `_sync_taxonomy_to_tags`, which strips the `category:*`
+tags of every article missing from the tree. `wiki/` is gitignored and the good
+`taxonomy.json` had already been overwritten, so a bad run was unrecoverable across all
+206 articles. A coverage guard now runs **before any write**: if the tree would cover
+fewer than half the articles that already carry a `category:*` tag, it logs an error,
+returns `sync_skipped: "low_coverage"`, and leaves both `taxonomy.json` and the article
+tags untouched. The denominator is only the already-categorised articles, so the guard is
+inert on a first run and measures exactly the damage rather than a ratio that
+`_ensure_complete_assignment` had already forced to 100%.
+- Added a single-generation `taxonomy.json.bak`, written atomically before each
+overwrite and skipped when there is no previous file — enough to recover a bad run
+without introducing rotation nobody asked for. `assign_new_articles` now writes through
+`atomic_write_json` too, instead of a plain `write_text` that a mid-write crash could
+tear.
+- Closed the idless-node hole. `_parse_taxonomy_response` validated only top-level nodes
+and only that `"id"` was present, so `{"id": ""}` and `{"id": null}` passed; the walk then
+read a falsy id as "inherit the parent path", which at the top level is the *empty* path —
+stripping the tags of articles that were still legitimately in the tree, while marking them
+as tagged so the second pass never noticed. The parser now rejects blank ids at every
+depth and the walk skips the branch. Both are needed: `TAXONOMY_GENERATOR` is a documented
+extension point that bypasses the parser entirely.
+- Wired in the truncation signal the coverage guard provably cannot catch. A length-cut
+response still parses, and `_ensure_complete_assignment` then sweeps every article past
+the cut into an `other` node with a valid id — so coverage reads 100% while the whole
+corpus is re-tagged to `category:other`, which in turn feeds the `check_uncategorized` →
+`fix_uncategorized` → `generate_taxonomy` loop. Both generation paths now use
+`chat_with_meta` and refuse the tree when `meta.truncated`.
+- Added seven tests to `tests/test_taxonomy.py` for the guard, the backup, the id
+validation and the truncation refusal. The five existing tests are untouched by design:
+no guard lives inside `_sync_taxonomy_to_tags`, whose documented contract *is* the strip.
+- **Pinned and configured the linter, which had neither.** There was no `[tool.ruff]`
+anywhere and `ruff>=0.3.0` was unpinned — and ruff's *default* rule set broadened between
+0.3 and 0.16, so CI was silently measuring against a moving target that now reports 143
+findings. `pyproject.toml` gains an explicit closed `select = ["E7","E9","F","I","W","UP"]`
+and `ruff>=0.16.6,<0.17`. A closed select was chosen over "select everything, ignore nine
+codes": an ignore list is a standing record of work not being done, and every upgrade can
+lengthen it.
+- Applied 92 safe autofixes (import ordering, `typing` → `collections.abc`,
+`datetime.timezone.utc` → `datetime.UTC`) and four `F841`s by hand. One of them,
+`index = _load_index(meta_dir)` in `compile.py` under a "Load existing index for context"
+comment, had been loading and discarding `index.json` on every compile batch — the context
+the prompt actually receives comes from `_list_existing_concepts`. Removing it left
+`_load_index` without callers, so that went too. Another autofix removed the invalid escape
+in `anchor.py`'s docstring that had been emitting a `SyntaxWarning` on every test run.
+`--unsafe-fixes` was never used.
+- **Fixed a loading state that rendered the opposite of loading.** `Trails.tsx` called
+`setLoading(false)` synchronously in the effect body rather than inside `.then()`, so the
+shimmer never appeared and the "no trails" empty state was shown for the entire duration of
+the fetch, on every visit. `ArticleDetail.tsx` had a quieter version of the same class of
+bug: `loading` is now derived from the slug that actually loaded, which also fixes it being
+stuck at `true` forever when `slug` is `undefined`.
+- Brought `npm run lint` from 22 errors to zero. The two remaining
+`set-state-in-effect` reports were judged individually and kept as documented disables
+rather than rewrites — `Mermaid.tsx` clears the stale diagram, which is the effect's whole
+purpose, and `Layout.tsx`'s call awaits before any `setState`, which the rule cannot see
+through. The `react-refresh` reports and the three React-Compiler diagnostics are now
+warnings by config: colocating a hook with its provider is a hot-reload cost, not a defect,
+and `allowExportNames` would have meant a list edited every time a helper is added. The six
+`any` in `api.ts` became `EntityPerson` / `EntityEvent` / `EntityPlace`, matching the
+backend contract with every descriptive field optional — entity objects are unvalidated LLM
+output.
+- **Made CI able to fail.** The test job ran `ruff check … || true` and `pytest … ||
+echo "No tests found or tests failed"`, so the job was green no matter what, and the whole
+workflow only triggered on `release: published` — by which point the tag exists and the
+image is being cut. Triggers now include `push` and `pull_request`, the masking is gone,
+`-x` was dropped so a gate reports every failure instead of the first, and `build-docker`
+and `notify` are gated to release events so a pull request cannot push a `latest` tag to
+GHCR or try to send mail with secrets a fork does not have.
+- Added a frontend job — CI had never linted or type-checked the frontend. It also runs
+`npm run build`, which is the only `tsc` pass in the entire pipeline: the Dockerfile calls
+`npx vite build` directly, skipping the type check. Node is pinned to 20 to match the
+`node:20-slim` stage that builds the shipped bundle. Installation moved from
+`pip install -e ".[dev]"` to `uv sync`, per the project's own tooling rule.
 
 ## v0.9.7
 

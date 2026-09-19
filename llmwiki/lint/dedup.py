@@ -2,12 +2,12 @@
 
 import json
 import re
+from datetime import UTC
 from pathlib import Path
 
 import frontmatter
 
-from ..config import load_config, ensure_dirs
-from ..llm import chat
+from ..config import ensure_dirs, load_config
 
 
 def _find_duplicate_candidates(articles: list[dict]) -> list[tuple[str, str]]:
@@ -104,8 +104,8 @@ def merge_duplicates(base_dir: Path | None = None, max_merges: int = 15) -> list
         new_tags = set(secondary.metadata.get("tags", []))
         primary.metadata["tags"] = sorted(old_tags | new_tags)
 
-        from datetime import datetime, timezone
-        primary.metadata["updated"] = datetime.now(timezone.utc).isoformat()
+        from datetime import datetime
+        primary.metadata["updated"] = datetime.now(UTC).isoformat()
         primary.metadata["merged_from"] = primary.metadata.get("merged_from", [])
         primary.metadata["merged_from"].append(secondary_slug)
 
@@ -134,7 +134,6 @@ def _refresh_taxonomy_after_merge(base_dir: Path | None = None):
     Removes deleted slugs and adds any new slugs not yet in the tree.
     Preserves the locked flag and category structure.
     """
-    import json
     cfg = load_config(base_dir)
     meta_dir = Path(cfg["paths"]["meta"])
     concepts_dir = Path(cfg["paths"]["concepts"])

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
-from typing import Optional
 from urllib.parse import urlparse
 
 from .llm import _load_env
@@ -12,8 +11,8 @@ from .llm import _load_env
 class McpSettings:
     transport: str
     http_port: int
-    http_url: Optional[str]
-    api_key: Optional[str]
+    http_url: str | None
+    api_key: str | None
 
 
 def _validate_transport(value: str) -> str:
@@ -31,7 +30,7 @@ def _validate_port(value: int) -> int:
     return value
 
 
-def _validate_http_url(value: Optional[str]) -> Optional[str]:
+def _validate_http_url(value: str | None) -> str | None:
     if value is None or value == "":
         return None
     parsed = urlparse(value)
@@ -42,10 +41,10 @@ def _validate_http_url(value: Optional[str]) -> Optional[str]:
 
 def resolve_mcp_settings(
     *,
-    transport: Optional[str] = None,
-    http_port: Optional[int] = None,
-    http_url: Optional[str] = None,
-    api_key: Optional[str] = None,
+    transport: str | None = None,
+    http_port: int | None = None,
+    http_url: str | None = None,
+    api_key: str | None = None,
 ) -> McpSettings:
     """Resolve MCP runtime settings.
 

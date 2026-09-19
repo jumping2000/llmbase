@@ -20,7 +20,7 @@ from pathlib import Path
 import frontmatter
 
 from .config import load_config
-from .llm import chat
+from .llm import chat_with_meta
 
 logger = logging.getLogger("llmbase.taxonomy")
 
@@ -186,9 +186,33 @@ def generate_taxonomy(base_dir: Path | None = None) -> dict:
         logger.error(f"[taxonomy] Taxonomy generation failed: {e}, using fallback")
         result = {"categories": _fallback_taxonomy(articles), "generated": False}
 
-    # Save cache
+    # A tree that would strip most of the corpus's existing category tags is
+    # broken (idless nodes, a bad custom generator), not a re-organisation.
+    # wiki/ is gitignored, so both the strip and the overwrite are
+    # unrecoverable — a bad run must change nothing on disk.
+    already_tagged = [
+        a["slug"] for a in articles
+        if any(is_category_tag(t) for t in (a["tags"] or []))
+    ]
+    covered = _covered_slugs(result.get("categories", []))
+    if already_tagged and len(covered) < len(already_tagged) * _SYNC_COVERAGE_FLOOR:
+        logger.error(
+            "[taxonomy] Refusing to apply: tree covers %d of %d already-categorised "
+            "articles. taxonomy.json and article tags left unchanged.",
+            len(covered), len(already_tagged),
+        )
+        result["sync_skipped"] = "low_coverage"
+        return result
+
+    # Save cache — keeping one generation back, so a bad run stays recoverable.
     path = meta_dir / "taxonomy.json"
-    from .atomic import atomic_write_json
+    bak_path = meta_dir / "taxonomy.json.bak"
+    from .atomic import atomic_write_json, atomic_write_text
+    if path.exists():
+        try:
+            atomic_write_text(bak_path, path.read_text(encoding="utf-8"))
+        except OSError as e:
+            logger.warning(f"[taxonomy] Could not write {bak_path.name}: {e}")
     atomic_write_json(path, result)
     logger.info(f"[taxonomy] Generated {len(result['categories'])} categories for {len(articles)} articles")
 
@@ -215,7 +239,7 @@ def _generate_single_pass(articles: list[dict], cfg: dict, base_dir: Path | None
     articles_text = "\n".join(article_lines)
     prompt = TAXONOMY_PROMPT_TEMPLATE.format(count=len(articles), articles=articles_text)
     tax_tokens = _taxonomy_tokens(cfg)
-    response = chat(
+    response, meta = chat_with_meta(
         prompt,
         system=TAXONOMY_SYSTEM_PROMPT,
         max_tokens=tax_tokens,
@@ -223,6 +247,15 @@ def _generate_single_pass(articles: list[dict], cfg: dict, base_dir: Path | None
         stage="single-pass",
         base_dir=base_dir,
     )
+    if meta.truncated:
+        # A length-cut tree still parses, and _ensure_complete_assignment then
+        # sweeps every article past the cut into "other" — a corpus-wide
+        # re-tag the coverage guard cannot see. Refuse the partial tree.
+        logger.error(
+            "[taxonomy] LLM response hit max_tokens (finish_reason=length) — "
+            "refusing the partial tree"
+        )
+        return None
     return _parse_taxonomy_response(response)
 
 
@@ -296,7 +329,7 @@ Output ONLY the JSON array."""
 
     logger.info(f"[taxonomy] Phase 1: generating category structure from {len(tag_counter)} tags...")
     tax_tokens = _taxonomy_tokens(cfg)
-    response = chat(
+    response, meta = chat_with_meta(
         phase1_prompt,
         system=TAXONOMY_SYSTEM_PROMPT,
         max_tokens=tax_tokens,
@@ -304,6 +337,12 @@ Output ONLY the JSON array."""
         stage="two-phase",
         base_dir=base_dir,
     )
+    if meta.truncated:
+        logger.error(
+            "[taxonomy] LLM response hit max_tokens (finish_reason=length) — "
+            "refusing the partial tree"
+        )
+        return None
     category_tree = _parse_taxonomy_response(response)
 
     if not category_tree:
@@ -321,7 +360,6 @@ def _assign_articles_to_tree(tree: list[dict], articles: list[dict]):
 
     Matching priority: title keyword (strongest) > specific tag > generic tag.
     """
-    import re
 
     # Build flat mappings
     tag_to_node: dict[str, tuple[dict, int]] = {}
@@ -344,7 +382,6 @@ def _assign_articles_to_tree(tree: list[dict], articles: list[dict]):
     assigned = set()
     for a in articles:
         best_node = None
-        best_depth = -1
         best_score = 0  # keyword match scores higher than tag match
 
         title_lower = a.get("title", "").lower()
@@ -355,7 +392,6 @@ def _assign_articles_to_tree(tree: list[dict], articles: list[dict]):
                 score = 100 + depth  # Keyword match always wins over tag
                 if score > best_score:
                     best_node = node
-                    best_depth = depth
                     best_score = score
 
         # Tag matching (fallback)
@@ -369,7 +405,6 @@ def _assign_articles_to_tree(tree: list[dict], articles: list[dict]):
                     score = depth
                     if score > best_score:
                         best_node = node
-                        best_depth = depth
                         best_score = score
 
         if best_node is not None:
@@ -397,6 +432,31 @@ def _assign_articles_to_tree(tree: list[dict], articles: list[dict]):
     _clean(tree)
 
 
+_SYNC_COVERAGE_FLOOR = 0.5
+"""A taxonomy run may not strip more than half of the category tags the
+corpus already carries. Below this the tree is broken rather than a
+legitimate re-organisation, and nothing is written: wiki/ is gitignored
+and the strip in _sync_taxonomy_to_tags is unrecoverable."""
+
+
+def _covered_slugs(tree: list[dict], path: list[str] | None = None) -> set[str]:
+    """Slugs the tree would tag with a NON-EMPTY category path.
+
+    Mirrors _walk_taxonomy_tags without touching the filesystem. A node with
+    an unusable id contributes nothing — its articles would be stripped,
+    which is exactly what the caller needs to count.
+    """
+    covered: set[str] = set()
+    for node in tree:
+        node_id = node.get("id")
+        if not isinstance(node_id, str) or not node_id.strip():
+            continue
+        current = (path or []) + [node_id]
+        covered.update(s for s in node.get("article_slugs", []) if isinstance(s, str))
+        covered.update(_covered_slugs(node.get("children", []), current))
+    return covered
+
+
 def _sync_taxonomy_to_tags(tree: list[dict], concepts_dir: Path, path: list[str] | None = None):
     """Write taxonomy category path back to article tags.
 
@@ -421,8 +481,14 @@ def _sync_taxonomy_to_tags(tree: list[dict], concepts_dir: Path, path: list[str]
 def _walk_taxonomy_tags(tree: list[dict], concepts_dir: Path, path: list[str], tagged: set[str]):
     """Recurse the tree applying category tags, recording which slugs we hit."""
     for node in tree:
-        node_id = node.get("id", "")
-        current_path = path + [node_id] if node_id else path
+        node_id = node.get("id")
+        if not isinstance(node_id, str) or not node_id.strip():
+            # A node with no usable id contributes no path segment. Inheriting
+            # the parent path means an EMPTY path at the top level, which
+            # strips instead of tagging. Skip the branch.
+            logger.warning("[taxonomy] Skipping taxonomy node without a usable id")
+            continue
+        current_path = path + [node_id]
 
         # Tag articles at this node
         for slug in node.get("article_slugs", []):
@@ -594,7 +660,8 @@ def assign_new_articles(base_dir: Path | None = None):
 
     # Save updated taxonomy (preserve locked flag)
     taxonomy["categories"] = categories
-    tax_path.write_text(json.dumps(taxonomy, indent=2, ensure_ascii=False), encoding="utf-8")
+    from .atomic import atomic_write_json
+    atomic_write_json(tax_path, taxonomy)
     logger.info(f"[taxonomy] Assigned {len(unassigned)} new articles to categories")
 
 
@@ -650,11 +717,33 @@ def _parse_taxonomy_response(response: str) -> list[dict] | None:
         for node in tree:
             if not isinstance(node, dict) or "id" not in node or "label" not in node:
                 return None
+        # Every node at every depth needs a usable id. A falsy id used to make
+        # _walk_taxonomy_tags inherit the parent path, and at the top level
+        # that path is empty — which strips the category tags of articles
+        # still legitimately in the tree, while marking them as "tagged".
+        if not _has_usable_ids(tree):
+            return None
         # Fix label format: ensure all labels are language-keyed dicts
         _fix_labels(tree)
         return tree
     except (json.JSONDecodeError, KeyError):
         return None
+
+
+def _has_usable_ids(nodes: list) -> bool:
+    """True when every node, at every depth, carries a non-blank string id."""
+    for node in nodes:
+        if not isinstance(node, dict):
+            continue  # _fix_labels drops these
+        node_id = node.get("id")
+        if not isinstance(node_id, str) or not node_id.strip():
+            return False
+        children = node.get("children")
+        if isinstance(children, dict):
+            children = [children]
+        if isinstance(children, list) and not _has_usable_ids(children):
+            return False
+    return True
 
 
 def _fix_labels(tree: list[dict]):
@@ -822,7 +911,6 @@ def _localize_title(title: str, lang: str) -> str:
     "Mencius / Menzio" + lang=en-it → "Mencius / Menzio"
     "some-slug-only" → "some-slug-only" (no change)
     """
-    import re
     if not title or "/" not in title:
         return title
     if lang == "en-it":

@@ -1,18 +1,19 @@
 """Lint fixes — auto-repair pipeline for the knowledge base."""
 
-import json
 import re
+from datetime import UTC
 from pathlib import Path
 
 import frontmatter
 
-from ..config import load_config, ensure_dirs
+from ..config import ensure_dirs, load_config
 from ..llm import chat
 from .checks import (
-    check_stubs, check_dirty_tags, check_uncategorized,
+    check_dirty_tags,
+    check_stubs,
+    check_uncategorized,
 )
 from .dedup import merge_duplicates
-
 
 # ─── Customizable constants ──────────────────────────────────────
 # Override to change the LLM instructions for stub generation.
@@ -188,7 +189,7 @@ def heal_urly_slugs(base_dir: Path | None = None) -> list[str]:
     ensure_dirs(cfg)
     concepts_dir = Path(cfg["paths"]["concepts"])
 
-    from ..compile import sanitize_slug, rebuild_index
+    from ..compile import rebuild_index, sanitize_slug
 
     # Walk files as well as directories: the broken writer may have
     # produced real subdirectories when the slug contained '/'.
@@ -364,7 +365,7 @@ def fix_broken_links(base_dir: Path | None = None, max_stubs: int = 10) -> list[
         return []
 
     fixes = []
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     for target_slug, refs in list(missing.items())[:max_stubs]:
         # Build context from all referencing articles
@@ -446,8 +447,8 @@ def fix_broken_links(base_dir: Path | None = None, max_stubs: int = 10) -> list[
         post.metadata["summary"] = summary
         post.metadata["tags"] = tags
         post.metadata["stub"] = True
-        post.metadata["created"] = datetime.now(timezone.utc).isoformat()
-        post.metadata["updated"] = datetime.now(timezone.utc).isoformat()
+        post.metadata["created"] = datetime.now(UTC).isoformat()
+        post.metadata["updated"] = datetime.now(UTC).isoformat()
 
         article_path = concepts_dir / f"{target_slug}.md"
         article_path.write_text(frontmatter.dumps(post), encoding="utf-8")

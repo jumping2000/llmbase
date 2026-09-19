@@ -1,14 +1,14 @@
 """LLM interaction layer with automatic fallback across models."""
 
+import logging
 import os
 import time
-import logging
 from dataclasses import dataclass, field
 from pathlib import Path
 from uuid import uuid4
 
-from dotenv import load_dotenv
 import httpx
+from dotenv import load_dotenv
 from openai import OpenAI
 
 from .llm_usage import append_usage_record

@@ -15,7 +15,8 @@ caller, so a broken hook cannot disrupt core operations.
 """
 
 import logging
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 logger = logging.getLogger("llmbase.hooks")
 

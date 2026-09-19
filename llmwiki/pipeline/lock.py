@@ -57,20 +57,27 @@ Design (v4, post-review):
 This module is package-internal. Downstream goes through
 ``run_stage()``, which acquires + releases as part of its
 contextmanager contract.
+
+**POSIX only.** ``acquire`` needs ``fcntl.flock`` for the stale-break
+mutex; on Windows it raises ``RuntimeError``.
 """
 
 from __future__ import annotations
 
 import errno
-import fcntl
 import json
 import os
 import socket
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from . import log as _log
+
+try:
+    import fcntl
+except ImportError:  # pragma: no cover - Windows path
+    fcntl = None  # type: ignore[assignment]
 
 
 def _parse_holder(raw: str) -> dict | None:
@@ -162,11 +169,15 @@ class StageLock:
         ``FileExistsError`` if anyone already holds the lock slot,
         and the published pidfile is never observable as incomplete.
         """
+        if fcntl is None:  # pragma: no cover - Windows path
+            raise RuntimeError(
+                "llmwiki.pipeline requires fcntl (POSIX); there is no Windows port"
+            )
         self._path.parent.mkdir(parents=True, exist_ok=True)
         payload = json.dumps({
             "pid": os.getpid(),
             "host": socket.gethostname(),
-            "started_at": datetime.now(timezone.utc).isoformat(),
+            "started_at": datetime.now(UTC).isoformat(),
             "ttl": ttl,
             "key": self._key,
         })

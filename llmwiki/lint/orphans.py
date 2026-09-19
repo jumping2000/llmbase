@@ -11,13 +11,12 @@ Deliberately separate from fixes.py: that module owns the LLM-driven
 
 import json
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import frontmatter
 
-from ..config import load_config, ensure_dirs
-
+from ..config import ensure_dirs, load_config
 
 # Labels used when CREATING a new see-also line, per section key.
 SEE_ALSO_LABELS: dict[str, str] = {
@@ -294,7 +293,7 @@ def insert_see_also(
         result["sections"] = ["_document"]
 
     post.content = content
-    post.metadata["updated"] = datetime.now(timezone.utc).isoformat()
+    post.metadata["updated"] = datetime.now(UTC).isoformat()
     source_path.write_text(frontmatter.dumps(post), encoding="utf-8")
     result["changed"] = True
     return result

@@ -20,7 +20,6 @@ from typing import Any
 
 from . import log as _log
 
-
 # Events written by the driver / lock. ``ctx.log()`` refuses these
 # so downstream event streams never masquerade as driver signals.
 RESERVED_EVENTS = frozenset({

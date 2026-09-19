@@ -9,15 +9,15 @@ compatibility; new clients should prefer the generic ``/api/op/<name>``.
 import json
 from pathlib import Path
 
-from flask import Flask, request, jsonify
+from flask import Flask, jsonify, request
 
 from . import operations as ops
-from .config import load_config, ensure_dirs
-from .ingest import ingest_url, ingest_file, list_raw
-from .compile import compile_new, compile_all, rebuild_index
+from .compile import compile_all, compile_new, rebuild_index
+from .config import ensure_dirs, load_config
+from .ingest import ingest_file, ingest_url, list_raw
+from .lint import auto_fix, lint, lint_deep
 from .query import query, query_with_search
 from .search import search
-from .lint import lint, lint_deep, auto_fix
 
 
 class KnowledgeBase:

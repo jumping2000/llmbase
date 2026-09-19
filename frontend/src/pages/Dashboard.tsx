@@ -72,7 +72,7 @@ export function Dashboard() {
       const result = await api.generateXiCi(lang);
       setXiCi(result);
       loadLlmUsage(usageWindow);
-    } catch {}
+    } catch { /* generation failed — the button re-enables below */ }
     setGenerating(false);
   }
 
